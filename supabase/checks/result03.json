@@ -1,0 +1,6470 @@
+[
+  {
+    "ord": 0,
+    "section": "server",
+    "item": "version",
+    "detail": "PostgreSQL 17.6 on aarch64-unknown-linux-gnu, compiled by gcc (GCC) 15.2.0, 64-bit"
+  },
+  {
+    "ord": 1,
+    "section": "schema",
+    "item": "app",
+    "detail": "exists"
+  },
+  {
+    "ord": 1,
+    "section": "schema",
+    "item": "extensions",
+    "detail": "exists"
+  },
+  {
+    "ord": 1,
+    "section": "schema",
+    "item": "supabase_migrations",
+    "detail": "MISSING"
+  },
+  {
+    "ord": 2,
+    "section": "applied_migrations",
+    "item": "supabase_migrations.schema_migrations",
+    "detail": "table absent (migrations applied by hand)"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "ai_company_memory",
+    "detail": "category=Organization | actions={view,create,edit,delete} | sort=80 | label=AI company memory"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "announcements",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=180 | label=Announcements"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "attendance",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=140 | label=Attendance"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "audit_log",
+    "detail": "category=Organization | actions={view} | sort=70 | label=Activity log"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "catalog_items",
+    "detail": "category=Clients & sales | actions={view,create,edit,delete} | sort=220 | label=Product catalogue"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "clients",
+    "detail": "category=Clients & sales | actions={view,create,edit,delete} | sort=210 | label=Clients"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "crm_leads",
+    "detail": "category=Clients & sales | actions={view,create,edit,delete} | sort=240 | label=CRM leads (legacy)"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "customers",
+    "detail": "category=Clients & sales | actions={view,create,edit,delete} | sort=230 | label=Customers (legacy)"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "departments",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=110 | label=Departments"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "document_counters",
+    "detail": "category=Documents | actions={view} | sort=370 | label=Document numbering"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "document_line_items",
+    "detail": "category=Documents | actions={view,create,edit,delete} | sort=320 | label=Document line items"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "document_negotiation",
+    "detail": "category=Documents | actions={view,create} | sort=344 | label=Document negotiation"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "document_signatures",
+    "detail": "category=Documents | actions={view,create,edit,delete} | sort=350 | label=Signatures & responses"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "document_versions",
+    "detail": "category=Documents | actions={view} | sort=342 | label=Document versions"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "edgebrain",
+    "detail": "category=Organization | actions={view,create,edit} | sort=90 | label=Company Brain"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "employees",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=120 | label=Employees"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "expenses",
+    "detail": "category=Finance | actions={view,create,edit,delete} | sort=420 | label=Expenses"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "financial_documents",
+    "detail": "category=Documents | actions={view,create,edit,delete} | sort=310 | label=Invoices, quotes & proformas"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "income_entries",
+    "detail": "category=Finance | actions={view,create,edit,delete} | sort=425 | label=Income entries"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "invitations",
+    "detail": "category=Organization | actions={view,create,edit} | sort=40 | label=Invitations"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "leave_adjustments",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=170 | label=Leave adjustments"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "leave_requests",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=160 | label=Leave requests"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "leave_types",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=150 | label=Leave types"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "library_documents",
+    "detail": "category=Documents | actions={view,create,edit,delete} | sort=335 | label=General documents"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "memberships",
+    "detail": "category=Organization | actions={view,create,edit,delete} | sort=30 | label=Team access"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "notifications",
+    "detail": "category=Notifications | actions={view,create,edit,delete} | sort=510 | label=Notifications"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "org_settings",
+    "detail": "category=Organization | actions={view,create,edit,delete} | sort=20 | label=Org chart"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "organizations",
+    "detail": "category=Organization | actions={edit} | sort=10 | label=Company profile"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "payments",
+    "detail": "category=Finance | actions={view,create,edit,delete} | sort=410 | label=Payments"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "portal_tokens",
+    "detail": "category=Documents | actions={view,edit} | sort=360 | label=Portal links"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "products",
+    "detail": "category=Clients & sales | actions={view,create,edit,delete} | sort=250 | label=Products (legacy)"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "project_allocations",
+    "detail": "category=Projects | actions={view,create,edit,delete} | sort=278 | label=Project money links"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "project_documents",
+    "detail": "category=Projects | actions={view,create,delete} | sort=276 | label=Project documents"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "project_financials",
+    "detail": "category=Projects | actions={view} | sort=280 | label=Project financials"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "project_members",
+    "detail": "category=Projects | actions={view,create,edit,delete} | sort=272 | label=Project team"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "project_milestones",
+    "detail": "category=Projects | actions={view,create,edit,delete} | sort=274 | label=Milestones"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "projects",
+    "detail": "category=Projects | actions={view,create,edit,delete} | sort=270 | label=Projects"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "purchase_invoices",
+    "detail": "category=Finance | actions={view,create,edit,delete} | sort=440 | label=Purchase invoices"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "records",
+    "detail": "category=Documents | actions={view,create,edit,delete} | sort=340 | label=HR documents"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "recurring_invoices",
+    "detail": "category=Documents | actions={view,create,edit,delete} | sort=330 | label=Recurring invoices"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "storage_branding",
+    "detail": "category=Files | actions={create,edit,delete} | sort=610 | label=Logo & stamp files"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "storage_documents",
+    "detail": "category=Files | actions={view,create,delete} | sort=630 | label=Generated PDFs"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "storage_employee_photos",
+    "detail": "category=Files | actions={view,create,delete} | sort=650 | label=Employee photos"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "storage_receipts",
+    "detail": "category=Files | actions={view,create,delete} | sort=640 | label=Receipt files"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "storage_signatures",
+    "detail": "category=Files | actions={view,create,edit,delete} | sort=620 | label=Signature files"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "subscriptions",
+    "detail": "category=Organization | actions={view} | sort=50 | label=Plan"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "tasks",
+    "detail": "category=People | actions={view,create,edit,delete} | sort=130 | label=Tasks"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "timesheets",
+    "detail": "category=Projects | actions={view,create,edit,delete} | sort=282 | label=Timesheets"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "usage_counters",
+    "detail": "category=Organization | actions={view} | sort=60 | label=Plan usage"
+  },
+  {
+    "ord": 10,
+    "section": "permission_resource",
+    "item": "vendors",
+    "detail": "category=Finance | actions={view,create,edit,delete} | sort=430 | label=Vendors"
+  },
+  {
+    "ord": 20,
+    "section": "role",
+    "item": "admin",
+    "detail": "label=Admin | sort=20"
+  },
+  {
+    "ord": 20,
+    "section": "role",
+    "item": "employee",
+    "detail": "label=Employee | sort=50"
+  },
+  {
+    "ord": 20,
+    "section": "role",
+    "item": "member",
+    "detail": "label=Member | sort=30"
+  },
+  {
+    "ord": 20,
+    "section": "role",
+    "item": "owner",
+    "detail": "label=Owner | sort=10"
+  },
+  {
+    "ord": 20,
+    "section": "role",
+    "item": "viewer",
+    "detail": "label=Viewer | sort=40"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "ai_company_memory",
+    "detail": "admin:vced employee:---- member:vced owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "announcements",
+    "detail": "admin:vced employee:---- member:v--- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "attendance",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "audit_log",
+    "detail": "admin:v--- employee:---- member:v--- owner:v--- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "catalog_items",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "clients",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "crm_leads",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "customers",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "departments",
+    "detail": "admin:vced employee:v--- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "document_counters",
+    "detail": "admin:v--- employee:---- member:v--- owner:v--- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "document_line_items",
+    "detail": "admin:vced employee:---- member:vced owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "document_negotiation",
+    "detail": "admin:vc-- employee:---- member:vc-- owner:vc-- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "document_signatures",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "document_versions",
+    "detail": "admin:v--- employee:---- member:v--- owner:v--- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "edgebrain",
+    "detail": "admin:vce- employee:---- member:vce- owner:vce- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "employees",
+    "detail": "admin:vced employee:v--- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "expenses",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "financial_documents",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "income_entries",
+    "detail": "admin:vced member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "invitations",
+    "detail": "admin:vce- employee:---- member:---- owner:vce- viewer:----"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "leave_adjustments",
+    "detail": "admin:vced employee:---- member:v--- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "leave_requests",
+    "detail": "admin:vced employee:---- member:vc-- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "leave_types",
+    "detail": "admin:vced employee:v--- member:v--- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "library_documents",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "memberships",
+    "detail": "admin:vced employee:---- member:v--- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "notifications",
+    "detail": "admin:vced employee:v--- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "org_settings",
+    "detail": "admin:vced employee:v--- member:vced owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "organizations",
+    "detail": "admin:--e- employee:---- member:---- owner:--e- viewer:----"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "payments",
+    "detail": "admin:vced employee:---- member:vc-- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "portal_tokens",
+    "detail": "admin:v-e- employee:---- member:v-e- owner:v-e- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "products",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "project_allocations",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:----"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "project_documents",
+    "detail": "admin:vc-d employee:---- member:vc-- owner:vc-d viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "project_financials",
+    "detail": "admin:v--- employee:---- member:---- owner:v--- viewer:----"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "project_members",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "project_milestones",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "projects",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "purchase_invoices",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "records",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "recurring_invoices",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "storage_branding",
+    "detail": "admin:-ced employee:---- member:-ce- owner:-ced viewer:----"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "storage_documents",
+    "detail": "admin:vc-d employee:---- member:vc-- owner:vc-d viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "storage_employee_photos",
+    "detail": "admin:vc-d employee:v--- member:vc-- owner:vc-d viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "storage_receipts",
+    "detail": "admin:vc-d employee:---- member:vc-- owner:vc-d viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "storage_signatures",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "subscriptions",
+    "detail": "admin:v--- employee:---- member:v--- owner:v--- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "tasks",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "timesheets",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "usage_counters",
+    "detail": "admin:v--- employee:---- member:v--- owner:v--- viewer:v---"
+  },
+  {
+    "ord": 30,
+    "section": "role_permission_default",
+    "item": "vendors",
+    "detail": "admin:vced employee:---- member:vce- owner:vced viewer:v---"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "001 id",
+    "detail": "bigint not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "003 user_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "004 actor_email",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "005 surface",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "006 outcome",
+    "detail": "text not null default 'ok'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "007 model",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "008 prompt_tokens",
+    "detail": "integer"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "009 completion_tokens",
+    "detail": "integer"
+  },
+  {
+    "ord": 50,
+    "section": "column:ai_usage_events",
+    "item": "010 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "003 title",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "004 body",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "005 department_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "006 is_pinned",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "007 published_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "008 expires_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "009 created_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "010 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:announcements",
+    "item": "011 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "003 employee_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "004 work_date",
+    "detail": "date not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "005 check_in",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "006 check_out",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "007 status",
+    "detail": "attendance_status not null default 'present'::attendance_status"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "008 note",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "009 source",
+    "detail": "text not null default 'self'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "010 marked_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "011 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:attendance_days",
+    "item": "012 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "001 id",
+    "detail": "bigint not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "002 org_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "003 actor_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "004 action",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "005 entity_type",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "006 entity_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "007 diff",
+    "detail": "jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "008 ip",
+    "detail": "inet"
+  },
+  {
+    "ord": 50,
+    "section": "column:audit_log",
+    "item": "009 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "003 name",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "004 person_name",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "005 email",
+    "detail": "citext"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "006 phone",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "007 address",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "008 gstin",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "009 state",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "010 country_code",
+    "detail": "character(2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "011 status",
+    "detail": "client_status not null default 'lead'::client_status"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "012 status_changed_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "013 value",
+    "detail": "numeric(14,2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "014 position",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "015 notes",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "016 source",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "017 extra",
+    "detail": "jsonb not null default '{}'::jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "018 archived_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "019 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:clients",
+    "item": "020 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "002 document_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "003 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "004 position",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "005 description",
+    "detail": "text not null default ''::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "006 hsn_sac",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "007 quantity",
+    "detail": "numeric(14,3) not null default 1"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "008 unit",
+    "detail": "text not null default 'Nos'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "009 rate",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "010 gst_rate",
+    "detail": "numeric(5,2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "011 line_total",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:document_line_items",
+    "item": "012 catalog_item_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "003 full_name",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "004 email",
+    "detail": "citext"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "005 phone",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "006 address",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "007 role",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "008 department_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "009 employment_type",
+    "detail": "employment_type not null default 'fulltime'::employment_type"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "010 reports_to",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "011 supervisor_name",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "012 responsibilities",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "013 is_owner",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "014 start_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "015 end_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "016 acceptance_deadline",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "017 exited_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "018 exit_reason",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "019 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "020 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "021 user_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "022 photo_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "023 access_revoked_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "024 portal_password_set_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "025 portal_must_change_password",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "026 date_of_birth",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "027 bio",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "028 emergency_contact_name",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:employees",
+    "item": "029 emergency_contact_phone",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "003 description",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "004 amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "005 category",
+    "detail": "text not null default 'Operations'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "006 incurred_on",
+    "detail": "date not null default CURRENT_DATE"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "007 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "008 receipt_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "009 tax_amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "010 vendor_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "011 treatment",
+    "detail": "text not null default 'operating'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "012 payment_method",
+    "detail": "text not null default 'bank_transfer'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "013 reference",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "014 employee_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "015 product_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "016 status",
+    "detail": "text not null default 'paid'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "017 paid_on",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "018 notes",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "019 created_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "020 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "021 country_code",
+    "detail": "character(2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "022 place_of_supply",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "023 is_inter_state",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "024 tax_rate",
+    "detail": "numeric(5,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "025 currency",
+    "detail": "character(3) not null default 'INR'::bpchar"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "026 fx_rate",
+    "detail": "numeric(14,6) not null default 1"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "027 original_amount",
+    "detail": "numeric(14,2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "028 department_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "029 client_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "030 billable",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "031 quantity",
+    "detail": "numeric(14,3)"
+  },
+  {
+    "ord": 50,
+    "section": "column:expenses",
+    "item": "032 unit",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "001 key",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "002 label",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "003 direction",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "004 group_label",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "005 treatment",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "006 hint",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "007 sort_order",
+    "detail": "integer not null default 500"
+  },
+  {
+    "ord": 50,
+    "section": "column:finance_categories",
+    "item": "008 active",
+    "detail": "boolean not null default true"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "003 doc_number",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "004 type",
+    "detail": "doc_type not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "005 status",
+    "detail": "doc_status not null default 'draft'::doc_status"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "006 revision",
+    "detail": "text not null default 'v1'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "007 customer_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "008 bill_to_name",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "009 bill_to_email",
+    "detail": "citext"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "010 bill_to_address",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "011 bill_to_gstin",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "012 bill_to_state",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "013 issue_date",
+    "detail": "date not null default CURRENT_DATE"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "014 due_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "015 valid_until",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "016 currency",
+    "detail": "character(3) not null default 'INR'::bpchar"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "017 subtotal",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "018 discount_type",
+    "detail": "discount_kind"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "019 discount_value",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "020 discount_amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "021 taxable_amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "022 gst_enabled",
+    "detail": "boolean not null default true"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "023 gst_rate",
+    "detail": "numeric(5,2) not null default 18"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "024 gst_amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "025 is_inter_state",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "026 making_charges",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "027 grand_total",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "028 amount_in_words",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "029 amount_paid",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "030 advance_percent",
+    "detail": "numeric(5,2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "031 payment_instructions",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "032 terms",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "033 notes",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "034 company_snapshot",
+    "detail": "jsonb not null default '{}'::jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "035 payload",
+    "detail": "jsonb not null default '{}'::jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "036 pdf_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "037 created_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "038 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "039 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "040 country_code",
+    "detail": "character(2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "041 country_source",
+    "detail": "country_source"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "042 current_version_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:financial_documents",
+    "item": "043 locked_version_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "003 category",
+    "detail": "text not null default 'other_income'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "004 treatment",
+    "detail": "text not null default 'revenue'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "005 description",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "006 client_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "007 received_on",
+    "detail": "date not null default CURRENT_DATE"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "008 amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "009 tax_amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "010 net_amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "011 payment_method",
+    "detail": "text not null default 'bank_transfer'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "012 reference",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "013 country_code",
+    "detail": "character(2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "014 document_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "015 receipt_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "016 notes",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "017 created_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "018 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "019 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "020 place_of_supply",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "021 is_inter_state",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "022 tax_rate",
+    "detail": "numeric(5,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "023 currency",
+    "detail": "character(3) not null default 'INR'::bpchar"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "024 fx_rate",
+    "detail": "numeric(14,6) not null default 1"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "025 original_amount",
+    "detail": "numeric(14,2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "026 catalog_item_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "027 quantity",
+    "detail": "numeric(14,3)"
+  },
+  {
+    "ord": 50,
+    "section": "column:income_entries",
+    "item": "028 unit",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "003 employee_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "004 leave_type_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "005 year",
+    "detail": "integer not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "006 delta",
+    "detail": "numeric(5,1) not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "007 note",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "008 created_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_adjustments",
+    "item": "009 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "003 employee_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "004 leave_type_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "005 start_date",
+    "detail": "date not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "006 end_date",
+    "detail": "date not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "007 days",
+    "detail": "numeric(4,1) not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "008 half_day",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "009 reason",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "010 status",
+    "detail": "leave_status not null default 'pending'::leave_status"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "011 decided_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "012 decided_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "013 decision_comment",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "014 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_requests",
+    "item": "015 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "003 name",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "004 code",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "005 annual_quota",
+    "detail": "numeric(5,1) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "006 is_paid",
+    "detail": "boolean not null default true"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "007 color",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "008 is_active",
+    "detail": "boolean not null default true"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "009 sort_order",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "010 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:leave_types",
+    "item": "011 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "001 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "002 membership_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "003 resource",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "004 can_view",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "005 can_create",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "006 can_edit",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "007 can_delete",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "008 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:member_permissions",
+    "item": "009 updated_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:memberships",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:memberships",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:memberships",
+    "item": "003 user_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:memberships",
+    "item": "004 role",
+    "detail": "text not null default 'member'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:memberships",
+    "item": "005 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:org_settings",
+    "item": "001 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:org_settings",
+    "item": "002 hierarchy",
+    "detail": "jsonb not null default '{\"edges\": {}, \"nodes\": {}}'::jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:org_settings",
+    "item": "003 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "002 company_name",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "003 company_tagline",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "004 company_email",
+    "detail": "citext"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "005 company_phone",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "006 company_website",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "007 company_address",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "008 company_description",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "009 owner_uid",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "010 owner_full_name",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "011 owner_role",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "012 document_designation",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "013 primary_contact_name",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "014 logo_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "015 signature_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "016 stamp_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "017 stamp_type",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "018 stamp_city",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "019 include_logo",
+    "detail": "boolean not null default true"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "020 industry",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "021 country",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "022 city",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "023 company_size",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "024 use_cases",
+    "detail": "_text not null default '{}'::text[]"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "025 account_usage",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "026 referral_source",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "027 deleted_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "028 deleted_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "029 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "030 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "031 country_code",
+    "detail": "character(2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "032 portal_join_code",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "033 portal_join_enabled",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:organizations",
+    "item": "034 portal_join_expires_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "003 document_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "004 amount",
+    "detail": "numeric(14,2) not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "005 paid_on",
+    "detail": "date not null default CURRENT_DATE"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "006 method",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "007 reference",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "008 note",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "009 submitted_by_recipient",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "010 confirmed_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "011 confirmed_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:payments",
+    "item": "012 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:permission_resources",
+    "item": "001 key",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:permission_resources",
+    "item": "002 label",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:permission_resources",
+    "item": "003 category",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:permission_resources",
+    "item": "004 description",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:permission_resources",
+    "item": "005 actions",
+    "detail": "_text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:permission_resources",
+    "item": "006 sort_order",
+    "detail": "integer not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "003 project_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "004 employee_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "005 role",
+    "detail": "project_member_role not null default 'member'::project_member_role"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "006 allocation_pct",
+    "detail": "numeric(5,2) not null default 100"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "007 start_date",
+    "detail": "date not null default CURRENT_DATE"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "008 end_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "009 bill_rate",
+    "detail": "numeric(12,2)"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "010 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:project_members",
+    "item": "011 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "003 code",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "004 name",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "005 description",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "006 client_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "007 status",
+    "detail": "project_status not null default 'planned'::project_status"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "008 billing_type",
+    "detail": "project_billing_type not null default 'fixed_price'::project_billing_type"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "009 currency",
+    "detail": "character(3) not null default 'INR'::bpchar"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "010 contract_value",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "011 budget_labour",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "012 budget_vendor",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "013 budget_other",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "014 start_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "015 target_end_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "016 actual_end_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "017 manager_employee_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "018 source_quotation_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "019 source_client_stage",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "020 tags",
+    "detail": "_text not null default '{}'::text[]"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "021 closed_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "022 closed_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "023 archived_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "024 created_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "025 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "026 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "027 reminder_state",
+    "detail": "jsonb not null default '{}'::jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:projects",
+    "item": "028 cost_method",
+    "detail": "text not null default 'allocation'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "003 vendor_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "004 bill_number",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "005 bill_date",
+    "detail": "date not null default CURRENT_DATE"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "006 due_date",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "007 category",
+    "detail": "text not null default 'Operations'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "008 description",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "009 subtotal",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "010 tax_rate",
+    "detail": "numeric(5,2) not null default 18"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "011 tax_amount",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "012 total",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "013 amount_paid",
+    "detail": "numeric(14,2) not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "014 status",
+    "detail": "text not null default 'unpaid'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "015 paid_on",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "016 receipt_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "017 notes",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "018 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:purchase_invoices",
+    "item": "019 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "003 doc_number",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "004 type",
+    "detail": "doc_type not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "005 status",
+    "detail": "doc_status not null default 'draft'::doc_status"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "006 title",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "007 employee_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "008 recipient_name",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "009 recipient_email",
+    "detail": "citext"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "010 issue_date",
+    "detail": "date not null default CURRENT_DATE"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "011 data",
+    "detail": "jsonb not null default '{}'::jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "012 company_snapshot",
+    "detail": "jsonb not null default '{}'::jsonb"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "013 pdf_path",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "014 created_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "015 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "016 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "017 current_version_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:records",
+    "item": "018 locked_version_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permission_defaults",
+    "item": "001 role",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permission_defaults",
+    "item": "002 resource",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permission_defaults",
+    "item": "003 can_view",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permission_defaults",
+    "item": "004 can_create",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permission_defaults",
+    "item": "005 can_edit",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permission_defaults",
+    "item": "006 can_delete",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "001 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "002 role",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "003 resource",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "004 can_view",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "005 can_create",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "006 can_edit",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "007 can_delete",
+    "detail": "boolean not null default false"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "008 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:role_permissions",
+    "item": "009 updated_by",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:roles",
+    "item": "001 key",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:roles",
+    "item": "002 label",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:roles",
+    "item": "003 description",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:roles",
+    "item": "004 sort_order",
+    "detail": "integer not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:roles",
+    "item": "005 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "001 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "002 plan",
+    "detail": "plan_tier not null default 'free'::plan_tier"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "003 status",
+    "detail": "text not null default 'active'::text"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "004 provider",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "005 provider_sub_id",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "006 current_period_end",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "007 cancel_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:subscriptions",
+    "item": "008 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "003 title",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "004 description",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "005 status",
+    "detail": "task_status not null default 'pending'::task_status"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "006 priority",
+    "detail": "task_priority not null default 'medium'::task_priority"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "007 assignee_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "008 assignee_label",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "009 deadline",
+    "detail": "date"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "010 notes",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "011 follow_up_sent_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "012 position",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "013 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "014 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "015 project_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:tasks",
+    "item": "016 milestone_id",
+    "detail": "uuid"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "001 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "002 offer_letters",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "003 certificates",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "004 nda",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "005 mou",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "006 invoices",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "007 quotations",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "008 proformas",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "009 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:usage_counters",
+    "item": "010 ai_messages",
+    "detail": "integer not null default 0"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "001 id",
+    "detail": "uuid not null default gen_random_uuid()"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "002 org_id",
+    "detail": "uuid not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "003 company_name",
+    "detail": "text not null"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "004 contact_name",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "005 email",
+    "detail": "citext"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "006 phone",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "007 address",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "008 state",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "009 gstin",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "010 payment_terms_days",
+    "detail": "integer not null default 30"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "011 category",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "012 notes",
+    "detail": "text"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "013 archived_at",
+    "detail": "timestamp with time zone"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "014 created_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 50,
+    "section": "column:vendors",
+    "item": "015 updated_at",
+    "detail": "timestamp with time zone not null default now()"
+  },
+  {
+    "ord": 55,
+    "section": "missing_table",
+    "item": "ai_actions",
+    "detail": "no public.ai_actions"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:attendance_days",
+    "item": "attendance_days_employee_id_fkey",
+    "detail": "FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:attendance_days",
+    "item": "attendance_days_marked_by_fkey",
+    "detail": "FOREIGN KEY (marked_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:attendance_days",
+    "item": "attendance_days_org_id_employee_id_work_date_key",
+    "detail": "UNIQUE (org_id, employee_id, work_date)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:attendance_days",
+    "item": "attendance_days_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:attendance_days",
+    "item": "attendance_days_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:attendance_days",
+    "item": "attendance_days_source_check",
+    "detail": "CHECK ((source = ANY (ARRAY['self'::text, 'admin'::text])))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:attendance_days",
+    "item": "attendance_times_ordered",
+    "detail": "CHECK (((check_out IS NULL) OR (check_in IS NULL) OR (check_out >= check_in)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:audit_log",
+    "item": "audit_log_actor_id_fkey",
+    "detail": "FOREIGN KEY (actor_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:audit_log",
+    "item": "audit_log_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:audit_log",
+    "item": "audit_log_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:clients",
+    "item": "clients_country_code_fkey",
+    "detail": "FOREIGN KEY (country_code) REFERENCES country_codes(code)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:clients",
+    "item": "clients_name_check",
+    "detail": "CHECK ((length(btrim(name)) > 0))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:clients",
+    "item": "clients_named",
+    "detail": "CHECK (((COALESCE(btrim(name), ''::text) <> ''::text) OR (COALESCE(btrim(person_name), ''::text) <> ''::text)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:clients",
+    "item": "clients_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:clients",
+    "item": "clients_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:clients",
+    "item": "clients_value_check",
+    "detail": "CHECK (((value IS NULL) OR (value >= (0)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_bio_len",
+    "detail": "CHECK (((bio IS NULL) OR (length(bio) <= 600)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_dates_ordered",
+    "detail": "CHECK (((end_date IS NULL) OR (start_date IS NULL) OR (end_date >= start_date)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_department_id_fkey",
+    "detail": "FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_dob_sane",
+    "detail": "CHECK (((date_of_birth IS NULL) OR (date_of_birth > '1900-01-01'::date)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_full_name_check",
+    "detail": "CHECK ((length(btrim(full_name)) > 0))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_no_self_report",
+    "detail": "CHECK (((reports_to IS NULL) OR (reports_to <> id)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_reports_to_fkey",
+    "detail": "FOREIGN KEY (reports_to) REFERENCES employees(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:employees",
+    "item": "employees_user_id_fkey",
+    "detail": "FOREIGN KEY (user_id) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_amount_check",
+    "detail": "CHECK ((amount >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_client_id_fkey",
+    "detail": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_country_code_fkey",
+    "detail": "FOREIGN KEY (country_code) REFERENCES country_codes(code)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_created_by_fkey",
+    "detail": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_department_id_fkey",
+    "detail": "FOREIGN KEY (department_id) REFERENCES departments(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_description_check",
+    "detail": "CHECK ((length(btrim(description)) > 0))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_employee_id_fkey",
+    "detail": "FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_fx_rate_check",
+    "detail": "CHECK ((fx_rate > (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_original_amount_check",
+    "detail": "CHECK (((original_amount IS NULL) OR (original_amount >= (0)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_payment_method_check",
+    "detail": "CHECK ((payment_method = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'upi'::text, 'card'::text, 'cheque'::text, 'wallet'::text, 'other'::text])))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_product_id_fkey",
+    "detail": "FOREIGN KEY (product_id) REFERENCES products(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_quantity_check",
+    "detail": "CHECK (((quantity IS NULL) OR (quantity >= (0)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_status_check",
+    "detail": "CHECK ((status = ANY (ARRAY['paid'::text, 'pending'::text])))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_tax_amount_check",
+    "detail": "CHECK ((tax_amount >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_tax_lte_amount",
+    "detail": "CHECK ((tax_amount <= (amount + 0.01)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_tax_rate_check",
+    "detail": "CHECK (((tax_rate >= (0)::numeric) AND (tax_rate <= (100)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_treatment_check",
+    "detail": "CHECK ((treatment = ANY (ARRAY['operating'::text, 'non_operating'::text, 'capex'::text, 'financing'::text, 'owner'::text, 'tax'::text])))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:expenses",
+    "item": "expenses_vendor_id_fkey",
+    "detail": "FOREIGN KEY (vendor_id) REFERENCES vendors(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "fin_docs_discount_sane",
+    "detail": "CHECK ((discount_amount <= (subtotal + 0.01)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "fin_docs_paid_lte_total",
+    "detail": "CHECK ((amount_paid <= (grand_total + 0.01)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "fin_docs_type_is_financial",
+    "detail": "CHECK ((type = ANY (ARRAY['invoice'::doc_type, 'quotation'::doc_type, 'proforma'::doc_type])))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_advance_percent_check",
+    "detail": "CHECK (((advance_percent IS NULL) OR ((advance_percent >= (0)::numeric) AND (advance_percent <= (100)::numeric))))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_amount_paid_check",
+    "detail": "CHECK ((amount_paid >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_country_code_fkey",
+    "detail": "FOREIGN KEY (country_code) REFERENCES country_codes(code)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_created_by_fkey",
+    "detail": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_current_version_id_fkey",
+    "detail": "FOREIGN KEY (current_version_id) REFERENCES document_versions(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_customer_id_fkey",
+    "detail": "FOREIGN KEY (customer_id) REFERENCES clients(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_discount_amount_check",
+    "detail": "CHECK ((discount_amount >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_discount_value_check",
+    "detail": "CHECK ((discount_value >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_grand_total_check",
+    "detail": "CHECK ((grand_total >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_gst_amount_check",
+    "detail": "CHECK ((gst_amount >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_gst_rate_check",
+    "detail": "CHECK (((gst_rate >= (0)::numeric) AND (gst_rate <= (100)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_locked_version_id_fkey",
+    "detail": "FOREIGN KEY (locked_version_id) REFERENCES document_versions(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_making_charges_check",
+    "detail": "CHECK ((making_charges >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_org_id_doc_number_key",
+    "detail": "UNIQUE (org_id, doc_number)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_subtotal_check",
+    "detail": "CHECK ((subtotal >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:financial_documents",
+    "item": "financial_documents_taxable_amount_check",
+    "detail": "CHECK ((taxable_amount >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_amount_check",
+    "detail": "CHECK ((amount >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_catalog_item_id_fkey",
+    "detail": "FOREIGN KEY (catalog_item_id) REFERENCES catalog_items(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_category_fkey",
+    "detail": "FOREIGN KEY (category) REFERENCES finance_categories(key)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_client_id_fkey",
+    "detail": "FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_country_code_fkey",
+    "detail": "FOREIGN KEY (country_code) REFERENCES country_codes(code)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_created_by_fkey",
+    "detail": "FOREIGN KEY (created_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_description_check",
+    "detail": "CHECK ((length(btrim(description)) > 0))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_document_id_fkey",
+    "detail": "FOREIGN KEY (document_id) REFERENCES financial_documents(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_fx_rate_check",
+    "detail": "CHECK ((fx_rate > (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_original_amount_check",
+    "detail": "CHECK (((original_amount IS NULL) OR (original_amount >= (0)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_payment_method_check",
+    "detail": "CHECK ((payment_method = ANY (ARRAY['cash'::text, 'bank_transfer'::text, 'upi'::text, 'card'::text, 'cheque'::text, 'wallet'::text, 'other'::text])))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_quantity_check",
+    "detail": "CHECK (((quantity IS NULL) OR (quantity >= (0)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_tax_amount_check",
+    "detail": "CHECK ((tax_amount >= (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_entries_tax_rate_check",
+    "detail": "CHECK (((tax_rate >= (0)::numeric) AND (tax_rate <= (100)::numeric)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:income_entries",
+    "item": "income_tax_lte_amount",
+    "detail": "CHECK ((tax_amount <= (amount + 0.01)))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_dates_ordered",
+    "detail": "CHECK ((end_date >= start_date))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_days_within_range",
+    "detail": "CHECK ((days <= (((end_date - start_date) + 1))::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_requests_days_check",
+    "detail": "CHECK ((days > (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_requests_decided_by_fkey",
+    "detail": "FOREIGN KEY (decided_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_requests_employee_id_fkey",
+    "detail": "FOREIGN KEY (employee_id) REFERENCES employees(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_requests_leave_type_id_fkey",
+    "detail": "FOREIGN KEY (leave_type_id) REFERENCES leave_types(id) ON DELETE RESTRICT"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_requests_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:leave_requests",
+    "item": "leave_requests_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:payments",
+    "item": "payments_amount_check",
+    "detail": "CHECK ((amount > (0)::numeric))"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:payments",
+    "item": "payments_confirmed_by_fkey",
+    "detail": "FOREIGN KEY (confirmed_by) REFERENCES auth.users(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:payments",
+    "item": "payments_document_id_fkey",
+    "detail": "FOREIGN KEY (document_id) REFERENCES financial_documents(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:payments",
+    "item": "payments_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:payments",
+    "item": "payments_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:tasks",
+    "item": "tasks_assignee_id_fkey",
+    "detail": "FOREIGN KEY (assignee_id) REFERENCES employees(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:tasks",
+    "item": "tasks_milestone_id_fkey",
+    "detail": "FOREIGN KEY (milestone_id) REFERENCES project_milestones(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:tasks",
+    "item": "tasks_org_id_fkey",
+    "detail": "FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:tasks",
+    "item": "tasks_pkey",
+    "detail": "PRIMARY KEY (id)"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:tasks",
+    "item": "tasks_project_id_fkey",
+    "detail": "FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL"
+  },
+  {
+    "ord": 60,
+    "section": "constraint:tasks",
+    "item": "tasks_title_check",
+    "detail": "CHECK ((length(btrim(title)) > 0))"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "allocation_mode",
+    "detail": "full, amount"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "allocation_source",
+    "detail": "invoice, income_entry, expense, purchase_invoice"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "attendance_status",
+    "detail": "present, remote, half_day, leave, absent, holiday"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "client_status",
+    "detail": "lead, contacted, active, lost, archived"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "country_source",
+    "detail": "customer, org_default, manual, checkout_form, checkout_geoip"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "discount_kind",
+    "detail": "percent, flat"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "doc_status",
+    "detail": "draft, sent, viewed, accepted, declined, paid, partially_paid, overdue, cancelled, expired, signed, party_a_signed, fully_signed, acknowledged, payment_submitted, advance_paid, revision_requested, order_confirmed, converted, pending"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "doc_type",
+    "detail": "offer, certificate, nda, mou, invoice, quotation, proforma, role_change, termination"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "employment_type",
+    "detail": "fulltime, intern, contract, parttime"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "leave_status",
+    "detail": "pending, approved, rejected, cancelled"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "milestone_status",
+    "detail": "pending, in_progress, completed, invoiced, cancelled"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "plan_tier",
+    "detail": "free, pro, max"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "project_billing_type",
+    "detail": "fixed_price, time_materials, retainer"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "project_member_role",
+    "detail": "manager, lead, member"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "project_status",
+    "detail": "planned, active, on_hold, completed, cancelled"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "task_priority",
+    "detail": "low, medium, high"
+  },
+  {
+    "ord": 70,
+    "section": "enum",
+    "item": "task_status",
+    "detail": "pending, in_progress, done, overdue"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:attendance_days",
+    "item": "attendance_days_freeze_org",
+    "detail": "BEFORE UPDATE ON public.attendance_days FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:attendance_days",
+    "item": "attendance_days_stamp",
+    "detail": "BEFORE INSERT OR UPDATE ON public.attendance_days FOR EACH ROW EXECUTE FUNCTION app.stamp_attendance()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:attendance_days",
+    "item": "attendance_days_touch",
+    "detail": "BEFORE UPDATE ON public.attendance_days FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:attendance_days",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.attendance_days REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:attendance_days",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.attendance_days REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:attendance_days",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.attendance_days REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:audit_log",
+    "item": "audit_log_no_update",
+    "detail": "BEFORE DELETE OR UPDATE ON public.audit_log FOR EACH ROW EXECUTE FUNCTION app.forbid_write()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.clients REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.clients REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.clients REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "clients_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.clients FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "clients_freeze_org_id",
+    "detail": "BEFORE UPDATE OF org_id ON public.clients FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "clients_org_no_orphan_docs",
+    "detail": "BEFORE UPDATE OF org_id ON public.clients FOR EACH ROW EXECUTE FUNCTION app.client_org_no_orphan_docs()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "clients_status_tracker",
+    "detail": "BEFORE UPDATE OF status ON public.clients FOR EACH ROW EXECUTE FUNCTION app.clients_track_status_change()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:clients",
+    "item": "clients_touch_updated_at",
+    "detail": "BEFORE UPDATE ON public.clients FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.employees REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.employees REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.employees REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "employees_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "employees_end_project_memberships",
+    "detail": "AFTER UPDATE OF exited_at ON public.employees FOR EACH ROW WHEN (((old.exited_at IS NULL) AND (new.exited_at IS NOT NULL))) EXECUTE FUNCTION app.end_memberships_on_exit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "employees_freeze_org",
+    "detail": "BEFORE UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "employees_revoke_access",
+    "detail": "BEFORE UPDATE OF exited_at ON public.employees FOR EACH ROW WHEN (((old.exited_at IS NULL) AND (new.exited_at IS NOT NULL))) EXECUTE FUNCTION app.revoke_employee_access()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:employees",
+    "item": "employees_touch",
+    "detail": "BEFORE UPDATE ON public.employees FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.expenses REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.expenses REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.expenses REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "expenses_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.expenses FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "expenses_freeze_org",
+    "detail": "BEFORE UPDATE ON public.expenses FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "expenses_guard",
+    "detail": "BEFORE INSERT OR UPDATE ON public.expenses FOR EACH ROW EXECUTE FUNCTION app.expense_guard()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "expenses_project_allocations_cap",
+    "detail": "AFTER UPDATE ON public.expenses FOR EACH ROW EXECUTE FUNCTION app.allocation_source_updated('expense')"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:expenses",
+    "item": "expenses_project_allocations_delete",
+    "detail": "AFTER DELETE ON public.expenses FOR EACH ROW EXECUTE FUNCTION app.allocation_source_deleted('expense')"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.financial_documents REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.financial_documents REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.financial_documents REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "fin_docs_catalog_rollup",
+    "detail": "AFTER UPDATE OF status, issue_date ON public.financial_documents FOR EACH ROW WHEN (((old.status IS DISTINCT FROM new.status) OR (old.issue_date IS DISTINCT FROM new.issue_date))) EXECUTE FUNCTION app.catalog_doc_status_changed()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "fin_docs_freeze_number",
+    "detail": "BEFORE UPDATE ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.freeze_doc_number()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "fin_docs_set_country",
+    "detail": "BEFORE INSERT ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.fin_doc_set_country()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "fin_docs_usage",
+    "detail": "AFTER INSERT OR DELETE ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.bump_usage()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_freeze_org",
+    "detail": "BEFORE UPDATE ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_lock_reprices_projects",
+    "detail": "AFTER UPDATE OF locked_version_id ON public.financial_documents FOR EACH ROW WHEN (((new.type = 'quotation'::doc_type) AND (new.locked_version_id IS NOT NULL) AND (new.locked_version_id IS DISTINCT FROM old.locked_version_id))) EXECUTE FUNCTION app.quotation_lock_reprices_projects()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_project_allocations_delete",
+    "detail": "AFTER DELETE ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.allocation_source_deleted('invoice')"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_project_links",
+    "detail": "AFTER INSERT ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.invoice_project_links()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_timesheet_links",
+    "detail": "AFTER INSERT ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.invoice_timesheet_links()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_touch",
+    "detail": "BEFORE UPDATE ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_version_after",
+    "detail": "AFTER UPDATE OF status, amount_paid ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.document_parent_after()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:financial_documents",
+    "item": "financial_documents_version_guard",
+    "detail": "BEFORE INSERT OR DELETE OR UPDATE ON public.financial_documents FOR EACH ROW EXECUTE FUNCTION app.document_parent_guard()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:income_entries",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.income_entries REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:income_entries",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.income_entries REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:income_entries",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.income_entries REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:income_entries",
+    "item": "income_entries_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.income_entries FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:income_entries",
+    "item": "income_entries_guard",
+    "detail": "BEFORE INSERT OR UPDATE ON public.income_entries FOR EACH ROW EXECUTE FUNCTION app.income_entry_guard()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:income_entries",
+    "item": "income_entries_project_allocations_cap",
+    "detail": "AFTER UPDATE ON public.income_entries FOR EACH ROW EXECUTE FUNCTION app.allocation_source_updated('income_entry')"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:income_entries",
+    "item": "income_entries_project_allocations_delete",
+    "detail": "AFTER DELETE ON public.income_entries FOR EACH ROW EXECUTE FUNCTION app.allocation_source_deleted('income_entry')"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.leave_requests REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.leave_requests REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.leave_requests REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "leave_requests_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.leave_requests FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "leave_requests_freeze_org",
+    "detail": "BEFORE UPDATE ON public.leave_requests FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "leave_requests_guard",
+    "detail": "BEFORE INSERT OR UPDATE ON public.leave_requests FOR EACH ROW EXECUTE FUNCTION app.guard_leave_decision()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "leave_requests_notify",
+    "detail": "AFTER INSERT OR UPDATE ON public.leave_requests FOR EACH ROW EXECUTE FUNCTION app.notify_leave_request()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:leave_requests",
+    "item": "leave_requests_touch",
+    "detail": "BEFORE UPDATE ON public.leave_requests FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:payments",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.payments REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:payments",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.payments REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:payments",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.payments REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:payments",
+    "item": "payments_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:payments",
+    "item": "payments_freeze_org",
+    "detail": "BEFORE UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:payments",
+    "item": "payments_recompute",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.payments FOR EACH ROW EXECUTE FUNCTION app.recompute_amount_paid()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:tasks",
+    "item": "brain_dirty_del",
+    "detail": "AFTER DELETE ON public.tasks REFERENCING OLD TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:tasks",
+    "item": "brain_dirty_ins",
+    "detail": "AFTER INSERT ON public.tasks REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:tasks",
+    "item": "brain_dirty_upd",
+    "detail": "AFTER UPDATE ON public.tasks REFERENCING NEW TABLE AS changed FOR EACH STATEMENT EXECUTE FUNCTION app.brain_mark_dirty()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:tasks",
+    "item": "tasks_audit",
+    "detail": "AFTER INSERT OR DELETE OR UPDATE ON public.tasks FOR EACH ROW EXECUTE FUNCTION app.write_audit()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:tasks",
+    "item": "tasks_freeze_org",
+    "detail": "BEFORE UPDATE ON public.tasks FOR EACH ROW EXECUTE FUNCTION app.freeze_org_id()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:tasks",
+    "item": "tasks_project_guard",
+    "detail": "BEFORE INSERT OR UPDATE OF project_id, milestone_id ON public.tasks FOR EACH ROW EXECUTE FUNCTION app.task_project_guard()"
+  },
+  {
+    "ord": 80,
+    "section": "trigger:tasks",
+    "item": "tasks_touch",
+    "detail": "BEFORE UPDATE ON public.tasks FOR EACH ROW EXECUTE FUNCTION app.touch_updated_at()"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "announcements",
+    "detail": "announcements_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "catalog_items",
+    "detail": "catalog_items_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "clients",
+    "detail": "clients_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "document_negotiation_events",
+    "detail": "document_negotiation_events_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "document_versions",
+    "detail": "document_versions_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "employee_compensation",
+    "detail": "employee_compensation_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "employees",
+    "detail": "employees_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "expenses",
+    "detail": "expenses_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "financial_documents",
+    "detail": "financial_documents_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "income_entries",
+    "detail": "income_entries_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "leave_adjustments",
+    "detail": "leave_adjustments_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "leave_requests",
+    "detail": "leave_requests_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "library_documents",
+    "detail": "library_documents_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "memberships",
+    "detail": "memberships_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "payments",
+    "detail": "payments_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "project_allocations",
+    "detail": "project_allocations_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "project_documents",
+    "detail": "project_documents_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "project_members",
+    "detail": "project_members_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "project_milestones",
+    "detail": "project_milestones_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "projects",
+    "detail": "projects_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "purchase_invoices",
+    "detail": "purchase_invoices_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "records",
+    "detail": "records_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "tasks",
+    "detail": "tasks_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "timesheet_entries",
+    "detail": "timesheet_entries_audit"
+  },
+  {
+    "ord": 85,
+    "section": "audited_table",
+    "item": "vendors",
+    "detail": "vendors_audit"
+  },
+  {
+    "ord": 86,
+    "section": "write_audit",
+    "item": "fingerprint",
+    "detail": "md5=70dbb7babf9d55021774100f82b01e99 | len=2548 | uses auth.uid=t | reads request.headers=f | has exception block=t | SECURITY DEFINER"
+  },
+  {
+    "ord": 89,
+    "section": "rls:attendance_days",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:audit_log",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:clients",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:employees",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:expenses",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:financial_documents",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:income_entries",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:leave_requests",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:payments",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 89,
+    "section": "rls:tasks",
+    "item": "enabled",
+    "detail": "forced"
+  },
+  {
+    "ord": 90,
+    "section": "policy:attendance_days",
+    "item": "attendance_days_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'attendance'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:attendance_days",
+    "item": "attendance_days_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'attendance'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:attendance_days",
+    "item": "attendance_days_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'attendance'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:attendance_days",
+    "item": "attendance_days_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'attendance'::text, 'edit'::text) | check: app.has_permission(org_id, 'attendance'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:attendance_days",
+    "item": "attendance_self_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: ((employee_id = app.my_employee_id(org_id)) AND (work_date = CURRENT_DATE) AND (source = 'self'::text) AND (status = ANY (ARRAY['present'::attendance_status, 'remote'::attendance_status])))"
+  },
+  {
+    "ord": 90,
+    "section": "policy:attendance_days",
+    "item": "attendance_self_select",
+    "detail": "SELECT to {authenticated} | using: (employee_id = app.my_employee_id(org_id)) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:attendance_days",
+    "item": "attendance_self_update",
+    "detail": "UPDATE to {authenticated} | using: ((employee_id = app.my_employee_id(org_id)) AND (work_date = CURRENT_DATE) AND (source = 'self'::text)) | check: ((employee_id = app.my_employee_id(org_id)) AND (work_date = CURRENT_DATE) AND (source = 'self'::text) AND (status = ANY (ARRAY['present'::attendance_status, 'remote'::attendance_status])))"
+  },
+  {
+    "ord": 90,
+    "section": "policy:audit_log",
+    "item": "audit_log_platform_admin_select",
+    "detail": "SELECT to {authenticated} | using: app.is_platform_admin() | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:audit_log",
+    "item": "audit_log_select",
+    "detail": "SELECT to {authenticated} | using: (app.is_admin(org_id) OR (app.is_member(org_id) AND (entity_type IS NOT NULL) AND (NOT (entity_type = ANY (app.audit_admin_only_entities()))) AND app.audit_entity_visible(org_id, entity_type))) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:clients",
+    "item": "clients_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'clients'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:clients",
+    "item": "clients_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'clients'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:clients",
+    "item": "clients_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'clients'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:clients",
+    "item": "clients_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'clients'::text, 'edit'::text) | check: app.has_permission(org_id, 'clients'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:employees",
+    "item": "employees_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'employees'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:employees",
+    "item": "employees_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'employees'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:employees",
+    "item": "employees_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'employees'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:employees",
+    "item": "employees_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'employees'::text, 'edit'::text) | check: app.has_permission(org_id, 'employees'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:expenses",
+    "item": "expenses_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'expenses'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:expenses",
+    "item": "expenses_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'expenses'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:expenses",
+    "item": "expenses_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'expenses'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:expenses",
+    "item": "expenses_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'expenses'::text, 'edit'::text) | check: app.has_permission(org_id, 'expenses'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:financial_documents",
+    "item": "financial_documents_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'financial_documents'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:financial_documents",
+    "item": "financial_documents_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'financial_documents'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:financial_documents",
+    "item": "financial_documents_platform_admin_select",
+    "detail": "SELECT to {authenticated} | using: app.is_platform_admin() | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:financial_documents",
+    "item": "financial_documents_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'financial_documents'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:financial_documents",
+    "item": "financial_documents_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'financial_documents'::text, 'edit'::text) | check: app.has_permission(org_id, 'financial_documents'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:income_entries",
+    "item": "income_entries_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'income_entries'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:income_entries",
+    "item": "income_entries_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'income_entries'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:income_entries",
+    "item": "income_entries_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'income_entries'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:income_entries",
+    "item": "income_entries_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'income_entries'::text, 'edit'::text) | check: app.has_permission(org_id, 'income_entries'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:leave_requests",
+    "item": "leave_requests_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'leave_requests'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:leave_requests",
+    "item": "leave_requests_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'leave_requests'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:leave_requests",
+    "item": "leave_requests_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'leave_requests'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:leave_requests",
+    "item": "leave_requests_self_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: ((employee_id = app.my_employee_id(org_id)) AND (status = 'pending'::leave_status))"
+  },
+  {
+    "ord": 90,
+    "section": "policy:leave_requests",
+    "item": "leave_requests_self_select",
+    "detail": "SELECT to {authenticated} | using: ((employee_id = app.my_employee_id(org_id)) OR app.is_manager_of(employee_id)) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:leave_requests",
+    "item": "leave_requests_self_update",
+    "detail": "UPDATE to {authenticated} | using: ((employee_id = app.my_employee_id(org_id)) AND (status = 'pending'::leave_status)) | check: (employee_id = app.my_employee_id(org_id))"
+  },
+  {
+    "ord": 90,
+    "section": "policy:leave_requests",
+    "item": "leave_requests_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'leave_requests'::text, 'edit'::text) | check: app.has_permission(org_id, 'leave_requests'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:payments",
+    "item": "payments_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'payments'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:payments",
+    "item": "payments_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'payments'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:payments",
+    "item": "payments_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'payments'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:payments",
+    "item": "payments_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'payments'::text, 'edit'::text) | check: app.has_permission(org_id, 'payments'::text, 'edit'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:tasks",
+    "item": "tasks_delete",
+    "detail": "DELETE to {authenticated} | using: app.has_permission(org_id, 'tasks'::text, 'delete'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:tasks",
+    "item": "tasks_insert",
+    "detail": "INSERT to {authenticated} | using: - | check: app.has_permission(org_id, 'tasks'::text, 'create'::text)"
+  },
+  {
+    "ord": 90,
+    "section": "policy:tasks",
+    "item": "tasks_select",
+    "detail": "SELECT to {authenticated} | using: app.has_permission(org_id, 'tasks'::text, 'view'::text) | check: -"
+  },
+  {
+    "ord": 90,
+    "section": "policy:tasks",
+    "item": "tasks_update",
+    "detail": "UPDATE to {authenticated} | using: app.has_permission(org_id, 'tasks'::text, 'edit'::text) | check: app.has_permission(org_id, 'tasks'::text, 'edit'::text)"
+  },
+  {
+    "ord": 95,
+    "section": "grant:attendance_days",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:attendance_days",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:audit_log",
+    "item": "authenticated",
+    "detail": "REFERENCES,SELECT,TRIGGER,TRUNCATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:audit_log",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:clients",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:clients",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:employees",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:employees",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:expenses",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:expenses",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:financial_documents",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:financial_documents",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:income_entries",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:income_entries",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:leave_requests",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:leave_requests",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:payments",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:payments",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:tasks",
+    "item": "authenticated",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 95,
+    "section": "grant:tasks",
+    "item": "service_role",
+    "detail": "DELETE,INSERT,REFERENCES,SELECT,TRIGGER,TRUNCATE,UPDATE"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "active_project_limit(p_org uuid)",
+    "detail": "returns integer | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "allocation_source(p_type allocation_source, p_id uuid)",
+    "detail": "returns TABLE(org_id uuid, net numeric, on_date date, client_id uuid, counts boolean, label text, category text, treatment text, gross numeric, amount_paid numeric, due_date date, status text) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "allocation_source_deleted()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "allocation_source_net(p_type allocation_source, p_id uuid)",
+    "detail": "returns numeric | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "allocation_source_updated()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "audit_admin_only_entities()",
+    "detail": "returns text[] | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "audit_entity_visible(p_org uuid, p_entity text)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "audit_ignored_columns()",
+    "detail": "returns text[] | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "audit_member_permissions()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "audit_role_permissions()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_guard_edge_resource()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, app, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_guard_resource()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, app, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_mark_dirty()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_mark_dirty_org()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_rebuild_edges(p_org uuid)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_rebuild_edges_core(p_org uuid)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_refresh_metrics(p_org uuid)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_refresh_metrics_cash(p_org uuid)",
+    "detail": "returns integer | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_refresh_metrics_core(p_org uuid)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_refresh_metrics_geo(p_org uuid)",
+    "detail": "returns integer | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_refresh_metrics_projects(p_org uuid)",
+    "detail": "returns integer | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_refresh_metrics_totals(p_org uuid)",
+    "detail": "returns integer | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_refresh_metrics_with_geo(p_org uuid)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_resource(p_key text)",
+    "detail": "returns text | invoker | search_path=public, app, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_catalog(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_clients(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_finance(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_library(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_ops(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_ops_core(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_org(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_people(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_projects(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_spend(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_sync_spend_core(p_org uuid, p_since timestamp with time zone)",
+    "detail": "returns jsonb | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "brain_tombstone(p_org uuid, p_kind text, p_live_ids uuid[])",
+    "detail": "returns integer | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "bump_usage()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "cash_entry_fx(p_amount numeric, p_original numeric, p_rate numeric, OUT o_amount numeric, OUT o_original numeric, OUT o_rate numeric)",
+    "detail": "returns record | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "cash_entry_tax(p_amount numeric, p_tax numeric, p_rate numeric, OUT o_tax numeric, OUT o_rate numeric)",
+    "detail": "returns record | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "catalog_doc_status_changed()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "catalog_is_collected(p_type doc_type, p_status doc_status)",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "catalog_is_sold(p_type doc_type, p_status doc_status)",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "catalog_line_changed()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "check_member_permission()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "check_permission_flags()",
+    "detail": "returns trigger | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "clear_member_permissions_on_role_change()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "client_org_no_orphan_docs()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "clients_track_status_change()",
+    "detail": "returns trigger | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "country_code_from_name(p_name text)",
+    "detail": "returns character | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "country_from_state(p_state text)",
+    "detail": "returns character | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "create_auth_user(p_email text, p_password text)",
+    "detail": "returns uuid | SECURITY DEFINER | search_path=public, extensions, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_accept_status(p_status doc_status)",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_create_version(p_kind text, p_document_id uuid, p_summary text, p_created_by uuid, p_created_by_type text, p_meta jsonb)",
+    "detail": "returns document_versions | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_current_snapshot(p_kind text, p_document_id uuid)",
+    "detail": "returns jsonb | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_ensure_version(p_kind text, p_document_id uuid, p_summary text)",
+    "detail": "returns uuid | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_event(p_version document_versions, p_kind text, p_actor_type text, p_meta jsonb, p_body text)",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_guard_view(p_snapshot jsonb)",
+    "detail": "returns jsonb | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_hash(p_payload jsonb)",
+    "detail": "returns text | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_locate(p_document_id uuid, p_lock boolean, OUT kind text, OUT org_id uuid, OUT doc_type doc_type, OUT status doc_status, OUT current_version_id uuid, OUT locked_version_id uuid, OUT amount_paid numeric)",
+    "detail": "returns record | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_lock(p_kind text, p_document_id uuid, p_reason text, p_accepted boolean)",
+    "detail": "returns uuid | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_lock_status(p_status doc_status)",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_parent_visible(p_org uuid, p_financial boolean)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_prefix(p_type doc_type)",
+    "detail": "returns text | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_publishing()",
+    "detail": "returns text | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_response_keys()",
+    "detail": "returns text[] | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_system_write()",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "doc_versionable(p_kind text, p_type doc_type)",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "document_line_item_version_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "document_parent_after()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "document_parent_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "document_signature_version_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "document_version_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "effective_permissions(p_org uuid, p_user uuid)",
+    "detail": "returns TABLE(resource text, can_view boolean, can_create boolean, can_edit boolean, can_delete boolean, custom boolean) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "email_rate_limit(p_kind text)",
+    "detail": "returns TABLE(max_events integer, window_length interval) | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "employee_user(p_employee uuid)",
+    "detail": "returns uuid | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "end_memberships_on_exit()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "expense_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "fin_doc_customer_same_org()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "fin_doc_items(p_doc uuid)",
+    "detail": "returns jsonb | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "fin_doc_set_country()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "fin_doc_snapshot(f financial_documents, p_items jsonb)",
+    "detail": "returns jsonb | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "finance_treatment(p_key text, p_direction text)",
+    "detail": "returns text | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "forbid_write()",
+    "detail": "returns trigger | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "freeze_doc_number()",
+    "detail": "returns trigger | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "freeze_org_id()",
+    "detail": "returns trigger | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "guard_leave_decision()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "guard_privileged_roles()",
+    "detail": "returns trigger | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "has_permission(p_org uuid, p_resource text, p_action text)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "income_entry_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "invoice_project_links()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "invoice_timesheet_links()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "is_admin(p_org uuid)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "is_client_request()",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "is_manager_of(p_employee uuid)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "is_member(p_org uuid)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "is_on_project(p_project uuid)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "is_owner(p_org uuid)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "is_platform_admin()",
+    "detail": "returns boolean | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "jsonb_pick(p_obj jsonb, p_keys text[])",
+    "detail": "returns jsonb | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "library_chunk_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "line_item_total()",
+    "detail": "returns trigger | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "line_items_changed()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "locked_contract_value(p_quotation uuid)",
+    "detail": "returns numeric | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "member_permissions_client_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "member_role(p_org uuid)",
+    "detail": "returns text | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "monthly_pay(p_amount numeric, p_frequency text, p_is_paid boolean)",
+    "detail": "returns numeric | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "my_employee_id(p_org uuid)",
+    "detail": "returns uuid | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "negotiation_event_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "new_join_code()",
+    "detail": "returns text | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "new_portal_password()",
+    "detail": "returns text | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "next_project_code(p_org uuid, p_date date)",
+    "detail": "returns text | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "notify_leave_request()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "notify_member_added()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "portal_account_is_ours(p_user uuid, p_org uuid)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "portal_token_publishes()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_allocation_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_allocation_rows(p_project_id uuid)",
+    "detail": "returns TABLE(allocation_id uuid, source_type allocation_source, source_id uuid, mode allocation_mode, allocated numeric, source_net numeric, share numeric, on_date date, counts boolean, category text, treatment text, gross numeric, amount_paid numeric, due_date date, status text, label text, linked_document uuid) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_contract_from_quotation()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_delete_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_document_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_financials_calc(p_project_id uuid, p_from date, p_to date)",
+    "detail": "returns TABLE(project_id uuid, revenue_invoiced numeric, revenue_collected numeric, other_income numeric, direct_costs numeric, vendor_costs numeric, expense_costs numeric, costs_by_category jsonb, labour_cost numeric, gross_margin numeric, gross_margin_pct numeric, net_margin numeric, net_margin_pct numeric, budget_total numeric, cost_to_date numeric, budget_burn_pct numeric, contract_value numeric, billed_to_date numeric, billed_pct numeric, unbilled_value numeric, outstanding_receivable numeric, overdue_receivable numeric, over_allocated_sources integer) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_health_calc(p_project_id uuid)",
+    "detail": "returns TABLE(health text, reasons text[]) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_is_closed(p_project uuid)",
+    "detail": "returns boolean | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_is_closed_status(p_status project_status)",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_labour_cost(p_project_id uuid, p_from date, p_to date)",
+    "detail": "returns numeric | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_lock_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_member_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_member_sync_manager()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_milestone_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_milestone_lock_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_of_document(p_doc uuid)",
+    "detail": "returns uuid | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_plan_limit_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_progress(p_project_id uuid)",
+    "detail": "returns numeric | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_reprice_milestones()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_status_audit()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "project_system_write()",
+    "detail": "returns boolean | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "propagate_permission_defaults()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "protect_last_owner()",
+    "detail": "returns trigger | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "purchase_invoice_guard()",
+    "detail": "returns trigger | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "quotation_lock_reprices_projects()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "rebuild_catalog_sales(p_org uuid)",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "rebuild_usage_counters()",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "recompute_amount_paid()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "recompute_catalog_sales(p_item uuid)",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "recompute_document_totals(p_doc uuid)",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "record_snapshot(r records)",
+    "detail": "returns jsonb | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "recurring_project_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "reseed_document_counters()",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "resolve_document_country(p_org uuid, p_customer uuid, p_state text)",
+    "detail": "returns TABLE(code character, src country_source) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "revoke_employee_access()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "role_permissions_client_guard()",
+    "detail": "returns trigger | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "secure_tenant_table(p_table regclass, p_resource text)",
+    "detail": "returns void | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "seed_leave_types_trigger()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "seed_org_leave_types(p_org uuid)",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "seed_org_permissions()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "set_auth_password(p_user uuid, p_password text)",
+    "detail": "returns void | SECURITY DEFINER | search_path=public, extensions, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "stamp_attendance()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "storage_org(p_name text)",
+    "detail": "returns uuid | invoker | no config"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "sync_role_permissions(p_org uuid)",
+    "detail": "returns integer | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "task_project_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "timesheet_guard()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "touch_updated_at()",
+    "detail": "returns trigger | invoker | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:app",
+    "item": "write_audit()",
+    "detail": "returns trigger | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:public",
+    "item": "bump_ai_usage(p_org uuid)",
+    "detail": "returns integer | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:public",
+    "item": "create_organization(p_company_name text, p_profile jsonb)",
+    "detail": "returns uuid | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:public",
+    "item": "my_permissions(p_org uuid)",
+    "detail": "returns TABLE(resource text, can_view boolean, can_create boolean, can_edit boolean, can_delete boolean, custom boolean) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:public",
+    "item": "next_document_number(p_org uuid, p_type doc_type, p_date date)",
+    "detail": "returns text | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 100,
+    "section": "function:public",
+    "item": "org_members(p_org uuid)",
+    "detail": "returns TABLE(membership_id uuid, user_id uuid, email text, role text, created_at timestamp with time zone) | SECURITY DEFINER | search_path=public, pg_temp"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.forbid_write",
+    "detail": "{=X/postgres,postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.freeze_org_id",
+    "detail": "{=X/postgres,postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.has_permission",
+    "detail": "{=X/postgres,postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.is_admin",
+    "detail": "{=X/postgres,postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.is_member",
+    "detail": "{=X/postgres,postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.secure_tenant_table",
+    "detail": "{postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.sync_role_permissions",
+    "detail": "{postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.touch_updated_at",
+    "detail": "{=X/postgres,postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "app.write_audit",
+    "detail": "{=X/postgres,postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "public.bump_ai_usage",
+    "detail": "{postgres=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "public.next_document_number",
+    "detail": "{=X/postgres,postgres=X/postgres,authenticated=X/postgres}"
+  },
+  {
+    "ord": 105,
+    "section": "function_acl",
+    "item": "public.org_members",
+    "detail": "{postgres=X/postgres,authenticated=X/postgres,service_role=X/postgres}"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.brain_state",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.document_negotiation_events",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.document_versions",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.project_allocations",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.project_documents",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.project_members",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.project_milestones",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.projects",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 110,
+    "section": "realtime_table",
+    "item": "public.timesheet_entries",
+    "detail": "supabase_realtime"
+  },
+  {
+    "ord": 140,
+    "section": "count",
+    "item": "organizations",
+    "detail": "7"
+  },
+  {
+    "ord": 141,
+    "section": "memberships_by_role",
+    "item": "employee",
+    "detail": "2"
+  },
+  {
+    "ord": 141,
+    "section": "memberships_by_role",
+    "item": "owner",
+    "detail": "7"
+  },
+  {
+    "ord": 142,
+    "section": "tasks_by_status",
+    "item": "in_progress",
+    "detail": "1"
+  },
+  {
+    "ord": 142,
+    "section": "tasks_by_status",
+    "item": "overdue",
+    "detail": "1"
+  },
+  {
+    "ord": 142,
+    "section": "tasks_by_status",
+    "item": "pending",
+    "detail": "1"
+  },
+  {
+    "ord": 143,
+    "section": "tasks_deadline_fill",
+    "item": "with deadline / total",
+    "detail": "3 / 3"
+  },
+  {
+    "ord": 144,
+    "section": "clients_by_status",
+    "item": "active",
+    "detail": "2"
+  },
+  {
+    "ord": 144,
+    "section": "clients_by_status",
+    "item": "contacted",
+    "detail": "3"
+  },
+  {
+    "ord": 144,
+    "section": "clients_by_status",
+    "item": "lead",
+    "detail": "15"
+  },
+  {
+    "ord": 144,
+    "section": "clients_by_status",
+    "item": "lost",
+    "detail": "1"
+  },
+  {
+    "ord": 145,
+    "section": "clients_by_stage",
+    "item": "(no stage column / null)",
+    "detail": "21"
+  },
+  {
+    "ord": 146,
+    "section": "leave_by_status",
+    "item": "approved",
+    "detail": "1"
+  },
+  {
+    "ord": 146,
+    "section": "leave_by_status",
+    "item": "pending",
+    "detail": "1"
+  },
+  {
+    "ord": 147,
+    "section": "subscriptions_by_plan",
+    "item": "free",
+    "detail": "5"
+  },
+  {
+    "ord": 147,
+    "section": "subscriptions_by_plan",
+    "item": "max",
+    "detail": "2"
+  },
+  {
+    "ord": 148,
+    "section": "member_permissions_rows",
+    "item": "overrides in use",
+    "detail": "0"
+  },
+  {
+    "ord": 149,
+    "section": "org_timezone",
+    "item": "(no column / null)",
+    "detail": "7"
+  }
+]

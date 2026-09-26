@@ -1,3 +1,17 @@
+public.ai_actions | admin          | foreign                    | S=0 I=0 U=0 D=0
+public.ai_actions | admin          | own                        | S=1 I=0 U=0 D=0
+public.ai_actions | foreign_owner  | foreign                    | S=1 I=0 U=0 D=0
+public.ai_actions | foreign_owner  | own                        | S=0 I=0 U=0 D=0
+public.ai_actions | member         | foreign                    | S=0 I=0 U=0 D=0
+public.ai_actions | member         | own                        | S=0 I=0 U=0 D=0
+public.ai_actions | outsider       | foreign                    | S=0 I=0 U=0 D=0
+public.ai_actions | outsider       | own                        | S=0 I=0 U=0 D=0
+public.ai_actions | owner          | foreign                    | S=0 I=0 U=0 D=0
+public.ai_actions | owner          | own                        | S=1 I=0 U=0 D=0
+public.ai_actions | platform_admin | foreign                    | S=0 I=0 U=0 D=0
+public.ai_actions | platform_admin | own                        | S=0 I=0 U=0 D=0
+public.ai_actions | viewer         | foreign                    | S=0 I=0 U=0 D=0
+public.ai_actions | viewer         | own                        | S=0 I=0 U=0 D=0
 public.ai_company_memory | admin          | foreign                    | S=0 I=0 U=0 D=0
 public.ai_company_memory | admin          | own                        | S=1 I=1 U=1 D=1
 public.ai_company_memory | foreign_owner  | foreign                    | S=1 I=1 U=1 D=1

@@ -454,16 +454,16 @@ Helpers: `portalKit.jsx` (`PhotoAvatar`, `Kpi`, `ClockCard`, `ChartTip`…), `po
 
 ### 7.2 EdgeAI copilot — `assistant/` (uncommitted, in progress)
 
-- `AssistantContext.jsx` → `AssistantProvider` (hook `useAssistant` in `assistantStore.js`) holds the conversation state once for the whole app. Chats are persisted in `localStorage['edgeos.ai.chats']` (max 60), so a stream survives navigation between the hub dock and the full screen.
-  - Streaming goes through `cofounderAI.callCofounderAI` → `/api/nvidia` (Gemini, SSE).
-  - Grounding comes from `brainService.getContext`.
-  - Voice input uses `hooks/useSpeechRecognition.js` (Web Speech API with auto-restart and a mic level).
-  - **Cash intents**: a sentence like "We spent 4,500 on office chairs yesterday" is detected by `cashIntent.detectCashIntent` and turned into a draft (`startDraft`, `nextQuestion`, `applyAnswer`, `validateDraft`, `toEntry`). It is confirmed on a `CashEntryCard.jsx` before being written to `expenses` / `income_entries`. This path is deterministic and never model-generated.
+- **EdgeAI is an agent** (see `docs/edgeai-agent.md`). Every message goes to `POST /api/agent` (SSE). The server builds the context (user, role, `my_permissions`, plan, today in the org timezone, the page, `recentEntities`, EdgeBrain facts as `<data>`), runs Gemini with function calling over the tools the user may use (≤ 8 steps), and streams back words, **action cards**, choice chips, one-question follow-ups and page navigation. Reads run immediately; every write is only **proposed** (stored in `ai_actions`, 0068) and executes when the user taps Confirm — as the user, through their own JWT, with RLS and all guards applying.
+- `AssistantContext.jsx` → `AssistantProvider` (hook `useAssistant` in `assistantStore.js`) holds the conversations once for the whole app. Chats persist in `localStorage['edgeos.ai.chats']` (max 60) with their cards (by `action_id`, refreshed from the server on reopen) and the chat's `entities` (last 10 records referred to, sent back as `recentEntities` so "it" / "that task" resolve). It runs turns (`services/agentService.js`), confirm / cancel / undo, chip answers, typed answers to an open question, and "yes" by voice for a single low-risk card.
+  - Cards: `ActionCard.jsx` (proposed → executing → receipt with Undo 10 min + Open / failed / expired / cancelled; low risk = field diff, high risk = the exact row plus a named button and an irreversibility note; inline Edit; Ctrl/⌘+Enter confirms, Esc cancels), `DisambiguationCard.jsx`, `FollowUpChips.jsx`, `cardText.js`.
+  - Voice input uses `hooks/useSpeechRecognition.js`.
+  - The old in-browser cash flow (`CashEntryCard.jsx`) is gone; money is recorded through the agent's `create_cash_entry` (high risk), still parsed by `src/shared/cashIntent.js`.
 - `Copilot.jsx` renders the copilot in two variants: `variant="dock"` (the hub column, with Chat/History tabs) and `variant="full"` (the full-screen workspace with a history list). It supports search, pin, rename, share and delete chats. Supporting pieces are `Markdown.jsx` (a tiny safe markdown renderer), `Orb.jsx` (animated voice orb) and `copilot.css`.
 - `AIAssistant.jsx` is the global launcher that opens the full-screen copilot on non-hub pages.
 - `services/cofounderAI.ts` holds `EdgeContext`, `buildEdgeContext` (built in `App.jsx` from records + financial docs), `callCofounderAI`, `callCofounderAISimple`, `getSuggestedPrompts` and task-assign helpers (`detectTaskAssignIntent`, `parseDateFromMessage`, `buildTaskAssignPrompt`, `parseTaskAssignResponse`…).
 - `services/companyMemory.ts` stores long-lived company facts in `ai_company_memory` (`loadCompanyMemory`, `refreshMemory`, `extractCompanyMemory`, onboarding Q&A `ONBOARDING_QUESTIONS`). It has tests.
-- AI message quotas are enforced server-side in `api/nvidia.js` through `bump_ai_usage` (0010) against the plan's `aiMessages`.
+- AI message quotas are enforced server-side in `api/agent.js` and `api/nvidia.js` through `bump_ai_usage` (0010) against the plan's `aiMessages` — once per user message (a tapped chip or a typed answer to an open question costs nothing).
 
 ### 7.3 Design system
 
@@ -487,7 +487,7 @@ Helpers: `portalKit.jsx` (`PhotoAvatar`, `Kpi`, `ClockCard`, `ChartTip`…), `po
 | `catalogService.js` | Product catalogue + `performance()` RPC. | `catalogService`, `UNIT_OPTIONS`, `TAX_RATES`, `productToLineItem` |
 | `financeAnalytics.js` | Pure finance math. | see §6.6 |
 | `financeCategories.js` | `finance_categories` reference data and treatments. | `TREATMENTS`, `PAYMENT_METHODS`, `loadFinanceCategories`, `categoriesFor`, `treatmentOf`, `countsAsIncome`, `countsAsExpense`, `isCostRecovery` |
-| `cashIntent.js` | Sentence → cash-book draft (deterministic NLP). | `detectCashIntent`, `parseAmount`, `parseCurrency`, `parseDate`, `parseMethod`, `parseGstRate`, `guessCategory`, `startDraft`, `nextQuestion`, `applyAnswer`, `CURRENCIES`, `SECTION_OF` |
+| `cashIntent.js` | Re-export of `src/shared/cashIntent.js`: sentence → cash-book draft (deterministic NLP), also used by the agent server-side. `src/shared/` also holds `dates.js` (dates as said, resolved in the org timezone; `prefer: past/future`), `financeTaxonomy.js`, `finDocs.js` (financial document rows, line items, totals, company snapshot, receivables, `financialDocFromRow`), and `documentConversion.js` / `documentLifecycle.js` / `proformaAdvance.js` (re-exported from their old `services/` paths); it imports nothing outside itself (`sharedBoundary.test.js`). | `detectCashIntent`, `parseAmount`, `parseCurrency`, `parseDate`, `parseMethod`, `parseGstRate`, `guessCategory`, `startDraft`, `nextQuestion`, `applyAnswer`, `CURRENCIES`, `SECTION_OF` |
 | `salesGeoService.js` | Revenue by country (RPC). | `salesGeoService.byCountry`, `summarise`, `PERIODS`, `periodRange` |
 | `invoiceReminderService.js` | Overdue flagging + reminder emails. | `invoiceReminderService.send/runCheck` |
 | `receiptService.js` | `receipts` bucket (5 MB, png/jpeg/webp/pdf), signed URLs. | `receiptService`, `validateReceipt`, `RECEIPT_*` |
@@ -506,6 +506,7 @@ Helpers: `portalKit.jsx` (`PhotoAvatar`, `Kpi`, `ClockCard`, `ChartTip`…), `po
 | `brainService.js` | EdgeBrain client. | see §6.11 |
 | `cofounderAI.ts`, `companyMemory.ts` | AI chat + memory. | see §7.2 |
 | `taskStore.ts` | Tasks. | `Task`, `taskStore` |
+| `agentService.js` | EdgeAI agent client: SSE turns and card actions. | `streamAgent`, `confirmAction`, `cancelAction`, `undoAction`, `actionStatus`, `sseParser` |
 | `projectService.js` | Projects: CRUD, close/reopen/archive/duplicate, team, milestones, money links (`allocate` → RPC `set_project_allocations`, one transaction), document links, the report RPCs, activity, and DB error codes → sentences. | `createProject`, `updateProject`, `closeProject`, `reopenProject`, `addMember`, `endMember`, `allocate`, `saveSplitFromPicker`, `pickerFromAllocations`, `linkDocument`, `financials`, `portfolio`, `employeeAllocation`, `activity`, `prefillFromQuotation`, `friendlyError` |
 | `projectAnalytics.js` | Pure project arithmetic (no money that pay feeds). | `burnVsTime`, `milestoneProgress`, `projectProgress`, `projectedEnd`, `groupByStatus`, `allocationTotals`, `splitRemainder`, `toSplits`, `formatHealthReasons`, `pickerOrder` |
 | `decisionEngine.ts`, `followUpEngine.ts`, `employeeAI.ts` | Decision mode, follow-up drafts, and conversational employee create/edit/role-change/terminate. **Only used by the orphaned `CopilotPanel.tsx`.** | — |
@@ -565,7 +566,7 @@ Helpers: `portalKit.jsx` (`PhotoAvatar`, `Kpi`, `ClockCard`, `ChartTip`…), `po
 
 ## 10. Serverless API (`api/`)
 
-All handlers are Vercel functions. In dev, the `dev-api-routes` plugin in `vite.config.js` runs them in-process for `email`, `org-secrets`, `portal`, `portal-token`, `admin`, `nvidia`, `export` and `brain`. Auth uses `Authorization: Bearer <supabase access token>`.
+All handlers are Vercel functions. In dev, the `dev-api-routes` plugin in `vite.config.js` runs them in-process for `email`, `org-secrets`, `portal`, `portal-token`, `admin`, `nvidia`, `export`, `brain`, `library` and `agent`. Auth uses `Authorization: Bearer <supabase access token>`.
 
 | Route | Method | Auth | Purpose |
 |---|---|---|---|
@@ -574,6 +575,7 @@ All handlers are Vercel functions. In dev, the `dev-api-routes` plugin in `vite.
 | `/api/portal-token` | POST | member | Mint a `portal_tokens` row and return a signed URL (`<jti>.<exp>.<hmac>`, `_lib/portalToken.js`). |
 | `/api/portal` | GET / POST | portal token | The recipient portal's only door. Loads the document + company. Applies actions (§6.5) under the service role, scoped to the one document. |
 | `/api/nvidia` | POST | member | Gemini chat proxy (OpenAI-compatible SSE; model `gemini-3.6-flash`). Meters `bump_ai_usage` against the plan limit (429 when exceeded). The name is historical. |
+| `/api/agent` | POST | member (acts as the caller) | EdgeAI agent. `mode:'chat'` streams SSE events (`text`, `card`, `choice`, `input`, `notice`, `navigate`, `entities`, `status`); `confirm` / `cancel` / `undo` / `status` act on `ai_actions`. Writes run through the caller's JWT with header `x-edgeos-agent-action`; the service role only writes `ai_actions` and meters. See `docs/edgeai-agent.md`. |
 | `/api/brain` | POST | member + `edgebrain` permission | EdgeBrain `status`, `build`, `sync`, `search`, `entity`, `neighbors`, `metrics`, `context`, `ask`. |
 | `/api/export` | GET | owner/admin | Full tenant JSON export (every org table except secrets, plus bucket listings). |
 | `/api/admin` | POST | `platform_admin` claim + `PLATFORM_ADMIN_EMAIL` | Platform console actions (§6.12). Sends mail from the platform's own SMTP. |
@@ -586,6 +588,7 @@ All handlers are Vercel functions. In dev, the `dev-api-routes` plugin in `vite.
 - `portalToken.js`: `assertPortalSecret`, `buildToken`, `verifyToken`.
 - `docShape.js`: `recordFromRow` and `financialDocFromRow`, which mirror orgStore's mappers and are deliberately without payments.
 - `brainRetrieval.js`: see §6.11.
+- `agent/`: the EdgeAI agent — `registry.js` (tool catalogue, risk, permission filter), `tools/*` (read, navigate, tasks, clients, cash, finance), `resolvers.js` (names → records, never a guess), `pipeline.js` (propose / confirm / undo), `executor.js` (plans applied as the user, optimistic concurrency), `loop.js`, `prompt.js` (`AGENT_PROMPT_VERSION`), `actions.js`, `context.js`, `db.js` (user-token client, friendly errors), `testing/fakeDb.js`.
 
 **Environment variables** (`.env.example`):
 
@@ -687,6 +690,12 @@ All handlers are Vercel functions. In dev, the `dev-api-routes` plugin in `vite.
 | 0057 | employee project tasks | `set_my_task_status` |
 | 0058–0060 | timesheets | Resource, `timesheet_entries` + self/manager policies, `decide_timesheets`, `projects.cost_method`, `project_hours`, `unbilled_hours`, billing on invoice insert |
 | 0061 | EdgeBrain projects | `project`/`milestone` nodes, project edges, `project.*` metrics gated by `project_financials` |
+| 0062 | member permissions | Per-person exceptions (`member_permissions`), `has_permission` reads them; `my_permissions` / `user_permissions` |
+| 0063 | document library | `library_documents`, `library_chunks` |
+| 0064–0065 | document versions | `document_versions`, negotiation events; contract value from the locked version |
+| 0066 | EdgeBrain headline totals | `cash.net` etc. on the tiles' definitions |
+| 0067 | AI usage events | `ai_usage_events`, one row per AI call |
+| 0068 | EdgeAI actions | `ai_actions` (proposals → executed/undone; own rows, owner/admin read all; service-role writes only), `ai_actions` permission resource, `audit_log.via` / `ai_action_id` stamped by `app.write_audit` via `app.agent_action_id()` for a confirmed action of the writer. Preflight: `supabase/checks/agent_preflight.sql` |
 | *pending* | `supabase/pending/0026_drop_legacy_client_tables.sql` | Drop `customers` / `crm_leads` (not applied) |
 
 **Two files share the `0038_` prefix.** Apply `0038_cash_entries.sql` before `0038_repair_income_permissions.sql`.
@@ -705,6 +714,9 @@ Run them with `scripts/run-db-tests.sh`, which needs Docker. It builds a throwaw
 - `08_projects_test`: role matrix, employee surfaces, allocation rules, closed-project lock, labour cost and P&L on a fixture, and the salary-leak check
 - `08b_projects_phase2_test`: health, invoices that know their project, the plan quota, reminders, employees' own tasks
 - `08c_projects_phase3_test`: timesheets (self-service, approval, lock, self-approval), timesheet costing, billing hours, EdgeBrain
+- `09_member_permissions_test`, `10_document_versions_test`, `11_brain_headline_totals_test`, `12_ai_usage_events_test`
+- `14_document_totals_test`: the agent's invoice totals equal `app.recompute_document_totals` on a shared fixture; issue / convert / cancel status writes pass the version guard as a member
+- `13_ai_actions_test`: `ai_actions` visibility and no client writes; a member without finance rights cannot record a payment or expense through the agent's path; `via = 'edgeai'` only for the writer's own confirmed action
 
 Expected output is in `expected/day_one_access.out`. It covers every table under RLS, including the EdgeBrain, cash-book and project tables added since 0026.
 
@@ -784,8 +796,9 @@ Expected output is in `expected/day_one_access.out`. It covers every table under
 | Change project money / labour cost | migrations 0049 (`app.allocation_source`) and 0051; `docs/projects.md` |
 | Link money to a project from a form | `shared/ProjectPicker.jsx` + `projectService.saveSplitFromPicker` |
 | Show a control only to people with a permission | `orgStore.can(resource, action)` (display only; RLS decides) |
-| Change AI behaviour | `assistant/AssistantContext.jsx`, `services/cofounderAI.ts`, `api/nvidia.js` |
-| Make the AI record something | `services/cashIntent.js` + `assistant/CashEntryCard.jsx` |
+| Change AI behaviour | `api/_lib/agent/prompt.js` (bump `AGENT_PROMPT_VERSION`), `api/_lib/agent/loop.js`, `assistant/AssistantContext.jsx`; evals `scripts/eval-agent.js` |
+| Make the AI do something new | add a tool in `api/_lib/agent/tools/` — `docs/edgeai-agent.md` |
+| See what the AI changed | `ai_actions` (0068); `audit_log where via = 'edgeai'` |
 | Change what EdgeBrain knows | migrations 0033–0041 (`app.brain_sync_*`, `brain_refresh_metrics*`) + `api/_lib/brainRetrieval.js` |
 | Send email | `services/emailService.js` → `api/email.js` |
 | Recipient signing / portal | `portal/RecipientPortal.jsx`, `services/portalService.js`, `api/portal.js`, `api/portal-token.js` |

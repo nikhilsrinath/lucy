@@ -167,6 +167,18 @@ export default function TasksPage({ projectId = null, embedded = false }) {
     const openCreate = () => { setEditing(null); setShowModal(true); };
     const openEdit = (task) => { setEditing(task); setShowModal(true); };
 
+    // /tasks?task=<id> — EdgeAI's "Open" on a task card lands on that task.
+    const linkedTask = params.get('task');
+    const [openedLink, setOpenedLink] = useState(null);
+    useEffect(() => {
+        if (!linkedTask || openedLink === linkedTask) return;
+        const task = tasks.find((x) => x.id === linkedTask);
+        if (!task) return;
+        setOpenedLink(linkedTask);
+        setEditing(task);
+        setShowModal(true);
+    }, [linkedTask, openedLink, tasks]);
+
     const Card = ({ task }) => {
         const dl = deadlineOf(task.deadline);
         const over = isOverdue(task);

@@ -6,10 +6,11 @@ import {
     Share2, Pencil, Pin, PinOff, Trash2, Maximize2, Minimize2, X, PanelLeft, PanelRightClose,
     MessageSquare, Copy, Check, Volume2, VolumeX, RefreshCw,
 } from 'lucide-react';
-import { makeTokens } from '../../theme/edge';
 import { useAssistant } from './assistantStore';
 import { confirmDialog } from '../../services/confirm';
-import CashEntryCard from './CashEntryCard';
+import ActionCard from './ActionCard';
+import DisambiguationCard from './DisambiguationCard';
+import FollowUpChips from './FollowUpChips';
 import Markdown from './Markdown';
 import VoiceCall from './VoiceCall';
 import '../../theme/surface.css';
@@ -33,6 +34,7 @@ const PROMPTS = [
     'Which clients are overdue?',
     'Summarise this week',
     'We spent 4,500 on office chairs yesterday',
+    'Move the pricing task to next Friday',
 ];
 
 // With projects in the workspace, lead with the project questions.
@@ -99,7 +101,6 @@ const lastLine = (c) => {
 
 export default function Copilot({ variant = 'dock', theme = 'dark', onExpand, onCollapse, onClose, onHide }) {
     const a = useAssistant();
-    const t = useMemo(() => makeTokens(theme === 'dark'), [theme]);
     const navigate = useNavigate();
     const [callOpen, setCallOpen] = useState(false);
     const full = variant === 'full';
@@ -119,16 +120,13 @@ export default function Copilot({ variant = 'dock', theme = 'dark', onExpand, on
         <>
             {a.messages.length === 0
                 ? <Welcome a={a} compact={!full} />
-                : <Thread a={a} t={t} onOpenCashBook={() => { onClose?.(); navigate('/cashbook'); }} />}
+                : <Thread a={a} onOpen={(href) => { if (full) onClose?.(); navigate(href); }} />}
             <div className="cp-foot">
                 <div className="cp-foot-inner">
-                    {a.ask && a.ask.chatId === a.activeId && (
+                    {a.pendingQuestion && !a.streaming && (
                         <div className="cp-pending" role="status">
-                            <span>
-                                Still recording {a.ask.draft.direction === 'in' ? 'money in' : 'money out'}
-                                {a.ask.draft.description ? ` · ${a.ask.draft.description}` : ''}
-                            </span>
-                            <button type="button" onClick={() => a.dropAsk(a.activeId)}>Cancel</button>
+                            <span>Waiting for: {a.pendingQuestion.content}</span>
+                            <button type="button" onClick={() => a.dismissQuestion(a.activeId, a.pendingQuestion.id)}>Skip</button>
                         </div>
                     )}
                     <Composer a={a} onCall={() => setCallOpen(true)} autoFocus={full} />
@@ -389,9 +387,9 @@ function Welcome({ a, compact }) {
 
 /* ── thread ─────────────────────────────────────────────────────────────── */
 
-function Thread({ a, t, onOpenCashBook }) {
+function Thread({ a, onOpen }) {
     const ref = useRef(null);
-    const { messages, streaming, card, ask, activeId } = a;
+    const { messages, streaming, working, activeId } = a;
 
     useEffect(() => {
         const el = ref.current;
@@ -404,36 +402,49 @@ function Thread({ a, t, onOpenCashBook }) {
                 {messages.map((m, i) => {
                     if (m.role === 'user') return <div key={m.id} className="cp-msg is-user">{m.content}</div>;
 
-                    // A card is live only while its draft is — after a reload the
-                    // message falls back to the line it stored.
-                    if (card && card.chatId === activeId && card.messageId === m.id) {
+                    if (m.kind === 'action' && m.card) {
                         return (
                             <div key={m.id} className="cp-msg">
-                                <CashEntryCard
-                                    t={t} draft={card.draft} saving={card.saving} error={card.error} saved={card.saved}
-                                    onChange={a.editCard} onSave={a.saveCard} onCancel={a.cancelCard}
-                                    onOpenCashBook={onOpenCashBook}
+                                <ActionCard
+                                    card={m.card}
+                                    onConfirm={(opts) => a.confirmCard(activeId, m.id, opts)}
+                                    onCancel={() => a.cancelCard(activeId, m.id)}
+                                    onUndo={() => a.undoCard(activeId, m.id)}
+                                    onOpen={onOpen}
                                 />
                             </div>
                         );
                     }
 
-                    // Chips belong to the question being answered right now.
-                    const chips = ask && ask.chatId === activeId && ask.messageId === m.id && m.choices?.length;
+                    if (m.kind === 'choice' && m.choice) {
+                        return (
+                            <div key={m.id} className="cp-msg">
+                                <DisambiguationCard message={m} disabled={streaming} onPick={(o) => a.answer(m.id, o)} />
+                            </div>
+                        );
+                    }
+
                     const replying = streaming && i === messages.length - 1;
                     return (
-                        <div key={m.id} className={`cp-msg${m.error ? ' is-error' : ''}`}>
+                        <div key={m.id} className={`cp-msg${m.error ? ' is-error' : ''}${m.kind === 'notice' ? ' is-notice' : ''}`}>
                             {m.content
                                 ? <Markdown text={m.content} t={MD_TOKENS} />
-                                : <span className="cp-typing" role="status" aria-label="EdgeAI is replying"><span /><span /><span /></span>}
+                                : (
+                                    <span className="cp-typing-row">
+                                        <span className="cp-typing" role="status" aria-label="EdgeAI is replying"><span /><span /><span /></span>
+                                        {working && replying && <span className="cp-working">{working}</span>}
+                                    </span>
+                                )}
                             {m.hint && <div className="cp-hint">{m.hint}</div>}
-                            {chips && (
+                            {m.kind === 'input' && !m.resolved && (
+                                <FollowUpChips options={m.input?.options} disabled={streaming} label={m.content}
+                                    onPick={(o) => a.answer(m.id, o)} />
+                            )}
+                            {m.kind === 'notice' && m.offer && (
                                 <div className="cp-chips">
-                                    {m.choices.map((o) => (
-                                        <button key={o.value} type="button" className="cp-chip" onClick={() => a.answerCash(o.value, o.label)}>
-                                            {o.label}
-                                        </button>
-                                    ))}
+                                    <button type="button" className="cp-chip" disabled={streaming} onClick={() => a.takeOffer(m.id)}>
+                                        {m.offer.label || 'Create it'}
+                                    </button>
                                 </div>
                             )}
                             {m.content && !replying && (

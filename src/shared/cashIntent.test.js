@@ -375,3 +375,112 @@ describe('projects in a cash sentence', () => {
     expect(nextQuestion(startDraft('paid 500 for tea by cash', 'out', '2026-09-25', projects))?.slot).not.toBe('project');
   });
 });
+
+/* ── Real sentences ──────────────────────────────────────────────────────────
+   What people actually type into the copilot, end to end: direction, amount,
+   currency, date, rail and GST read out of one line. `undefined` means "not
+   asserted"; `null` means "must not be read at all" (a method that is not
+   there, a date nobody said). TODAY is Tuesday 22 Sep 2026. */
+
+const S = (text, want) => ({ text, ...want });
+
+const SENTENCES = [
+  // money out
+  S('spent 4500 on office chairs yesterday', { dir: 'out', amount: 4500, currency: 'INR', date: '2026-09-21' }),
+  S('we spent 4.5k on chairs', { dir: 'out', amount: 4500 }),
+  S('paid ₹25,000 rent for October by bank transfer', { dir: 'out', amount: 25000, currency: 'INR', method: 'bank_transfer' }),
+  S('paid rent 25k via NEFT', { dir: 'out', amount: 25000, method: 'bank_transfer' }),
+  S('bought a laptop for 1.2 lakh on 15 Sep', { dir: 'out', amount: 120000, date: '2026-09-15' }),
+  S('we spent 1.5L on the office fit-out', { dir: 'out', amount: 150000 }),
+  S('paid 2 crore for the building', { dir: 'out', amount: 20000000 }),
+  S('paid 7.5 crores for the land', { dir: 'out', amount: 75000000 }),
+  S('paid the CA 15000 fees', { dir: 'out', amount: 15000 }),
+  S('paid 18000 for AWS including 18% GST', { dir: 'out', amount: 18000, gst: 18 }),
+  S('paid 12% GST of 4,800 on software', { dir: 'out', amount: 4800, gst: 12 }),
+  S('spent Rs. 350 on tea and snacks in cash', { dir: 'out', amount: 350, currency: 'INR', method: 'cash' }),
+  S('paid Rs 500/- for photocopies', { dir: 'out', amount: 500, currency: 'INR' }),
+  S('paid 1,20,000 salaries by bank', { dir: 'out', amount: 120000, method: 'bank_transfer' }),
+  S('Paid $300 for Figma', { dir: 'out', amount: 300, currency: 'USD' }),
+  S('paid 250 USD to the freelancer', { dir: 'out', amount: 250, currency: 'USD' }),
+  S('paid €1,200 for the conference stall', { dir: 'out', amount: 1200, currency: 'EUR' }),
+  S('bought 450 kg of steel for 90,000', { dir: 'out', amount: 90000 }),
+  S('bought 12 pcs of chairs for 36,000', { dir: 'out', amount: 36000 }),
+  S('paid 60,000 for 2 months rent', { dir: 'out', amount: 60000 }),
+  S('paid electricity bill 3200 by upi', { dir: 'out', amount: 3200, method: 'upi' }),
+  S('paid 999 for the domain by card', { dir: 'out', amount: 999, method: 'card' }),
+  S('paid 12,500 by cheque', { dir: 'out', amount: 12500, method: 'cheque' }),
+  S('paid 3,000 via paytm', { dir: 'out', amount: 3000, method: 'wallet' }),
+  S('paid bank charges of 590', { dir: 'out', amount: 590, method: null }),
+  S('cash out 1200 for courier', { dir: 'out', amount: 1200, method: null }),
+  S('paid the internet bill of ₹1,179 on 2nd Sep', { dir: 'out', amount: 1179, date: '2026-09-02' }),
+  S('spent 600 on petrol day before yesterday', { dir: 'out', amount: 600, date: '2026-09-20' }),
+  S('paid 7,080 for insurance 3 days ago', { dir: 'out', amount: 7080, date: '2026-09-19' }),
+  S('paid 45000 on 12/09 for the server', { dir: 'out', amount: 45000, date: '2026-09-12' }),
+  S('paid 1.5 lakhs to the contractor last friday', { dir: 'out', amount: 150000, date: '2026-09-18' }),
+  S('paid half a lakh for the event stall', { dir: 'out', amount: 50000 }),
+  S('spent a lakh on marketing', { dir: 'out', amount: 100000 }),
+  S('paid 2,360 on monday for the courier', { dir: 'out', amount: 2360, date: '2026-09-21' }),
+  S('spent 800 today on printer ink', { dir: 'out', amount: 800, date: '2026-09-22' }),
+  S('log an expense of 2,500 for stationery', { dir: 'out', amount: 2500 }),
+  S('paid 5,000 for the 18th birthday cake', { dir: 'out', amount: 5000 }),
+  // money in
+  S('received 60000 from Acme', { dir: 'in', amount: 60000 }),
+  S('Acme paid us 50,000 by UPI', { dir: 'in', amount: 50000, method: 'upi' }),
+  S('the client transferred us 75,000 via NEFT', { dir: 'in', amount: 75000, method: 'bank_transfer' }),
+  S('got 20k from a counter sale', { dir: 'in', amount: 20000 }),
+  S('collected 1.2 lakh in counter sales', { dir: 'in', amount: 120000 }),
+  S('received $2,000 from a US client', { dir: 'in', amount: 2000, currency: 'USD' }),
+  S('received GBP 500 from the UK client', { dir: 'in', amount: 500, currency: 'GBP' }),
+  S('received 5,90,000 investment from an angel investor', { dir: 'in', amount: 590000 }),
+  S('got paid 15000 for consulting yesterday', { dir: 'in', amount: 15000, date: '2026-09-21' }),
+  S('received 1,180 interest on the FD', { dir: 'in', amount: 1180 }),
+  S('sold old laptops for 25k', { dir: 'in', amount: 25000 }),
+  S('earned 8,000 in commission', { dir: 'in', amount: 8000 }),
+  S('received ₹40,000 advance from Kite by cheque', { dir: 'in', amount: 40000, currency: 'INR', method: 'cheque' }),
+  S('payment from Globex of 12,000 received today', { dir: 'in', amount: 12000, date: '2026-09-22' }),
+  S('received 18000 incl 18% gst from Acme', { dir: 'in', amount: 18000, gst: 18 }),
+  S('got 1,000 refund from the vendor', { dir: 'in', amount: 1000 }),
+  S('received INR 9,999 via razorpay', { dir: 'in', amount: 9999, currency: 'INR' }),
+  S('received 45k on 1st Sep', { dir: 'in', amount: 45000, date: '2026-09-01' }),
+  S('received 3.5 lakh loan from the bank', { dir: 'in', amount: 350000 }),
+  S('record income of 30000', { dir: 'in', amount: 30000 }),
+  S('record cash in of 5000 from Acme', { dir: 'in', amount: 5000, method: null }),
+  S('Kite sent us 1.25L yesterday', { dir: 'in', amount: 125000, date: '2026-09-21' }),
+  // which way is asked, not assumed
+  S('add a cash entry of 500', { dir: null, amount: 500 }),
+  S('received a refund and paid it back', { dir: null }),
+];
+
+// Asking about money is not recording it.
+const QUESTIONS = [
+  'how much did we spend on rent?',
+  'what is our income this month',
+  'okay how much is the expenses',
+  'show me expenses for September',
+  'did we pay the rent?',
+  'which clients paid us last month',
+  'can you tell me what we spent yesterday',
+  'compare income and expenses',
+];
+
+describe('real sentences', () => {
+  it(`covers at least 60 of them (${SENTENCES.length + QUESTIONS.length})`, () => {
+    expect(SENTENCES.length + QUESTIONS.length).toBeGreaterThanOrEqual(60);
+  });
+
+  it.each(SENTENCES)('$text', (s) => {
+    const intent = detectCashIntent(s.text);
+    expect(intent, 'recognised as recording money').not.toBeNull();
+    expect(intent.direction).toBe(s.dir);
+    const patch = parseCashSentence(s.text, s.dir || 'out', TODAY);
+    if (s.amount !== undefined) expect(Number(patch.original_amount)).toBe(s.amount);
+    if (s.currency !== undefined) expect(patch.currency || 'INR').toBe(s.currency);
+    if (s.date !== undefined) expect(patch.date ?? null).toBe(s.date);
+    if (s.method !== undefined) expect(patch.payment_method ?? null).toBe(s.method);
+    if (s.gst !== undefined) expect(patch.tax_rate ?? null).toBe(s.gst);
+  });
+
+  it.each(QUESTIONS)('"%s" is a question, not an entry', (q) => {
+    expect(detectCashIntent(q)).toBeNull();
+  });
+});

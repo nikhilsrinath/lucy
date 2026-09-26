@@ -1,26 +1,43 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { AssistantCtx } from './assistantStore';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
-import { callCofounderAI } from '../../services/cofounderAI';
 import { VOICE_INSTRUCTION } from '../../services/voice';
-import { getContext as getBrainContext } from '../../services/brainService';
-import { orgStore } from '../../services/orgStore';
 import {
-    detectCashIntent, startDraft, nextQuestion, applyAnswer, validateDraft, toEntry,
-    baseAmount, isCancel, amountHints,
-} from '../../services/cashIntent';
-import { allocate, canAllocate } from '../../services/projectService';
-import { isOpen } from '../../services/projectAnalytics';
+    streamAgent, confirmAction, cancelAction, undoAction, actionStatus,
+} from '../../services/agentService';
+import { amountHints } from '../../shared/cashIntent';
+import { cardLine } from './cardText';
+import { orgStore } from '../../services/orgStore';
 
-// Open projects in the shape cashIntent.parseProject reads. Only offered to
-// someone who could link money to them.
-const cashProjects = () => {
-    if (!canAllocate()) return [];
-    const clients = Object.fromEntries(orgStore.getSectionAsList('customers').map((c) => [c.id, c.name]));
-    return orgStore.getSectionAsList('projects').filter(isOpen)
-        .map((p) => ({ id: p.id, code: p.code, name: p.name, client: clients[p.client_id] || '' }));
+// The orgStore sections that show each table the agent can change. After a
+// confirm or an undo the confirming tab re-reads them at once; other tabs and
+// other people get the same change through Realtime (0068 publishes these).
+const SECTIONS_OF = {
+    tasks: ['tasks'],
+    clients: ['customers', 'crm_leads'],
+    expenses: ['expenses'],
+    income_entries: ['income_entries'],
+    project_allocations: ['project_allocations'],
+    vendors: ['vendors'],
+    purchase_invoices: ['purchase_invoices'],
 };
-import { categoryLabel } from '../../services/financeCategories';
+// Invoices, quotations and proformas span three tables and reload together.
+const FIN_DOC_TABLES = new Set(['financial_documents', 'document_line_items', 'payments']);
+
+function refreshScreens(tables) {
+    if ((tables || []).some((t) => FIN_DOC_TABLES.has(t))) {
+        orgStore.refreshFinDocs().catch(() => { /* the next load catches up */ });
+    }
+    for (const table of tables || []) {
+        for (const section of SECTIONS_OF[table] || []) {
+            orgStore.refreshSection(section).catch(() => { /* the next load catches up */ });
+        }
+        if (table === 'tasks') {
+            try { window.dispatchEvent(new CustomEvent('edgeos:tasks-changed')); } catch { /* ignore */ }
+        }
+    }
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    The assistant's state, held once for the whole app.
@@ -31,32 +48,39 @@ import { categoryLabel } from '../../services/financeCategories';
    keep streaming while you move from one to the other, and what makes a chat
    started in the hub the same chat when you expand it.
 
-   Conversations live in localStorage, so the history survives a reload and
-   not just a navigation.
+   Every message goes to the agent (api/agent.js). It answers, and when the
+   message means something should change, it sends back a CARD: a proposal
+   the person confirms with a tap. Nothing here writes business data except
+   the card buttons (confirm / undo), which call the server with the card's
+   action id. A chat stores its cards by that id, so a reloaded thread asks
+   the server for their current state instead of trusting a stale copy.
+
+   Conversations live in localStorage, so the history survives a reload.
    ══════════════════════════════════════════════════════════════════════════ */
 
 const STORE_KEY = 'edgeos.ai.chats';
 const MAX_CHATS = 60;
-
-const RUPEES = (v) => (Number(v) || 0).toLocaleString('en-IN', {
-    style: 'currency', currency: 'INR', maximumFractionDigits: 2,
-});
-
-/** What the thread shows in place of a card that is no longer live. */
-const recordedLine = (entry, direction) => `Recorded ${direction === 'in' ? 'money in' : 'money out'} · `
-    + `${RUPEES(baseAmount(entry))} — ${entry.description} `
-    + `(${categoryLabel(entry.category)}) on ${entry.date}.`;
+const MAX_ENTITIES = 10;
+const LIVE = new Set(['proposed', 'executing', 'confirmed']);
 
 let seq = 0;
 const uid = (p) => `${p}${Date.now().toString(36)}${(seq++).toString(36)}`;
 
-const newChat = () => ({ id: uid('c'), title: 'New chat', messages: [], at: Date.now() });
+const newChat = () => ({ id: uid('c'), title: 'New chat', messages: [], entities: [], at: Date.now() });
 
 /** First user line, trimmed to something that fits a history row. */
 const titleFor = (text) => {
     const one = String(text || '').replace(/\s+/g, ' ').trim();
     return one.length > 44 ? one.slice(0, 44).trimEnd() + '…' : one || 'New chat';
 };
+
+
+/** The conversation as the model should read it: words, and one line per card. */
+function historyOf(messages) {
+    return messages
+        .filter((m) => !m.error && (m.content || m.card))
+        .map((m) => ({ role: m.role, content: m.kind === 'action' ? cardLine(m.card) : m.content }));
+}
 
 function loadChats() {
     try {
@@ -65,12 +89,17 @@ function loadChats() {
             // A reply that was mid-stream when the tab closed will never finish.
             // Left empty it would render as a typing indicator forever.
             return raw.map((c) => ({
+                entities: [],
                 ...c,
-                messages: (c.messages || []).map((m) => (
-                    m.role === 'assistant' && !m.content && !m.kind
-                        ? { ...m, content: 'This reply was interrupted.', error: true }
-                        : m
-                )),
+                messages: (c.messages || [])
+                    // The old in-browser cash card (before the agent) cannot be
+                    // acted on any more; its stored line says what it was.
+                    .map((m) => (m.kind === 'card' || m.kind === 'ask' ? { ...m, kind: undefined } : m))
+                    .map((m) => (
+                        m.role === 'assistant' && !m.content && !m.kind
+                            ? { ...m, content: 'This reply was interrupted.', error: true }
+                            : m
+                    )),
             }));
         }
     } catch {
@@ -79,39 +108,37 @@ function loadChats() {
     return [newChat()];
 }
 
+/** The record open on the current page, when the URL names one. */
+function pageOf(location) {
+    const route = location.pathname + location.search;
+    const project = location.pathname.match(/^\/projects\/([0-9a-f-]{36})/i);
+    if (project) return { route, recordType: 'project', recordId: project[1] };
+    const task = new URLSearchParams(location.search).get('task');
+    if (location.pathname === '/tasks' && task) return { route, recordType: 'task', recordId: task };
+    return { route };
+}
+
 export function AssistantProvider({ edgeContext, children }) {
     const [chats, setChats] = useState(loadChats);
     const [activeId, setActiveId] = useState(() => chats[0].id);
     const [draft, setDraft] = useState('');
     const [streaming, setStreaming] = useState(false);
-    // The full-screen workspace. The hub's dock is always "open" while mounted.
+    // A one-line "Checking tasks…" while a read tool runs. Not stored.
+    const [working, setWorking] = useState('');
     const [open, setOpen] = useState(false);
-    // Which view a surface should show — asking from a hub widget flips an
-    // open History list back to the conversation it just started.
     const [view, setView] = useState('chat');
-    // How many docked panels are on screen. The launcher hides while one is,
-    // since the assistant is already right there.
     const [docks, setDocks] = useState(0);
-    // A one-line, self-clearing status for actions with no visible result of
-    // their own — copying a transcript being the one that needs it.
     const [note, setNote] = useState('');
 
-    /* Recording a cash entry, in two parts.
-       `ask` is the question being answered right now — which slot, and which
-       message asked it, so the chips render under that message and nowhere
-       else. `card` is a filled draft waiting to be confirmed; it outlives the
-       questioning, because the card stays usable while the conversation moves
-       on around it. Neither is stored with the chat: a half-finished entry has
-       no business surviving a reload where nothing can act on it. */
-    const [ask, setAsk] = useState(null);
-    const [card, setCard] = useState(null);
-
     const speech = useSpeechRecognition();
+    const navigate = useNavigate();
+    const location = useLocation();
+    const orgId = edgeContext?.orgId || null;
 
-    // Read by callbacks that must see the latest chats without being rebuilt
-    // on every keystroke of a streaming reply.
     const chatsRef = useRef(chats);
     useEffect(() => { chatsRef.current = chats; }, [chats]);
+    const pageRef = useRef(pageOf(location));
+    useEffect(() => { pageRef.current = pageOf(location); }, [location]);
 
     const active = useMemo(() => chats.find((c) => c.id === activeId) || chats[0], [chats, activeId]);
 
@@ -119,8 +146,7 @@ export function AssistantProvider({ edgeContext, children }) {
         try { localStorage.setItem(STORE_KEY, JSON.stringify(chats.slice(0, MAX_CHATS))); } catch { /* quota */ }
     }, [chats]);
 
-    // Another tab wrote the history. Adopt it unless this tab is mid-reply,
-    // where replacing the list would orphan the message being streamed into.
+    // Another tab wrote the history. Adopt it unless this tab is mid-reply.
     useEffect(() => {
         const onStorage = (e) => {
             if (e.key !== STORE_KEY || streaming) return;
@@ -143,211 +169,271 @@ export function AssistantProvider({ edgeContext, children }) {
         setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
     }, []);
 
-    /** Messages onto the end of a chat, naming the chat if this is its first. */
-    const appendTo = useCallback((chatId, msgs, firstText) => {
+    const patchMessage = useCallback((chatId, messageId, fields) => {
+        patchChat(chatId, (c) => ({
+            ...c,
+            messages: c.messages.map((m) => (m.id === messageId ? { ...m, ...(typeof fields === 'function' ? fields(m) : fields) } : m)),
+        }));
+    }, [patchChat]);
+
+    const append = useCallback((chatId, msgs, firstText) => {
         patchChat(chatId, (c) => ({
             ...c,
             at: Date.now(),
-            // A name the person typed is never replaced by one derived here.
             title: (c.titled || c.messages.length) ? c.title : titleFor(firstText || msgs[0]?.content || ''),
             messages: [...c.messages, ...msgs],
         }));
     }, [patchChat]);
 
-    /** Rewrites one message in place — a card turning into the line it leaves behind. */
-    const patchMessage = useCallback((chatId, messageId, fields) => {
-        patchChat(chatId, (c) => ({
-            ...c,
-            messages: c.messages.map((m) => (m.id === messageId ? { ...m, ...fields } : m)),
-        }));
+    /** Records this turn referred to, newest first, tagged with the turn. */
+    const remember = useCallback((chatId, turn, entities) => {
+        if (!entities?.length) return;
+        patchChat(chatId, (c) => {
+            const fresh = entities.map((e) => ({ type: e.type, id: e.id, label: e.label, turn }));
+            const rest = (c.entities || []).filter((e) => !fresh.some((f) => f.id === e.id));
+            return { ...c, entities: [...fresh, ...rest].slice(0, MAX_ENTITIES) };
+        });
     }, [patchChat]);
 
-    /* ── recording a cash entry ───────────────────────────────────────────
-       Deliberately never reaches the model. The questions come from
-       cashIntent's slot machine and the write happens only on the card's own
-       button, so what lands in the ledger is exactly what was on screen when
-       it was pressed — and the whole exchange costs no AI quota. */
-
-    const presentCash = useCallback((chatId, entry, leading, firstText) => {
-        const q = nextQuestion(entry);
-        const id = uid('m');
-
-        if (q) {
-            // The amount is usually already in the conversation — the figure
-            // named a few lines up. Offering it back keeps this one
-            // conversation rather than a wizard opened on top of one.
-            const msgs = chatsRef.current.find((c) => c.id === chatId)?.messages || [];
-            const fromThread = q.slot === 'amount'
-                ? amountHints(msgs.filter((m) => !m.error).slice(-6).map((m) => m.content))
-                : [];
-
-            appendTo(chatId, [...leading, {
-                id, role: 'assistant', kind: 'ask',
-                content: q.text, hint: q.hint || null,
-                choices: [...fromThread, ...(q.options || [])].slice(0, 8),
-            }], firstText);
-            setAsk({ chatId, draft: entry, slot: q.slot, messageId: id });
-            return;
-        }
-
-        appendTo(chatId, [...leading, {
-            id, role: 'assistant', kind: 'card',
-            // Read when the card is no longer live — after a reload, or in a
-            // shared transcript. A card nobody can act on must still say what
-            // it was and that nothing was written.
-            content: 'I put this entry together from what you said. It was not recorded.',
-        }], firstText);
-        setAsk(null);
-        setCard({ chatId, messageId: id, draft: entry, saving: false, error: '', saved: null });
-    }, [appendTo]);
-
-    /** A tapped chip. `shown` goes into the thread, `value` gets parsed. */
-    const answerCash = useCallback((value, shown) => {
-        if (!ask) return;
-        const res = applyAnswer(ask.draft, ask.slot, value);
-        if (!res.draft) return;
-        presentCash(ask.chatId, res.draft, [{ id: uid('m'), role: 'user', content: shown }]);
-    }, [ask, presentCash]);
-
-    /** Backing out of a half-finished entry, from the pill or from the sentence. */
-    const dropAsk = useCallback((chatId, leading = []) => {
-        appendTo(chatId, [...leading, {
-            id: uid('m'), role: 'assistant',
-            content: 'Left it there — nothing was recorded.',
-        }]);
-        setAsk(null);
-    }, [appendTo]);
-
-    /** The card's own button. Nothing else in the assistant writes to the ledger. */
-    const saveCard = useCallback(async () => {
-        if (!card || card.saving) return;
-        const problems = validateDraft(card.draft);
-        if (problems.length) { setCard((c) => ({ ...c, error: problems[0] })); return; }
-
-        setCard((c) => ({ ...c, saving: true, error: '' }));
-        try {
-            const { section, data, allocation } = toEntry(card.draft);
-            const saved = await orgStore.addItem(section, data);
-            // The project link follows the entry. If it fails the entry stands,
-            // and the card says so rather than pretending either way.
-            if (allocation && saved?.id && canAllocate()) {
-                try {
-                    await allocate(allocation.source_type, saved.id, [{ project_id: allocation.project_id, amount: null }]);
-                } catch (allocErr) {
-                    setCard((c) => ({ ...c, saving: false, saved: c.draft, error: `Recorded, but not linked to the project: ${allocErr.message}` }));
-                    return;
-                }
-            }
-            setCard((c) => ({ ...c, saving: false, saved: c.draft }));
-            patchMessage(card.chatId, card.messageId, {
-                content: recordedLine(card.draft, card.draft.direction),
-            });
-        } catch (err) {
-            // Reporting a save that did not happen is the one failure a ledger
-            // cannot absorb, so the card stays as it was and says why.
-            setCard((c) => ({ ...c, saving: false, error: err?.message || 'Could not record this entry.' }));
-        }
-    }, [card, patchMessage]);
-
-    const cancelCard = useCallback(() => {
-        if (!card) return;
-        patchMessage(card.chatId, card.messageId, {
-            content: 'Entry discarded — nothing was recorded.',
-        });
-        setCard(null);
-    }, [card, patchMessage]);
-
-    const editCard = useCallback((patch) => {
-        setCard((c) => (c ? { ...c, draft: { ...c.draft, ...patch }, error: '' } : c));
-    }, []);
-
-    /** Streams the model's answer to `content` into message `replyId`. */
-    const streamReply = useCallback((chatId, replyId, content, history, { voice = false } = {}) => {
-        setStreaming(true);
-        const patch = (fields) => patchChat(chatId, (c) => ({
-            ...c,
-            messages: c.messages.map((m) => (m.id === replyId ? { ...m, ...fields } : m)),
-        }));
-
-        // The company's facts come from EdgeBrain; getContext never throws, and
-        // without a brain the assistant answers from the summary figures alone.
-        (async () => {
-            const brain = await getBrainContext(edgeContext?.orgId, content);
-            // On a call the answer is heard, not read: asked for short and plain,
-            // and capped so it starts speaking sooner. The chat keeps the question
-            // as it was asked.
-            return callCofounderAI(voice ? `${content}\n\n${VOICE_INSTRUCTION}` : content, history, edgeContext || {}, {
-                onToken: (_tok, full) => patch({ content: full }),
-                onComplete: (full) => { patch({ content: full }); setStreaming(false); },
-                onError: (err) => { patch({ content: err || 'Something went wrong.', error: true }); setStreaming(false); },
-            }, null, brain.context || undefined,
-            undefined, undefined, undefined, undefined, voice ? 160 : undefined);
-        })().catch((err) => {
-            patch({ content: err?.message || 'Something went wrong.', error: true });
-            setStreaming(false);
-        });
-    }, [edgeContext, patchChat]);
+    /* ── one turn with the agent ──────────────────────────────────────────── */
 
     /**
-     * Send a message. `opts.chatId` targets a chat other than the active one —
-     * used when a new chat has just been created in the same tick and is not
-     * yet what `active` resolves to.
+     * Runs a turn. `body` carries what the server needs besides the chat:
+     * `message`, or `resume` (a tapped chip), and `pending` (an open question).
      */
+    const runTurn = useCallback((chatId, body, leading = [], { voice = false } = {}) => {
+        const replyId = uid('m');
+        const chatNow = chatsRef.current.find((c) => c.id === chatId);
+        append(chatId, [...leading, { id: replyId, role: 'assistant', content: '' }], leading[0]?.content);
+        setStreaming(true);
+
+        let said = '';
+        let added = 0;
+        const add = (msg) => { added += 1; append(chatId, [{ id: uid('m'), role: 'assistant', ...msg }]); };
+
+        const onEvent = (event, data) => {
+            switch (event) {
+                case 'status': setWorking(data.text || ''); break;
+                case 'text':
+                    said = said ? `${said}\n\n${data.text}` : data.text;
+                    patchMessage(chatId, replyId, { content: said });
+                    setWorking('');
+                    break;
+                case 'card':
+                    add({ kind: 'action', actionId: data.card.action_id, card: data.card, content: cardLine(data.card) });
+                    remember(chatId, replyId, data.card.entities);
+                    break;
+                case 'choice':
+                    add({ kind: 'choice', content: data.choice.question, choice: data.choice });
+                    break;
+                case 'input': {
+                    // The amount is usually already in the conversation — a
+                    // figure named a few lines up. Offer it back as a chip.
+                    const msgs = chatsRef.current.find((c) => c.id === chatId)?.messages || [];
+                    const hints = data.input.param === 'amount'
+                        ? amountHints(msgs.filter((m) => !m.error).slice(-6).map((m) => m.content))
+                        : [];
+                    add({ kind: 'input', content: data.input.question, hint: data.input.hint || null, input: { ...data.input, options: [...hints, ...(data.input.options || [])].slice(0, 8) } });
+                    break;
+                }
+                case 'notice': add({ kind: 'notice', content: data.text, offer: data.offer || null }); break;
+                case 'navigate':
+                    navigate(data.href);
+                    // The full-screen workspace would hide the page just opened.
+                    setOpen(false);
+                    add({ kind: 'notice', content: `Opened ${data.label}.` });
+                    break;
+                case 'entities': remember(chatId, replyId, data.entities); break;
+                case 'card_update': cardUpdateRef.current?.(chatId, data); added += 1; break;
+                case 'error': patchMessage(chatId, replyId, { content: data.message || 'Something went wrong.', error: true }); said = data.message || 'x'; break;
+                default: break;
+            }
+        };
+
+        const finish = () => {
+            setStreaming(false);
+            setWorking('');
+            // A turn that ended in a card needs no words of its own.
+            if (!said) {
+                if (added) patchChat(chatId, (c) => ({ ...c, messages: c.messages.filter((m) => m.id !== replyId) }));
+                else patchMessage(chatId, replyId, { content: 'I did not get an answer back. Try again?', error: true });
+            }
+        };
+
+        const recent = chatNow?.entities || [];
+        streamAgent({
+            org_id: orgId,
+            chat_id: chatId,
+            message_id: replyId,
+            history: historyOf(chatNow?.messages || []),
+            context: {
+                page: pageRef.current,
+                recentEntities: recent,
+                // Cards still waiting, so "scrap that" or (on a call) "yes, do it"
+                // is understood against them by the model — not matched by the app.
+                openCards: (chatNow?.messages || [])
+                    .filter((m) => m.kind === 'action' && m.card?.status === 'proposed')
+                    .slice(-5)
+                    .map((m) => ({ action_id: m.actionId, title: m.card.title, risk: m.card.risk })),
+            },
+            voice,
+            ...body,
+        }, onEvent).then(finish).catch((err) => {
+            said = err?.message || 'x';
+            patchMessage(chatId, replyId, { content: err?.message || 'Something went wrong.', error: true });
+            finish();
+        });
+    }, [orgId, append, patchChat, patchMessage, remember, navigate]);
+
+    /** The question still waiting on this chat, if its last message is one. */
+    const openQuestion = (chat) => {
+        const last = [...(chat?.messages || [])].reverse().find((m) => m.role === 'assistant');
+        return last && (last.kind === 'input' || last.kind === 'choice') && !last.resolved ? last : null;
+    };
+
+    /* ── cards ─────────────────────────────────────────────────────────── */
+
+    const setCard = useCallback((chatId, messageId, card, extra = {}) => {
+        patchMessage(chatId, messageId, { card, content: cardLine(card), ...extra });
+    }, [patchMessage]);
+
+    /** A card the agent changed in its own turn (withdrawn, or confirmed on a call). */
+    const cardUpdateRef = useRef(null);
+    cardUpdateRef.current = (chatId, { card, entities }) => {
+        const msg = chatsRef.current.find((c) => c.id === chatId)?.messages.find((m) => m.actionId === card?.action_id);
+        if (!msg) return;
+        setCard(chatId, msg.id, card);
+        if (card.status === 'executed') {
+            refreshScreens(card.tables);
+            remember(chatId, msg.id, entities || card.entities);
+            append(chatId, [{ id: uid('m'), role: 'assistant', content: ['Done.', card.followUp].filter(Boolean).join(' ') }]);
+        }
+    };
+
+    const confirmCard = useCallback(async (chatId, messageId, { selected, edits } = {}) => {
+        const msg = chatsRef.current.find((c) => c.id === chatId)?.messages.find((m) => m.id === messageId);
+        if (!msg?.card || msg.card.status !== 'proposed') return;
+        setCard(chatId, messageId, { ...msg.card, status: 'executing', error: null });
+        try {
+            const res = await confirmAction(orgId, msg.actionId, { selected, edits });
+            if (res.status === 'invalid') {
+                setCard(chatId, messageId, { ...msg.card, status: 'proposed', error: res.message });
+                return;
+            }
+            if (res.status === 'repreviewed') {
+                setCard(chatId, messageId, { ...msg.card, status: 'expired', error: 'Changed since — see the updated card below.' });
+                append(chatId, [{ id: uid('m'), role: 'assistant', kind: 'action', actionId: res.card.action_id, card: res.card, content: cardLine(res.card) }]);
+                return;
+            }
+            setCard(chatId, messageId, res.card || { ...msg.card, status: res.status });
+            if (res.status === 'executed') {
+                refreshScreens(res.card?.tables);
+                remember(chatId, messageId, res.entities || res.card?.entities);
+                append(chatId, [{ id: uid('m'), role: 'assistant', content: ['Done.', res.card?.followUp].filter(Boolean).join(' ') }]);
+            }
+        } catch (err) {
+            setCard(chatId, messageId, { ...msg.card, status: 'proposed', error: err?.message || 'Could not reach the server.' });
+        }
+    }, [orgId, setCard, append, remember]);
+
+    const cancelCard = useCallback(async (chatId, messageId) => {
+        const msg = chatsRef.current.find((c) => c.id === chatId)?.messages.find((m) => m.id === messageId);
+        if (!msg?.card) return;
+        setCard(chatId, messageId, { ...msg.card, status: 'cancelled' });
+        try {
+            const res = await cancelAction(orgId, msg.actionId);
+            if (res.card) setCard(chatId, messageId, res.card);
+        } catch { /* it expires on its own */ }
+    }, [orgId, setCard]);
+
+    const undoCard = useCallback(async (chatId, messageId) => {
+        const msg = chatsRef.current.find((c) => c.id === chatId)?.messages.find((m) => m.id === messageId);
+        if (!msg?.card) return;
+        try {
+            const res = await undoAction(orgId, msg.actionId);
+            if (res.status === 'undone') refreshScreens(res.card?.tables);
+            if (res.card) setCard(chatId, messageId, res.card);
+            else setCard(chatId, messageId, { ...msg.card, error: res.message });
+        } catch (err) {
+            setCard(chatId, messageId, { ...msg.card, error: err?.message || 'Could not undo.' });
+        }
+    }, [orgId, setCard]);
+
+    // A reopened thread: cards that were still open get their real state.
+    useEffect(() => {
+        if (!orgId) return;
+        const ids = (active.messages || []).filter((m) => m.kind === 'action' && LIVE.has(m.card?.status)).map((m) => m.actionId);
+        if (!ids.length) return;
+        let gone = false;
+        actionStatus(orgId, ids).then(({ cards }) => {
+            if (gone) return;
+            for (const card of cards || []) {
+                const msg = active.messages.find((m) => m.actionId === card.action_id);
+                if (msg && msg.card?.status !== card.status) setCard(active.id, msg.id, card);
+            }
+        }).catch(() => { /* shown as last known */ });
+        return () => { gone = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [active.id, orgId]);
+
+    /* ── sending ───────────────────────────────────────────────────────── */
+
     const send = useCallback((text, opts = {}) => {
         const content = String(text ?? draft).trim();
         if (!content || streaming) return;
-
         const chatId = opts.chatId || active.id;
-        const chatNow = chatsRef.current.find((c) => c.id === chatId);
-        const history = (chatNow?.messages || [])
-            .filter((m) => !m.error && m.content)
-            .map((m) => ({ role: m.role, content: m.content }));
-
-        /* A pending question gets first refusal on the message — otherwise
-           "4500", a perfectly good answer to "how much?", would reach the
-           model as though it were a new topic. Only first refusal: a sentence
-           that says to leave it, leaves it; one that answers, answers; and
-           anything else goes to the model with the entry left parked. */
-        if (ask && ask.chatId === chatId) {
-            if (isCancel(content)) {
-                setDraft('');
-                dropAsk(chatId, [{ id: uid('m'), role: 'user', content }]);
-                return;
-            }
-            const res = applyAnswer(ask.draft, ask.slot, content);
-            if (res.draft) {
-                setDraft('');
-                presentCash(chatId, res.draft, [{ id: uid('m'), role: 'user', content }]);
-                return;
-            }
-        }
-
-        // "We spent 4,500 on office chairs yesterday" is an instruction, not a
-        // question. detectCashIntent refuses anything phrased as a question.
-        const intent = detectCashIntent(content);
-        if (intent) {
-            setDraft('');
-            presentCash(chatId, startDraft(content, intent.direction, undefined, cashProjects()), [
-                { id: uid('m'), role: 'user', content },
-            ], content);
-            return;
-        }
-
-        const replyId = uid('m');
-        patchChat(chatId, (c) => ({
-            ...c,
-            at: Date.now(),
-            title: (c.titled || c.messages.length) ? c.title : titleFor(content),
-            messages: [...c.messages, { id: uid('m'), role: 'user', content }, { id: replyId, role: 'assistant', content: '' }],
-        }));
+        const chat = chatsRef.current.find((c) => c.id === chatId);
+        const userMsg = { id: uid('m'), role: 'user', content };
         setDraft('');
-        streamReply(chatId, replyId, content, history, { voice: !!opts.voice });
-    }, [draft, streaming, active, patchChat, ask, dropAsk, presentCash, streamReply]);
+
+        // No word-matching here: whether this answers the open question, drops
+        // it, withdraws a card or (on a call) agrees to one is for the model to
+        // understand. It gets the question and the open cards alongside.
+        const q = openQuestion(chat);
+        const src = q ? (q.input || q.choice) : null;
+        const pending = src?.resume
+            ? { ...src.resume, param: src.param, question: q.content }
+            : null;
+        if (q) patchMessage(chatId, q.id, { resolved: true });
+
+        runTurn(chatId, {
+            message: opts.voice ? `${content}\n\n${VOICE_INSTRUCTION}` : content,
+            pending,
+        }, [userMsg], { voice: !!opts.voice });
+    }, [draft, streaming, active, patchMessage, runTurn]);
+
+    /** A tapped chip on a question or a choice. */
+    const answer = useCallback((messageId, option) => {
+        if (streaming) return;
+        const chatId = active.id;
+        const msg = active.messages.find((m) => m.id === messageId);
+        const src = msg?.input || msg?.choice;
+        if (!src?.resume) return;
+        patchMessage(chatId, messageId, { resolved: true });
+        runTurn(chatId, {
+            resume: { ...src.resume, param: src.param, value: option.value },
+        }, [{ id: uid('m'), role: 'user', content: option.label }]);
+    }, [streaming, active, patchMessage, runTurn]);
+
+    /** "Create it" on a nothing-found notice. */
+    const takeOffer = useCallback((messageId) => {
+        if (streaming) return;
+        const msg = active.messages.find((m) => m.id === messageId);
+        if (!msg?.offer) return;
+        patchMessage(active.id, messageId, { offer: null });
+        runTurn(active.id, { resume: { tool: msg.offer.tool, args: msg.offer.args } },
+            [{ id: uid('m'), role: 'user', content: msg.offer.label || 'Yes, create it' }]);
+    }, [streaming, active, patchMessage, runTurn]);
+
+    const dismissQuestion = useCallback((chatId, messageId) => {
+        patchMessage(chatId, messageId, { resolved: true });
+        append(chatId, [{ id: uid('m'), role: 'assistant', content: 'Left it there — nothing was changed.' }]);
+    }, [patchMessage, append]);
 
     /**
      * Ask again. The answer is replaced and the conversation resumes from the
-     * question that produced it: anything said after it is dropped, since it
-     * answered an answer that no longer exists. The caller confirms that first.
+     * question that produced it. Only plain answers regenerate: a card is a
+     * proposal on the server, and asking again would propose it twice.
      */
     const regenerate = useCallback((messageId) => {
         if (streaming) return;
@@ -355,28 +441,15 @@ export function AssistantProvider({ edgeContext, children }) {
         const msgs = chatsRef.current.find((c) => c.id === chatId)?.messages || [];
         const at = msgs.findIndex((m) => m.id === messageId);
         const qAt = at - 1;
-        if (at < 0 || msgs[qAt]?.role !== 'user') return;
+        if (at < 0 || msgs[qAt]?.role !== 'user' || msgs[at].kind) return;
         const question = msgs[qAt].content;
+        patchChat(chatId, (c) => ({ ...c, messages: c.messages.slice(0, qAt) }));
+        chatsRef.current = chatsRef.current.map((c) => (c.id === chatId ? { ...c, messages: c.messages.slice(0, qAt) } : c));
+        runTurn(chatId, { message: question }, [msgs[qAt]]);
+    }, [streaming, activeId, patchChat, runTurn]);
 
-        // Cash entries never reached the model; asking again would give the
-        // same scripted question, so only model answers are regenerated.
-        if (msgs[at].kind) return;
+    /* ── chats ─────────────────────────────────────────────────────────── */
 
-        const history = msgs.slice(0, qAt)
-            .filter((m) => !m.error && m.content)
-            .map((m) => ({ role: m.role, content: m.content }));
-        const replyId = uid('m');
-        patchChat(chatId, (c) => ({
-            ...c,
-            at: Date.now(),
-            messages: [...c.messages.slice(0, at), { id: replyId, role: 'assistant', content: '' }],
-        }));
-        if (card?.chatId === chatId && !msgs.slice(0, at).some((m) => m.id === card.messageId)) setCard(null);
-        if (ask?.chatId === chatId && !msgs.slice(0, at).some((m) => m.id === ask.messageId)) setAsk(null);
-        streamReply(chatId, replyId, question, history);
-    }, [streaming, activeId, patchChat, card, ask, streamReply]);
-
-    /** Opens a blank chat, reusing an untouched one rather than stacking empties. */
     const startChat = useCallback(() => {
         const blank = chatsRef.current.find((c) => !c.messages.length);
         if (blank) {
@@ -396,13 +469,13 @@ export function AssistantProvider({ edgeContext, children }) {
         if (!content || streaming) return false;
         const current = chatsRef.current.find((c) => c.id === activeId);
         let chatId = current?.id;
-        // Continue in the open chat only if it is still empty.
         if (!current || current.messages.length) {
             const blank = chatsRef.current.find((c) => !c.messages.length);
             if (blank) chatId = blank.id;
             else {
                 const c = newChat();
                 setChats((cs) => [c, ...cs]);
+                chatsRef.current = [c, ...chatsRef.current];
                 chatId = c.id;
             }
         }
@@ -425,9 +498,7 @@ export function AssistantProvider({ edgeContext, children }) {
             if (id === activeId) setActiveId(next[0].id);
             return next;
         });
-        if (card?.chatId === id) setCard(null);
-        if (ask?.chatId === id) setAsk(null);
-    }, [activeId, card, ask]);
+    }, [activeId]);
 
     /** Deletes every chat except those pinned. */
     const clearHistory = useCallback(() => {
@@ -437,14 +508,8 @@ export function AssistantProvider({ edgeContext, children }) {
             if (!next.some((c) => c.id === activeId)) setActiveId(next[0].id);
             return next;
         });
-        setCard(null);
-        setAsk(null);
     }, [activeId]);
 
-    /**
-     * A name the person chose outranks one derived from their first message.
-     * `titled` is what send() checks, so naming an empty chat sticks.
-     */
     const renameChat = useCallback((id, title) => {
         const clean = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 60);
         if (!clean) return;
@@ -455,8 +520,7 @@ export function AssistantProvider({ edgeContext, children }) {
 
     /**
      * Share: the system share sheet where there is one, the clipboard where
-     * there is not. Not a link — these chats live in this browser only, so a
-     * URL would be a promise the product cannot keep.
+     * there is not. Not a link — these chats live in this browser only.
      */
     const shareChat = useCallback(async (chat) => {
         const text = (chat.messages || [])
@@ -473,7 +537,6 @@ export function AssistantProvider({ edgeContext, children }) {
             await navigator.clipboard.writeText(payload);
             setNote('Conversation copied to your clipboard.');
         } catch {
-            // AbortError is the share sheet being dismissed, which is not a failure.
             if (!navigator.share) setNote('Could not copy this conversation.');
         }
     }, []);
@@ -483,17 +546,21 @@ export function AssistantProvider({ edgeContext, children }) {
         return () => setDocks((n) => Math.max(0, n - 1));
     }, []);
 
+    const pendingQuestion = openQuestion(active);
+
     const value = useMemo(() => ({
         chats, active, activeId: active.id, messages: active.messages,
-        draft, setDraft, streaming, send, askNew, regenerate,
+        draft, setDraft, streaming, working, send, askNew, regenerate,
         startChat, pickChat, removeChat, clearHistory, renameChat, togglePin, shareChat,
-        ask, card, answerCash, dropAsk, saveCard, cancelCard, editCard,
+        answer, takeOffer, dismissQuestion, pendingQuestion,
+        confirmCard, cancelCard, undoCard,
         open, setOpen, view, setView, docked: docks > 0, registerDock,
         note, setNote, speech,
     }), [
-        chats, active, draft, streaming, send, askNew, regenerate,
+        chats, active, draft, streaming, working, send, askNew, regenerate,
         startChat, pickChat, removeChat, clearHistory, renameChat, togglePin, shareChat,
-        ask, card, answerCash, dropAsk, saveCard, cancelCard, editCard,
+        answer, takeOffer, dismissQuestion, pendingQuestion,
+        confirmCard, cancelCard, undoCard,
         open, view, docks, registerDock, note, speech,
     ]);
 

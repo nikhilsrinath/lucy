@@ -15,6 +15,9 @@
 // names and their old field names; the adapters below translate at the
 // boundary. The mappings are lifted from scripts/migrate/02-transform.js.
 import { supabase } from '../lib/supabase';
+import {
+  finDocToRow as finDocToRowShared, lineItemRows, scrubSnapshot as scrubShared, financialDocFromRow,
+} from '../shared/finDocs.js';
 import { IMAGE_KINDS, resolveImageUrl } from './imageUploadService';
 import { loadMyPermissions as loadEffectivePermissions } from './permissionService';
 
@@ -795,31 +798,8 @@ function normalizeDocType(type) {
 // values into the document's own payload (`docData.bank`, `docData.upi_id`) and
 // the portal falls back to the live org_banking read, which only financial
 // documents get.
-const SECRET_KEYS = ['gmail_user', 'gmail_app_password', 'emailjs_service_id',
-  'emailjs_template_id', 'emailjs_public_key',
-  'bank_account_number', 'bank_ifsc', 'bank_name', 'bank_account_type',
-  'upi_id', 'gstin', 'cin'];
-function scrubSnapshot(profile) {
-  if (!profile || typeof profile !== 'object') return {};
-  const clean = { ...profile };
-  for (const k of SECRET_KEYS) delete clean[k];
-
-  // A snapshot outlives any URL in it. logo_url and stamp_url are permanent CDN
-  // links from the public bucket and can be stored as-is, but signature_url is a
-  // signed URL that expires in an hour — persisting it would leave every
-  // document without a signature by tomorrow. Store the stable object path and
-  // let the renderer sign it on demand.
-  const signaturePath = _cache._profile?.signature_path || profile.signature_path;
-  if (signaturePath) {
-    clean.signature_path = signaturePath;
-    delete clean.signature_url;
-  } else if (typeof clean.signature_url === 'string' && clean.signature_url.includes('token=')) {
-    // A signed URL with no path to fall back on is worse than nothing.
-    delete clean.signature_url;
-  }
-
-  return clean;
-}
+// Secrets never enter a stored snapshot; see scrubSnapshot in src/shared/finDocs.js.
+const scrubSnapshot = (profile) => scrubShared(profile, _cache._profile?.signature_path);
 
 // Sections that are a single jsonb blob rather than a table of rows.
 const SINGLETONS = {
@@ -1075,6 +1055,13 @@ export const orgStore = {
   can: (resource, action = 'view') => canDo(resource, action),
 
   /** Re-read one section from the server and tell its listeners. */
+  /** Re-read invoices, quotations and proformas (with lines and payments). */
+  async refreshFinDocs() {
+    if (!_orgId) return;
+    await hydrateFinancialDocuments(_orgId);
+    persistToLS();
+  },
+
   async refreshSection(section) {
     const def = SECTIONS[section];
     if (!_orgId || !def) return {};
@@ -1606,171 +1593,18 @@ async function hydrateFinancialDocuments(orgId) {
   _cache.fin_docs = keyById(docs, financialDocFromRow);
 }
 
-export function financialDocFromRow(r) {
-  const items = (r.document_line_items || [])
-    .slice()
-    .sort((a, b) => a.position - b.position)
-    .map((li) => ({
-      id: li.id, description: li.description, hsn: li.hsn_sac,
-      quantity: li.quantity, unit: li.unit, rate: li.rate,
-      gst_rate: li.gst_rate, amount: li.line_total,
-      // Which catalogue row this line was billed against, if any. Reloading a
-      // saved document into a form has to bring this back, or re-saving would
-      // silently detach the line and the product would lose the sale.
-      catalog_item_id: li.catalog_item_id || null,
-    }));
-
-  return {
-    id: r.id,
-    invoiceNumber: r.doc_number, doc_number: r.doc_number,
-    type: r.type, status: r.status, revision: r.revision,
-    customer_id: r.customer_id,
-    clientName: r.bill_to_name, clientEmail: r.bill_to_email,
-    clientAddress: r.bill_to_address, buyerGSTIN: r.bill_to_gstin,
-    buyerState: r.bill_to_state,
-    issue_date: r.issue_date, due_date: r.due_date, valid_until: r.valid_until,
-    // Where this sale happened, frozen onto the document. `country_source`
-    // says how it got here — a customer record today, a storefront checkout
-    // later — and the Sales by Countries widget groups on country_code without
-    // caring which.
-    country_code: r.country_code || null,
-    country_source: r.country_source || null,
-    currency: r.currency,
-    subtotal: r.subtotal, discount_type: r.discount_type,
-    discount_value: r.discount_value, discount_amount: r.discount_amount,
-    taxable_amount: r.taxable_amount,
-    gst_enabled: r.gst_enabled, gst_rate: r.gst_rate, gst_amount: r.gst_amount,
-    is_inter_state: r.is_inter_state, making_charges: r.making_charges,
-    grand_total: r.grand_total, amount_in_words: r.amount_in_words,
-    amount_paid: r.amount_paid, advance_percent: r.advance_percent,
-    payment_instructions: r.payment_instructions, terms: r.terms, notes: r.notes,
-    company_profile: r.company_snapshot,
-    items,
-    // The ledger behind amount_paid. Absent when the row was selected without
-    // the join (api/_lib/docShape.js does exactly that for the portal), so this
-    // is always an array and never undefined.
-    payments: (r.payments || [])
-      .slice()
-      .sort((a, b) => new Date(a.paid_on) - new Date(b.paid_on)),
-    // Set once the document has been sent (0064). From then on its content
-    // changes only by publishing a new version; see publishFinDocVersion().
-    current_version_id: r.current_version_id || null,
-    locked_version_id: r.locked_version_id || null,
-    created_at: r.created_at, updated_at: r.updated_at,
-    // The forms and the PDF builder read the camelCase names they wrote.
-    // finDocToRow() maps those onto columns and keeps them out of `payload`,
-    // so without these a reloaded document looked GST-free and undiscounted,
-    // and re-saving it from the edit form actually dropped the GST.
-    enableGst: r.gst_enabled, gstRate: Number(r.gst_rate) || 0,
-    discount: {
-      type: r.discount_type,
-      value: Number(r.discount_value) || 0,
-      amount: Number(r.discount_amount) || 0,
-    },
-    ...(r.payload || {}),
-  };
-}
+// Row → app shape for invoices, quotations and proformas: src/shared/finDocs.js,
+// shared with EdgeAI's server-side conversions.
+export { financialDocFromRow };
 
 // Columns the database owns. subtotal, discount_amount, taxable_amount,
 // gst_amount and grand_total are recomputed by app.recompute_document_totals()
 // from the line items; amount_paid by app.recompute_amount_paid() from confirmed
 // payments. Writing them from the client would be silently overwritten at best.
-function finDocToRow(i) {
-  const known = {
-    type: i.type,
-    status: i.status || 'draft',
-    revision: i.revision || 'v1',
-    customer_id: nn(i.customer_id),
-    bill_to_name: i.clientName || i.bill_to_name || 'Unnamed',
-    bill_to_email: nn(i.clientEmail || i.bill_to_email),
-    bill_to_address: nn(i.clientAddress || i.bill_to_address),
-    bill_to_gstin: nn(i.buyerGSTIN || i.bill_to_gstin),
-    bill_to_state: nn(i.buyerState || i.bill_to_state),
-    issue_date: date(i.issue_date) || date(nowIso()),
-    due_date: date(i.due_date),
-    valid_until: date(i.valid_until),
-    // Omitted entirely — not nulled — when the caller has no opinion, so the
-    // BEFORE INSERT trigger can resolve it from the customer or the org.
-    //
-    // `undefined` rather than nn(): stripNulls() drops undefined but keeps an
-    // explicit null, and nothing re-resolves country on UPDATE. Sending null
-    // here would erase a resolved country on any save whose cache entry was
-    // cold — editing an old document in a fresh session, say. Passing '' still
-    // clears it, which is what someone deliberately blanking the field means.
-    country_code: i.country_code === undefined ? undefined : nn(i.country_code),
-    country_source: i.country_source === undefined ? undefined : nn(i.country_source),
-    currency: (i.currency || 'INR').slice(0, 3).toUpperCase(),
-    // The forms speak camelCase and nest the discount; the columns are
-    // snake_case and flat. These are not cosmetic aliases: the totals trigger
-    // computes subtotal/gst/grand_total from discount_type, discount_value,
-    // making_charges, gst_enabled and gst_rate on THIS row, so a name that
-    // fails to land here silently saves the wrong money.
-    discount_type: nn(i.discount_type ?? i.discountType ?? i.discount?.type),
-    discount_value: num(i.discount_value ?? i.discountValue ?? i.discount?.value, 0),
-    gst_enabled: bool(i.gst_enabled ?? i.enableGst, true),
-    gst_rate: num(i.gst_rate ?? i.gstRate, 18),
-    // NOT NULL with a default in the schema. stripNulls() only removes
-    // `undefined`, so emitting null here sent an explicit null to Postgres and
-    // every insert died with 23502 — which is what stopped invoices saving.
-    is_inter_state: bool(i.is_inter_state ?? i.isInterState, false),
-    // Deliberately NOT aliased to the forms' `makingCharges`. The trigger ADDS
-    // making_charges to the taxable amount, but InvoiceForm's makingCost is an
-    // internal per-item cost used for the profit estimate (BillingRevenue.jsx:66
-    // subtracts it from revenue). Mapping the two would inflate every total.
-    making_charges: num(i.making_charges, 0),
-    amount_in_words: nn(i.amount_in_words),
-    advance_percent: num(i.advance_percent),
-    payment_instructions: nn(i.payment_instructions),
-    terms: nn(i.terms),
-    notes: nn(i.notes),
-    company_snapshot: scrubSnapshot(i.company_profile),
-    doc_number: nn(i.doc_number || i.invoiceNumber || i.proformaNumber || i.quotationNumber),
-  };
-
-  // Everything the forms carry that has no column keeps working via `payload`.
-  const MAPPED = new Set(['id', 'type', 'status', 'revision', 'customer_id',
-    // Aliases consumed above. Without these they would also be copied into
-    // `payload`, leaving two disagreeing copies of the same number.
-    'discountType', 'discountValue', 'discount', 'enableGst', 'gstRate',
-    'isInterState',
-    'clientName', 'bill_to_name', 'clientEmail', 'bill_to_email', 'clientAddress',
-    'bill_to_address', 'buyerGSTIN', 'bill_to_gstin', 'buyerState', 'bill_to_state',
-    'issue_date', 'due_date', 'valid_until', 'currency', 'country_code',
-    'country_source', 'discount_type',
-    'discount_value', 'gst_enabled', 'gst_rate', 'is_inter_state', 'making_charges',
-    'amount_in_words', 'advance_percent', 'payment_instructions', 'terms', 'notes',
-    'company_profile', 'company_snapshot', 'doc_number', 'invoiceNumber', 'items',
-    'subtotal', 'discount_amount', 'taxable_amount', 'gst_amount', 'grand_total',
-    // `payments` is a joined child table, not a form field. Without it here the
-    // whole ledger would be copied into payload on every save and then shadow
-    // the real join when read back.
-    'amount_paid', 'payments', 'created_at', 'updated_at', 'org_id', 'payload',
-    'current_version_id', 'locked_version_id']);
-  const payload = {};
-  for (const [k, v] of Object.entries(i)) if (!MAPPED.has(k)) payload[k] = v;
-  known.payload = payload;
-
-  return known;
-}
-
-// The form's line items as document_line_items columns. The forms spell the
-// HSN and catalogue fields several ways depending on which one saved the
-// document; accept all of them, because a line that arrives without its
-// catalogue id is a sale that never reaches Product Performance.
-// line_total is trigger-computed and never sent.
-function lineItemRows(items) {
-  return (items || [])
-    .filter((it) => it && (it.description || it.rate || it.quantity))
-    .map((it) => ({
-      description: it.description || '',
-      hsn_sac: nn(it.hsn || it.hsn_sac || it.hsnSac || it.hsnCode),
-      quantity: num(it.quantity, 1),
-      unit: it.unit || 'Nos',
-      rate: num(it.rate, 0),
-      gst_rate: num(it.gst_rate),
-      catalog_item_id: nn(it.catalog_item_id || it.catalogItemId || it.productId),
-    }));
-}
+// The financial_documents row and its line items are built in
+// src/shared/finDocs.js, shared with EdgeAI's server-side drafts, so the two
+// can never disagree about which column a form field lands in.
+const finDocToRow = (i) => finDocToRowShared(i, { signaturePath: _cache._profile?.signature_path });
 
 // Line items are replaced wholesale: the forms hand back the entire array, and
 // unique(document_id, position) makes an in-place diff more trouble than it is

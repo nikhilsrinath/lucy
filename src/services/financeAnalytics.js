@@ -14,6 +14,7 @@
 // themselves are stamped on each row by the database (0038), so this file and
 // EdgeBrain's aggregates cannot drift apart.
 import { countsAsIncome, countsAsExpense, isCostRecovery, groupOf } from './financeCategories';
+import { issuedInvoices, balanceOf, isOverdue as isOverdueShared } from '../shared/finDocs.js';
 
 const n = (v) => Number(v) || 0;
 
@@ -32,21 +33,10 @@ const dayKey = (d) => (d ? String(d).slice(0, 10) : '');
 const iso = (dt) => `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
 export const todayIso = () => iso(new Date());
 
-// Statuses that mean an invoice is not (or no longer) a real receivable.
-const DEAD = new Set(['draft', 'cancelled', 'declined', 'expired']);
-
-/** Issued sales invoices only: quotations and proformas are not revenue. */
-export function issuedInvoices(docs) {
-  return (docs || []).filter((d) => d.type === 'invoice' && !DEAD.has(d.status));
-}
-
-export const balanceOf = (d) => Math.max(0, n(d.grand_total) - n(d.amount_paid));
-
-/** Overdue: issued, money still owed, and the due date is behind us. */
-export function isOverdue(d, today = todayIso()) {
-  return d.type === 'invoice' && !DEAD.has(d.status) && d.status !== 'paid'
-    && !!d.due_date && dayKey(d.due_date) < today && balanceOf(d) > 0.009;
-}
+// Which invoices are receivables, and when one is overdue, live in
+// src/shared/finDocs.js — the agent's list_invoices counts by the same rule.
+export { issuedInvoices, balanceOf } from '../shared/finDocs.js';
+export const isOverdue = (d, today = todayIso()) => isOverdueShared(d, today);
 
 export const daysOverdue = (d, today = todayIso()) => (d.due_date
   ? Math.max(0, Math.round((new Date(today) - new Date(dayKey(d.due_date))) / 86400000))

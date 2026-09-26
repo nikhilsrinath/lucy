@@ -165,6 +165,11 @@ begin
     -- AI call log (0067), written by the API.
     insert into ai_usage_events (org_id, surface) values (o, 'copilot');
 
+    -- EdgeAI proposals (0068), written by the API. Readable by their author
+    -- and the org's owners/admins only — asserted in 13_ai_actions_test.sql.
+    insert into ai_actions (org_id, user_id, tool, risk)
+    select o, m.user_id, 'create_task', 'low' from memberships m where m.org_id = o limit 1;
+
     -- Document library (0063): a stored file and one passage read from it.
     insert into library_documents (org_id, title, file_name, mime_type, size_bytes, storage_path)
       values (o, 'Handbook ' || s, 'handbook.pdf', 'application/pdf', 1024, o || '/handbook-' || s || '.pdf')
@@ -414,9 +419,9 @@ begin
       for t in select * from _tables order by tbl loop
         -- Own-org behaviour of these is not "the matrix" and is asserted
         -- directly in 04_role_smoke_test.sql (member_permissions in
-        -- 09_member_permissions_test.sql). Cross-tenant, they are probed
+        -- 09_member_permissions_test.sql, ai_actions in 13_ai_actions_test.sql). Cross-tenant, they are probed
         -- like everything else.
-        if v_side = 'own' and t.tbl in ('memberships', 'audit_log', 'role_permissions', 'member_permissions') then
+        if v_side = 'own' and t.tbl in ('memberships', 'audit_log', 'role_permissions', 'member_permissions', 'ai_actions') then
           continue;
         end if;
 

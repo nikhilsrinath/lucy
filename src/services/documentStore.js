@@ -28,7 +28,7 @@ const normalizeType = (type) => (type === 'offer_letter' ? 'offer' : type);
 // the UI printed `doc.id` wherever a number belonged; in Postgres `id` is a
 // uuid primary key and the number lives in doc_number. Anything user-visible —
 // a list column, a PDF header, a filename, an alert — must go through this.
-export const docNumber = (d) => (d && (d.doc_number || d.invoiceNumber || d.id)) || '';
+export { docNumber } from '../shared/finDocs.js';
 
 let _contextOrgId = null;
 
