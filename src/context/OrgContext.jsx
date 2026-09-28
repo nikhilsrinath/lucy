@@ -12,8 +12,12 @@ export const OrgProvider = ({ children }) => {
   const [activeOrg, setActiveOrg] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // Keyed on the user's id, not the user object: Supabase hands back a new
+  // object on every token refresh and profile update (the chosen cofounder is
+  // saved to user_metadata), and each one used to reload every organization.
+  const userId = user?.id || null;
   useEffect(() => {
-    if (user && !needsOnboarding) {
+    if (userId && !needsOnboarding) {
       fetchOrganizations();
     } else {
       setOrganizations([]);
@@ -21,7 +25,7 @@ export const OrgProvider = ({ children }) => {
       orgStore.clear();
       setLoading(false);
     }
-  }, [user, needsOnboarding]);
+  }, [userId, needsOnboarding]);
 
   // One query replaces the previous four-source fallback (localStorage, the
   // Firestore `memberships` collection, the `users/{uid}.organizations` map and

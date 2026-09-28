@@ -1,0 +1,56 @@
+/* The cofounder carousel — the mockup's `.car` family, prefixed. */
+
+.sb-car { position: relative; height: 396px; margin: 18px 0 8px; touch-action: pan-y; user-select: none; outline: none; border-radius: 24px; }
+.sb-car:focus-visible { outline: 2px solid #3B6CFF; outline-offset: 4px; }
+.sb-car .slot { position: absolute; left: 50%; top: 0; width: 310px; margin-left: -155px; transition: transform .5s cubic-bezier(.2,.8,.2,1), opacity .4s; will-change: transform; }
+.sb-car .ccard { padding: 24px 24px 20px; display: flex; flex-direction: column; align-items: center; text-align: center; border-radius: 24px; height: 380px; }
+.sb-car .slot:not(.cur) .ccard { cursor: pointer; }
+.sb-car .slot.cur .ccard { box-shadow: var(--sh-l); border-color: #D9D7D1; }
+.sb-car .ccard .sb-ava { width: 168px; height: 168px; border-radius: 26%; }
+.sb-car .ccard h3 { font-size: 28px; font-weight: 650; letter-spacing: -.03em; margin-top: 18px; }
+.sb-car .ccard .role { font-size: 14px; color: var(--muted); margin-top: 4px; }
+.sb-car .ccard .traits { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+.sb-car .ccard .traits span { font-size: 12px; font-weight: 550; padding: 5px 10px; border-radius: 999px; background: var(--soft); border: 1px solid var(--line2); color: var(--ink2); }
+.sb-car .ccard .idx { margin-top: auto; font-family: var(--mono); font-size: 12px; color: var(--faint); }
+.sb-car .cnav { position: absolute; top: 166px; width: 48px; height: 48px; border-radius: 50%; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--sh-m); display: grid; place-items: center; z-index: 20; transition: transform .12s; }
+.sb-car .cnav:hover { transform: scale(1.06); }
+.sb-car .cnav:active { transform: scale(.96); }
+.sb-car .cnav.prev { left: max(0px, calc(50% - 410px)); }
+.sb-car .cnav.next { right: max(0px, calc(50% - 410px)); }
+.sb-carwrap .thumbs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-top: 4px; }
+.sb-carwrap .thumbs button { border-radius: 30%; padding: 3px; border: 2px solid transparent; transition: border-color .15s; }
+.sb-carwrap .thumbs button.on { border-color: var(--ink); }
+.sb-carwrap .preview { display: flex; gap: 12px; align-items: flex-start; max-width: 560px; margin: 16px auto 0; padding: 14px 16px; width: 100%; }
+.sb-carwrap .preview .pv { flex: 1; min-width: 0; }
+.sb-carwrap .preview .pv b { font-size: 13px; font-weight: 600; }
+.sb-carwrap .preview .pv p { font-size: 15px; line-height: 1.45; margin-top: 3px; }
+.sb-carwrap .play { display: inline-flex; align-items: center; gap: 8px; margin-top: 10px; font-size: 13px; font-weight: 550; color: var(--ink2); height: 32px; padding: 0 10px 0 6px; border-radius: 8px; background: var(--soft); }
+.sb-carwrap .play .pw { display: flex; gap: 2px; align-items: center; height: 14px; }
+.sb-carwrap .play .pw i { width: 2px; height: 4px; background: currentColor; border-radius: 1px; transition: height .1s; }
+
+.sb-car.compact { height: 380px; }
+.sb-car.compact .ccard { height: 360px; padding: 20px; }
+.sb-car.compact .ccard .sb-ava { width: 130px; height: 130px; }
+.sb-car.compact .slot { width: 260px; margin-left: -130px; }
+.sb-car.compact .cnav { top: 160px; }
+.sb-car.compact .cnav.prev { left: 4px; }
+.sb-car.compact .cnav.next { right: 4px; }
+
+@media (max-width: 760px) {
+  .sb-car { height: 430px; margin-top: 14px; margin-bottom: 34px; }
+  .sb-car .slot { width: 272px; margin-left: -136px; }
+  .sb-car .ccard { height: 410px; }
+  .sb-car .ccard .sb-ava { width: 150px; height: 150px; }
+  .sb-car .cnav { top: auto; bottom: -8px; width: 44px; height: 44px; }
+  .sb-car .cnav.prev { left: calc(50% - 150px); }
+  .sb-car .cnav.next { right: calc(50% - 150px); }
+  .sb-carwrap .thumbs { gap: 4px; }
+  .sb-carwrap .thumbs button { padding: 2px; }
+  .sb-carwrap .thumbs .sb-ava { width: 30px !important; height: 30px !important; }
+  .sb-carwrap .preview { margin-top: 14px; }
+  .sb-car.compact { height: 400px; margin-bottom: 34px; }
+  .sb-car.compact .cnav { top: auto; bottom: -8px; }
+  .sb-car.compact .cnav.prev { left: calc(50% - 140px); }
+  .sb-car.compact .cnav.next { right: calc(50% - 140px); }
+}
+@media (prefers-reduced-motion: reduce) { .sb-car .slot { transition: none; } }

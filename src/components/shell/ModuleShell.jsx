@@ -55,8 +55,12 @@ function PopRow({ t, icon, label, note, onClick, danger, dot }) {
 
 export default function ModuleShell({
     theme, user, module: mod, items, title, subtitle, actions,
-    onToggleTheme, onLogout, flush = false, railSlot = false, children,
+    onToggleTheme, onLogout, flush = false, railSlot = false, embedded = false, children,
 }) {
+    // `embedded`: inside the StartupBuddy frame, which owns navigation and the
+    // account. This keeps only what the older pages need from it — their
+    // styling (.edge-shell and the bridge), the page title, notifications and
+    // a strip of the section's pages — until each page moves to its new home.
     const isDark = theme === 'dark';
     const t = makeTokens(isDark);
     const { activeOrg } = useOrg();
@@ -140,7 +144,7 @@ export default function ModuleShell({
             <a href="#edge-main" className="edge-skip" onClick={(e) => { e.preventDefault(); mainRef.current?.focus(); }}>
                 Skip to content
             </a>
-            {!isMobile && (
+            {!isMobile && !embedded && (
                 <aside
                     aria-label={(mod?.label || 'Module') + ' navigation'}
                     onMouseEnter={railSlot ? undefined : () => setHoverRail(true)}
@@ -249,7 +253,7 @@ export default function ModuleShell({
                     padding: isMobile ? '9px 12px' : '0 20px', height: 53, flexShrink: 0,
                     borderBottom: '1px solid ' + t.line, background: t.panel, zIndex: 40,
                 }}>
-                    {isMobile && (
+                    {isMobile && !embedded && (
                         <Link to="/hub" aria-label="Back to hub" title="Back to hub" style={{ color: t.dim, display: 'grid', placeItems: 'center', flexShrink: 0, width: 32, height: 32 }}>
                             <ArrowLeft aria-hidden="true" size={17} strokeWidth={1.8} />
                         </Link>
@@ -272,12 +276,12 @@ export default function ModuleShell({
 
                     {actions && <span aria-hidden="true" style={{ width: 1, height: 18, background: t.line, flexShrink: 0 }} />}
 
-                    <button type="button" className="edge-icon"
+                    {!embedded && <button type="button" className="edge-icon"
                         title={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
                         aria-label={isDark ? 'Switch to light mode' : 'Switch to dark mode'}
                         onClick={onToggleTheme} style={iconBtn(t)}>
                         {isDark ? <Sun aria-hidden="true" size={15} strokeWidth={1.9} /> : <Moon aria-hidden="true" size={15} strokeWidth={1.9} />}
-                    </button>
+                    </button>}
 
                     <div style={{ position: 'relative', flexShrink: 0 }}>
                         <button type="button" className="edge-icon" title="Notifications" ref={notifBtnRef}
@@ -345,7 +349,7 @@ export default function ModuleShell({
                         )}
                     </div>
 
-                    <div style={{ position: 'relative', flexShrink: 0 }}>
+                    {!embedded && <div style={{ position: 'relative', flexShrink: 0 }}>
                         <button type="button" className="edge-chip" ref={accountBtnRef}
                             aria-label={`Account: ${displayName}, ${orgName}`
                                 + (profile.incomplete ? ` — company profile incomplete, ${profile.summary.toLowerCase()}` : '')}
@@ -411,10 +415,10 @@ export default function ModuleShell({
                                 </div>
                             </Pop>
                         )}
-                    </div>
+                    </div>}
                 </header>
 
-                {isMobile && (items || []).length > 1 && (
+                {(isMobile || embedded) && (items || []).length > 1 && (
                     <nav aria-label={(mod?.label || 'Module') + ' pages'} className="edge-scroll edge-mobnav" style={{
                         display: 'flex', gap: 4, padding: '6px 10px', overflowX: 'auto', flexShrink: 0,
                         borderBottom: '1px solid ' + t.line, background: t.panel,
@@ -445,7 +449,7 @@ export default function ModuleShell({
                     {children}
                 </main>
 
-                {isMobile && <MobileNav t={t} active={mod?.id} />}
+                {isMobile && !embedded && <MobileNav t={t} active={mod?.id} />}
             </div>
 
             <ShellStyle t={t} />

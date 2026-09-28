@@ -28,7 +28,6 @@ import TeamDash from './components/overview/TeamDash';
 import ProjectsDash from './components/overview/ProjectsDash';
 import DocumentsDash from './components/overview/DocumentsDash';
 import UsageDash from './components/overview/UsageDash';
-import Hub from './components/Hub';
 import ModuleShell from './components/shell/ModuleShell';
 import Customers from './components/Customers';
 import BillingRevenue from './components/BillingRevenue';
@@ -50,12 +49,13 @@ import ProjectForm from './components/projects/ProjectForm';
 import ProjectDetail from './components/projects/ProjectDetail';
 import Portfolio from './components/projects/Portfolio';
 import Timesheets from './components/projects/Timesheets';
-import AIAssistant from './components/assistant/AIAssistant';
 import { AssistantProvider } from './components/assistant/AssistantContext';
+import Copilot from './components/assistant/Copilot';
 import EdgeBrain from './components/brain/EdgeBrain';
 import { useTaskDeadlineMonitor } from './hooks/useTaskDeadlineMonitor';
-import { useTheme } from './hooks/useTheme';
-import { PLANS } from './services/planConfig';
+import AppShell from './shell/AppShell';
+import { LEGACY_PAGES, sectionOf } from './shell/sections';
+import { resolveLegacyPath } from './shell/redirects';
 
 import BulkOfferLetters from './components/bulk/BulkOfferLetters';
 import BulkCertificates from './components/bulk/BulkCertificates';
@@ -85,9 +85,9 @@ import ProfitLoss from './components/financial/ProfitLoss';
 import InvoiceList from './components/financial/InvoiceList';
 import { RecurringInvoiceForm, RecurringInvoiceList } from './components/financial/RecurringInvoiceForm';
 import { documentStore, docNumber } from './services/documentStore';
-import { orgStore } from './services/orgStore';
-import { buildEdgeContext } from './services/cofounderAI';
-import { portfolio as projectPortfolio } from './services/projectService';
+
+// Until a section's new screens land, these are where its nav entry leads.
+const INTERIM_HOME = { money: '/finance-status', clients: '/crm', work: '/tasks', team: '/employees', settings: '/profile' };
 
 
 const MODULE_FILTER = {
@@ -269,69 +269,20 @@ function AppContent() {
 
   const { user, loading, logout, needsOnboarding } = useAuth();
   const { activeOrg } = useOrg();
-  const { theme, toggleTheme } = useTheme();
 
-  // The Co-founder's numeric context. This was an inline literal with every
-  // figure hardcoded to 0, so the AI was told the company had no revenue, no
-  // invoices and no documents no matter what the database held —
-  // buildEdgeContext() has existed since the AI shipped and was never called.
-  //
-  // Recomputed when the org changes and each time the panel is opened, which is
-  // when it is about to be read. Both sources are synchronous reads of the
-  // orgStore cache; the init() is only there for the case where the panel is
-  // opened before OrgContext has finished hydrating.
-  // Stamped with the org it was built for, so a context built for the previous
-  // org is never handed to the AI after a switch.
-  const [builtContext, setBuiltContext] = useState(null);
+  // One theme (D10). The older pages read data-theme from <html>; pinning it
+  // keeps them light inside the new frame whatever an old toggle left behind.
+  useEffect(() => { document.documentElement.setAttribute('data-theme', 'light'); }, []);
 
+  // The documents cache the finance pages and the nav counts read. This used
+  // to happen inside the (now removed) buildEdgeContext effect, whose only
+  // other product — the legacy co-founder's figures — nothing read: the
+  // assistant takes nothing from it but the org id.
   useEffect(() => {
-    if (!activeOrg?.id) return undefined;
-    let cancelled = false;
-    (async () => {
-      documentStore.setContext(activeOrg.id);
-      await documentStore.init();
-      if (cancelled) return;
-      // Open projects for the AI: health for anyone who can see projects,
-      // net margin only when project_portfolio returned it (Project financials).
-      let projects;
-      if (orgStore.can('projects', 'view')) {
-        try {
-          const clients = Object.fromEntries(orgStore.getSectionAsList('customers').map((c) => [c.id, c.name]));
-          const rows = (await projectPortfolio()).filter((r) => !r.archived && !['completed', 'cancelled'].includes(r.status));
-          projects = {
-            active: rows.length,
-            atRisk: rows.filter((r) => r.health && r.health !== 'on_track').length,
-            list: rows.sort((a, b) => (Number(b.contract_value) || 0) - (Number(a.contract_value) || 0)).map((r) => ({
-              code: r.code, name: r.name, client: clients[r.client_id] || '', status: r.status,
-              health: r.health, netMargin: r.net_margin == null ? null : Number(r.net_margin),
-            })),
-          };
-        } catch { /* the AI works without it */ }
-      }
-      if (cancelled) return;
-      setBuiltContext({
-        orgId: activeOrg.id,
-        ctx: buildEdgeContext({
-          records: orgStore.getSectionAsList('records'),
-          finDocs: documentStore.getAll(),
-          user,
-          activeOrg,
-          projects,
-        }),
-      });
-    })();
-    return () => { cancelled = true; };
-  }, [activeOrg, user]);
-
-  // Both sides optional-chained meant that on the first render — builtContext
-  // still null, activeOrg not yet hydrated — this compared undefined to
-  // undefined, took the truthy branch and dereferenced null. The org stamp is
-  // only meaningful once there is both a built context and an org to match it
-  // against; either one missing means there is no context to hand the AI.
-  const edgeContext =
-    builtContext && activeOrg?.id && builtContext.orgId === activeOrg.id
-      ? builtContext.ctx
-      : null;
+    if (!activeOrg?.id) return;
+    documentStore.setContext(activeOrg.id);
+    documentStore.init().catch(() => { /* the pages that need it retry */ });
+  }, [activeOrg?.id]);
 
   // An `employee` (0029) holds no org-wide permission at all — their access is
   // to their own attendance and leave rows. Rendering the admin shell for them
@@ -384,49 +335,46 @@ function AppContent() {
 
   if (myRole === 'employee') return <EmployeePortal />;
 
+  // Old paths go to their new screens — which is also how the agent's
+  // navigation (whose hrefs are the old paths) lands in the right place.
+  const moved = resolveLegacyPath(location.pathname + location.search + location.hash);
+  if (moved) return <Navigate to={moved} replace />;
+
   const meta = activePage === 'new-quotation' && editingDocId
     ? { title: 'Edit Quotation', subtitle: `Revising ${docNumber(documentStore.getById(editingDocId)) || 'quotation'}` }
     : (PAGE_META[activePage] || PAGE_META.dashboard);
 
-  // The company profile belongs to no module but is reached from the hub's
-  // account menu, so it wears the same frame with its sections as the rail.
-  // /recurring/edit/:id reduces to 'recurring' above; its form is split too.
+  // Pages still on their old route keep their old frame's styling, embedded
+  // in the new shell, with a strip of the pages of the section they belong to
+  // (or of their old module, for the few that belong to no section).
+  const section = sectionOf(location.pathname);
   const onProfile = activePage === 'profile';
-  const framed = (!!activeModule || onProfile) && activePage !== 'hub';
-  const moduleItems = activeModule
-    ? NAV_ITEMS.filter((i) => i.id && MODULE_FILTER[activeModule]?.includes(i.id))
-    : [];
+  const framed = (!!activeModule || onProfile || !!(section && LEGACY_PAGES[section]?.includes(activePage)))
+    && section !== 'chat';
+  const sectionPages = section ? LEGACY_PAGES[section] || [] : [];
+  const moduleItems = section && section !== 'settings'
+    ? NAV_ITEMS.filter((i) => i.id && sectionPages.includes(i.id))
+    : activeModule ? NAV_ITEMS.filter((i) => i.id && MODULE_FILTER[activeModule]?.includes(i.id)) : [];
   const flush = FLUSH_PAGES.has(activePage) || /^\/recurring\/(new|edit)/.test(location.pathname);
 
-  // Until the first build completes, or when there is no active org. Shaped
-  // identically so the assistant never reads undefined.
-  const assistantContext = edgeContext || {
-    company: activeOrg?.company_name || activeOrg?.name || 'Company',
-    financials: { totalRevenue: 0, pendingRevenue: 0, avgMonthlyRevenue: 0, lastMonthRevenue: 0, growthRate: '0%', invoicesIssued: 0, invoicesPaid: 0, invoicesPending: 0 },
-    documents: { total: 0, offerLetters: 0, invoices: 0, quotations: 0, proformas: 0 },
-    trends: { monthlyRevenue: [], documentGrowth: 'stable' },
-    team: { user: user?.email || 'Founder', role: 'Admin' },
-    orgId: activeOrg?.id || null,
-  };
-
   return (
-    <AssistantProvider edgeContext={assistantContext}>
-    <div className="app-layout no-sidebar">
-      <div className="main-content">
-        <div className="page-content page-content-canvas">
-          <ShellFrame
-            on={framed}
-            theme={theme} user={user}
-            module={onProfile ? { label: 'Settings' } : MODULE_META[activeModule]}
-            items={moduleItems}
-            title={meta.title} subtitle={meta.subtitle}
-            flush={flush}
-            railSlot={onProfile}
-            onToggleTheme={toggleTheme} onLogout={logout}
-          >
+    <AssistantProvider edgeContext={{ orgId: activeOrg?.id || null }}>
+      <AppShell>
+        <ShellFrame
+          on={framed}
+          theme="light" user={user}
+          module={onProfile ? { label: 'Settings' } : MODULE_META[activeModule]}
+          items={moduleItems}
+          title={meta.title} subtitle={meta.subtitle}
+          flush={flush}
+          onLogout={logout}
+        >
           <Routes>
-            <Route index element={<Navigate to="/hub" replace />} />
-            <Route path="hub" element={<Hub user={user} activeOrg={activeOrg} theme={theme} onToggleTheme={toggleTheme} onLogout={logout} />} />
+            <Route index element={<Navigate to="/chat" replace />} />
+            <Route path="chat" element={<InterimChat />} />
+            {Object.entries(INTERIM_HOME).map(([id, to]) => (
+              <Route key={id} path={`${id}/*`} element={<Navigate to={to} replace />} />
+            ))}
             <Route path="dashboard" element={<Overview />} />
             <Route path="dashboard/finance" element={<FinanceDash />} />
             <Route path="dashboard/sales" element={<SalesDash />} />
@@ -483,28 +431,30 @@ function AppContent() {
             <Route path="bulk-certificates" element={<BulkCertificates />} />
             <Route path="bulk-team" element={<BulkTeamMembers />} />
             <Route path="bulk-history" element={<BulkHistory />} />
-            <Route path="*" element={<Navigate to="/hub" replace />} />
+            <Route path="*" element={<Navigate to="/chat" replace />} />
           </Routes>
-          </ShellFrame>
-        </div>
-      </div>
-
-      {/* EdgeAI launcher + full-screen copilot. The conversation state is in
-          AssistantProvider above, so it survives navigation and is shared
-          with the panel docked into the hub. */}
-      <AIAssistant theme={theme} />
-
-    </div>
+        </ShellFrame>
+      </AppShell>
     </AssistantProvider>
   );
 }
 
 
-// Wraps a module's pages in the shell. The hub and the self-framed employee
-// portal pass straight through.
+// Wraps a page that has not moved yet in its old frame, embedded. New
+// screens pass straight through.
 function ShellFrame({ on, children, ...props }) {
   if (!on) return children;
-  return <ModuleShell {...props}>{children}</ModuleShell>;
+  return <div className="sb-legacy"><ModuleShell embedded {...props}>{children}</ModuleShell></div>;
+}
+
+// Until Phase 2's chat screen: the existing copilot, filling the frame.
+function InterimChat() {
+  return (
+    <div className="sb-interim-chat" style={{ flex: 1, minHeight: 0, display: 'flex' }}>
+      <style>{'.sb-interim-chat .cp-dock{width:100%!important;max-width:none!important;border-left:0!important;flex:1}'}</style>
+      <Copilot variant="dock" theme="light" />
+    </div>
+  );
 }
 
 function QuotationFormWrapper() {

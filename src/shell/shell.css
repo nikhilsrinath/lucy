@@ -1,0 +1,74 @@
+/* The app frame — the mockup's .shell / .side / .nv family, prefixed.
+   Desktop: 264px sidebar. ≤1180px: 76px icon rail. ≤760px: bottom tab bar
+   with the cofounder in the middle, Settings behind the avatar top-right. */
+
+.sb-shell { display: grid; grid-template-columns: 264px 1fr; height: 100vh; height: 100dvh; background: var(--bg); overflow: hidden; }
+.sb-side { display: flex; flex-direction: column; gap: 2px; padding: 14px 12px 12px; border-right: 1px solid var(--line); background: var(--bg); min-height: 0; overflow-y: auto; }
+.sb-side .ws { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; font-weight: 600; font-size: 14px; height: 42px; min-width: 0; }
+.sb-side .ws .wl { width: 26px; height: 26px; border-radius: 8px; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 650; flex: none; }
+.sb-side .ws .wn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-side .cof { margin: 10px 0 14px; padding: 12px; display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+.sb-side .cof .sb-ava { width: 42px; height: 42px; }
+.sb-side .cof .t { flex: 1; min-width: 0; }
+.sb-side .cof b { display: block; font-size: 14px; font-weight: 600; }
+.sb-side .cof small { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.sb-side .cof .callb { width: 36px; height: 36px; border-radius: 10px; background: var(--ink); color: #fff; display: grid; place-items: center; flex: none; }
+.sb-nv { display: flex; align-items: center; gap: 11px; height: 38px; padding: 0 10px; border-radius: 9px; font-size: 14px; font-weight: 500; color: var(--ink2); text-decoration: none; }
+.sb-nv:hover { background: var(--hover); }
+.sb-nv[aria-current="page"] { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: var(--sh), inset 0 0 0 1px var(--line); }
+.sb-nv svg { color: var(--muted); }
+.sb-nv[aria-current="page"] svg { color: var(--ink); }
+.sb-nv .c { margin-left: auto; font-size: 12px; color: var(--faint); font-weight: 500; font-style: normal; }
+.sb-nv .c.r { color: var(--r-tx); background: var(--r-bg); border-radius: 999px; padding: 1px 7px; }
+.sb-side .sh { font-size: 12px; font-weight: 550; color: var(--faint); padding: 18px 10px 6px; }
+.sb-side .rc { display: block; padding: 7px 10px; border-radius: 8px; font-size: 13px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; width: 100%; min-height: 32px; }
+.sb-side .rc:hover { background: var(--hover); }
+.sb-side .rc[aria-current="true"] { background: var(--hover); font-weight: 550; }
+.sb-side .bottom { margin-top: auto; display: flex; flex-direction: column; gap: 4px; padding-top: 12px; }
+.sb-side .me { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; width: 100%; text-decoration: none; color: inherit; }
+.sb-side .me:hover, .sb-side .me[aria-current="page"] { background: var(--hover); }
+.sb-side .me .sb-ava { width: 32px; height: 32px; }
+.sb-side .me .t { min-width: 0; flex: 1; }
+.sb-side .me b { display: block; font-size: 13px; font-weight: 600; }
+.sb-side .me small { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.sb-main { min-width: 0; min-height: 0; display: flex; flex-direction: column; background: var(--surface); position: relative; }
+.sb-view { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+
+/* Screens still on their old route render inside this frame, unchanged. */
+/* Positioned so the old frame's off-screen skip link stays clipped inside it. */
+.sb-legacy { flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: hidden; position: relative; }
+
+/* ── phone tab bar ─────────────────────────────────────────────────────── */
+.sb-tabbar { display: none; }
+.sb-mtop { display: none; }
+
+@media (max-width: 1180px) {
+  .sb-shell { grid-template-columns: 76px 1fr; }
+  .sb-side { align-items: center; padding: 14px 8px; }
+  .sb-side .ws .wn, .sb-side .cof .t, .sb-side .cof .callb, .sb-nv span, .sb-nv .c, .sb-side .sh, .sb-side .rc, .sb-side .me .t { display: none; }
+  .sb-side .ws { padding: 6px; }
+  .sb-side .cof { padding: 6px; margin: 10px 0 12px; border: 0; box-shadow: none; background: none; }
+  .sb-side .cof .sb-ava { width: 46px; height: 46px; }
+  .sb-nv { width: 46px; height: 44px; justify-content: center; padding: 0; }
+  .sb-side .me { justify-content: center; width: auto; }
+}
+
+@media (max-width: 760px) {
+  .sb-shell { grid-template-columns: 1fr; grid-template-rows: auto 1fr auto; background: var(--surface); }
+  .sb-side { display: none; }
+  .sb-main { grid-row: 2; }
+  .sb-mtop { grid-row: 1; display: flex; align-items: center; gap: 10px; padding: var(--sat) 14px 0; height: calc(56px + var(--sat)); border-bottom: 1px solid var(--line2); background: var(--surface); }
+  .sb-mtop .tt { min-width: 0; flex: 1; }
+  .sb-mtop .tt b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sb-mtop .tt small { display: block; font-size: 12px; color: var(--muted); }
+  .sb-mtop .meb { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
+  .sb-mtop .meb .sb-ava { width: 32px; height: 32px; }
+  .sb-mtop.hidden { display: none; }
+  .sb-tabbar { grid-row: 3; display: flex; justify-content: space-around; align-items: flex-end; padding: 6px 6px calc(6px + var(--sab)); border-top: 1px solid var(--line); background: rgba(255,255,255,.96); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); position: relative; z-index: 50; }
+  .sb-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; min-height: 44px; justify-content: flex-end; font-size: 10.5px; font-weight: 550; color: var(--faint); text-decoration: none; }
+  .sb-tab[aria-current="page"] { color: var(--ink); }
+  .sb-tab.co { flex: 0 0 auto; padding: 0 6px; }
+  .sb-tab.co .sb-ava { width: 56px; height: 56px; margin-top: -24px; box-shadow: 0 0 0 4px #fff, var(--sh-m); }
+  .sb-tab.co[aria-current="page"] .sb-ava { box-shadow: 0 0 0 4px #fff, 0 0 0 6px var(--ink); }
+}
