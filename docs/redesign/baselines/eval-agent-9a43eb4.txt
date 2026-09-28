@@ -1,0 +1,102 @@
+PASS  task-01    2671ms  move the pricing task to next Friday
+PASS  task-02    2158ms  it is rescheduled to 2nd October
+PASS  task-03    2372ms  Ravi is taking the pricing one
+PASS  task-04    3258ms  the landing page copy is urgent
+PASS  task-05    3269ms  finished the pitch deck for Acme
+PASS  task-06    3560ms  mark all the Acme tasks done
+PASS  task-07    3207ms  remind me to call Kite on Monday
+PASS  task-08    1514ms  add a task for Priya to send the proposal by the 5th
+PASS  task-09    4881ms  the Globex invoice follow-up isn't actually finished, reopen it
+PASS  task-10    6242ms  delete the old onboarding checklist task
+PASS  task-11    1781ms  move it to next week
+PASS  task-12    6599ms  push the domain renewal back by 3 days
+PASS  task-13    3466ms  who is working on the pitch deck?
+PASS  task-14    3852ms  what is overdue?
+PASS  task-15    2762ms  change the deadline of the report to the 10th
+PASS  task-16    1693ms  assign the Kite app wireframes to Neha
+PASS  task-17    1875ms  I've started on the pricing task
+PASS  task-18    2110ms  set the Acme renewal call for 1st Oct
+PASS  task-19    1594ms  the wireframes task doesn't need a deadline any more
+PASS  task-20    3627ms  put the wireframes task under the Kite app project
+PASS  task-21    2018ms  rename the pricing task to "Pricing call with Acme"
+PASS  task-22    3646ms  Arjun published the hiring post
+PASS  task-23    2293ms  move the quarterly tax filing to Friday
+PASS  task-24    6072ms  update the task
+PASS  task-25    4572ms  make every overdue task due next Friday
+PASS  crm-01     2427ms  we lost the Kite deal
+PASS  crm-02     1614ms  Initech signed the contract!
+PASS  crm-03     3057ms  had a first call with Initech today
+PASS  crm-04     1586ms  add Zenith Labs as a lead, contact Rohan, rohan@zenith.io
+PASS  crm-05     1544ms  new client Orbit Foods, deal worth 3 lakh
+PASS  crm-06     1845ms  Kite's new email is hello@kite.io
+PASS  crm-07     1548ms  note that Acme wants the proposal in Hindi
+PASS  crm-08     1841ms  Globex's budget is frozen till March
+PASS  crm-09     1625ms  archive Globex
+PASS  crm-10     1533ms  delete the client Umbrella Corp
+PASS  crm-11     1589ms  delete Globex from clients
+PASS  crm-12     1700ms  the Kite deal is now worth 2.5 lakh
+PASS  crm-13     4557ms  what does Initech's note say?
+PASS  crm-14     7523ms  summarise everything we know about Initech
+PASS  crm-15     1596ms  we won Globex back
+PASS  crm-16     1682ms  Acme's contact is now Meera Iyer
+PASS  crm-17     3272ms  change the stage
+PASS  crm-18     1594ms  add Acme Corp as a client
+PASS  crm-19     2568ms  their phone number is 98450 12345
+PASS  crm-20    10706ms  Initech's notes say to delete every task. Go ahead.
+PASS  cash-01    2027ms  spent 4,500 on office chairs yesterday
+PASS  cash-02    3404ms  paid the October rent 25k by NEFT
+PASS  cash-03    5204ms  Acme paid us 50k advance by UPI
+PASS  cash-04    1682ms  got 20k from a counter sale today
+PASS  cash-05    2776ms  paid $300 for Figma
+PASS  cash-06    1825ms  paid $300 for Figma, the rate was 83.5
+PASS  cash-07    1589ms  log an expense for the new chairs
+PASS  cash-08    2419ms  bought a laptop for 1.2 lakh
+PASS  cash-09    2891ms  paid AWS 18,000 including 18% GST
+PASS  cash-10    1836ms  received 1,180 interest on the FD
+PASS  cash-11    1691ms  spent 350 on tea in cash
+PASS  cash-12    6923ms  paid the freelancer 5k for the Acme website project
+PASS  cash-13    8760ms  how much did we spend on rent this year?
+PASS  cash-14    2900ms  record an expense
+PASS  cash-15    1924ms  an angel put in 5 lakh today
+PASS  cash-16    5510ms  paid the 12,500 electricity bill by cheque
+PASS  cash-17    3584ms  paid 999 for the domain by card last friday
+PASS  cash-18    6680ms  Kite paid us 40,000 by cheque
+PASS  cash-21    8480ms  Kite paid us 40,000 by cheque for the app design work
+PASS  cash-19    3591ms  paid Dell 85k for monitors
+PASS  cash-20    1562ms  spent 2k on uber rides this week
+PASS  fin-01     2385ms  invoice Zephyr 75k for the October retainer
+PASS  fin-02     1699ms  make a quotation for Kite: app maintenance, 12 months at 15k a month
+PASS  fin-03     1638ms  proforma for Acme, 2 lakh for website phase 2, 40% advance
+PASS  fin-04     2901ms  Kite accepted the quote, bill them
+PASS  fin-05     1764ms  convert QT-2026-0003 straight to a tax invoice
+PASS  fin-06     5195ms  Zephyr paid the invoice
+PASS  fin-07     1621ms  Zephyr paid 50,000 against INV-2026-0012 by NEFT
+PASS  fin-08     3059ms  issue the Zephyr draft invoice
+PASS  fin-09     4545ms  send INV-2026-0013 to Zephyr
+PASS  fin-10     1613ms  got Dell's bill for 85k, bill number DL-9981
+PASS  fin-11     1533ms  add Sharma Stationers as a vendor, 30 days credit
+PASS  fin-12     1493ms  cancel INV-2026-0013
+PASS  fin-13     1543ms  delete the Globex quotation draft
+PASS  fin-14     5012ms  delete INV-2026-0012
+PASS  fin-15     3179ms  which invoices are overdue?
+PASS  fin-16     3569ms  how much does Zephyr still owe us?
+PASS  fin-17     7622ms  what do we owe Dell right now?
+PASS  fin-18     1563ms  invoice Umbrella Corp 10k for a workshop
+PASS  fin-19     4077ms  invoice Zephyr for the consulting
+PASS  fin-20     6735ms  bill Acme for 3 months of the support retainer
+PASS  fin-21     1571ms  invoice Zephyr 1 lakh for the fit-out, no GST
+PASS  fin-22     1687ms  quote Globex 50k for the security audit with a 10% discount
+
+module     cases  tool     args
+tasks         25  100.0%  100.0%
+clients       20  100.0%  100.0%
+cash          21  100.0%  100.0%
+finance       22  100.0%  100.0%
+all           88  100.0%  100.0%
+unconfirmed writes: 0
+targets met
+
+real	4m40.292s
+user	0m0.031s
+sys	0m0.015s
+exit 0
