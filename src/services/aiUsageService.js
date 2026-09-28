@@ -13,7 +13,7 @@ import { supabase } from '../lib/supabase';
 
 export const AI_SURFACES = [
     { id: 'copilot', label: 'Copilot', note: 'chat and voice with the AI co-founder' },
-    { id: 'brain', label: 'EdgeBrain', note: 'questions answered from company data' },
+    { id: 'brain', label: 'Company knowledge', note: 'questions answered from company data' },
     { id: 'library', label: 'Document reading', note: 'AI reading scanned files and images' },
 ];
 

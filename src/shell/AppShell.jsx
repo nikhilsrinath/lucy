@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAssistant } from '../components/assistant/assistantStore';
 import { useCofounder } from '../design/useCofounder';
@@ -6,6 +6,8 @@ import { PixelAvatar } from '../design/ui';
 import { ME_AVATAR } from '../design/personas';
 import { IconChat, IconMoney, IconClients, IconWork, IconTeam, IconSettings, IconCall } from '../design/icons';
 import { useMe } from './useMe';
+import { useAuth } from '../context/AuthContext';
+import { INTRO_CALL_KEY } from '../onboarding/onboardingState';
 import { SECTIONS, sectionOf } from './sections';
 import { useNavCounts } from './useNavCounts';
 import { useShell } from './shellContext';
@@ -34,6 +36,18 @@ export default function AppShell({ children, composer = true }) {
     const a = useAssistant();
     const shell = useShell();
     const current = sectionOf(location.pathname);
+    const { user } = useAuth();
+    const uid = user?.id;
+    const { startCall } = shell;
+
+    // The end of onboarding leaves an intro call to ring once (its greeting is
+    // spoken locally — see onboarding/Onboarding.jsx).
+    useEffect(() => {
+        if (!uid) return;
+        let greeting = null;
+        try { greeting = localStorage.getItem(INTRO_CALL_KEY(uid)); localStorage.removeItem(INTRO_CALL_KEY(uid)); } catch { /* none */ }
+        if (greeting) startCall('incoming', { greeting });
+    }, [uid, startCall]);
     const sectionLabel = SECTIONS.find((s) => s.id === current)?.label || '';
 
     const recent = a.chats.filter((c) => c.messages.length).slice(0, 6);

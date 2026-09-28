@@ -222,9 +222,9 @@ function smtpMessage(err) {
 function buildTestMessage(gmailUser) {
   return {
     recipients: [gmailUser],
-    fromName: 'EdgeOS',
-    subject: 'EdgeOS — Email Test',
-    text: 'This is a test email from EdgeOS. If you received this, your Gmail SMTP is configured correctly.',
+    fromName: 'StartupBuddy',
+    subject: 'StartupBuddy: email test',
+    text: 'This is a test email from StartupBuddy. If you received this, your Gmail is connected correctly.',
     html: `
       <div style="font-family:'Segoe UI',sans-serif;max-width:500px;margin:0 auto;padding:24px;">
         <div style="background:linear-gradient(135deg,#10b981,#059669);padding:24px;border-radius:12px 12px 0 0;text-align:center;">
@@ -232,10 +232,10 @@ function buildTestMessage(gmailUser) {
         </div>
         <div style="background:#ffffff;border:1px solid #e5e7eb;border-top:none;border-radius:0 0 12px 12px;padding:24px;">
           <p style="margin:0 0 12px;font-size:14px;color:#374151;line-height:1.6;">
-            This is a test email from <strong>EdgeOS</strong>.
+            This is a test email from <strong>StartupBuddy</strong>.
           </p>
           <p style="margin:0;font-size:13px;color:#6b7280;line-height:1.6;">
-            If you received this in your inbox, your setup is complete. You can now send offer letters, notifications, and follow-ups directly from EdgeOS.
+            If you received this in your inbox, your setup is complete. You can now send offer letters, notifications, and follow-ups directly from StartupBuddy.
           </p>
         </div>
       </div>`,

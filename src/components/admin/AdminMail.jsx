@@ -30,20 +30,20 @@ const TEMPLATES = [
   {
     id: 'announce',
     label: 'Product update',
-    subject: "What's new in EdgeOS",
-    body: 'Hi there,\n\nWe have shipped a few things to EdgeOS this month that we think will save you time:\n\n• \n• \n\nAs always, reply to this email if anything is in your way.\n\n— The EdgeOS team',
+    subject: "What's new in StartupBuddy",
+    body: 'Hi there,\n\nWe have shipped a few things to StartupBuddy this month that we think will save you time:\n\n• \n• \n\nAs always, reply to this email if anything is in your way.\n\n— The StartupBuddy team',
   },
   {
     id: 'upgrade',
     label: 'Plan nudge',
-    subject: 'More room on your EdgeOS workspace',
-    body: 'Hi there,\n\nYou have been getting a lot out of EdgeOS lately. Your current plan caps a few things you are close to — upgrading lifts those limits and unlocks bulk operations.\n\nHappy to walk you through it; just reply here.\n\n— The EdgeOS team',
+    subject: 'More room on your StartupBuddy workspace',
+    body: 'Hi there,\n\nYou have been getting a lot out of StartupBuddy lately. Your current plan caps a few things you are close to — upgrading lifts those limits and unlocks bulk operations.\n\nHappy to walk you through it; just reply here.\n\n— The StartupBuddy team',
   },
   {
     id: 'dues',
     label: 'Payment reminder',
-    subject: 'A quick note about your EdgeOS subscription',
-    body: 'Hi there,\n\nWe were not able to process the most recent payment for your EdgeOS subscription. Nothing has changed on your workspace yet.\n\nYou can update the payment details any time, or reply here and we will sort it out together.\n\n— The EdgeOS team',
+    subject: 'A quick note about your StartupBuddy subscription',
+    body: 'Hi there,\n\nWe were not able to process the most recent payment for your StartupBuddy subscription. Nothing has changed on your workspace yet.\n\nYou can update the payment details any time, or reply here and we will sort it out together.\n\n— The StartupBuddy team',
   },
 ];
 

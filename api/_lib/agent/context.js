@@ -3,6 +3,7 @@ import { userClient } from './db.js';
 import { KINDS, isUuid } from './resolvers.js';
 import { todayIn, DEFAULT_TZ } from '../../../src/shared/dates.js';
 import { PLANS, DEFAULT_PLAN } from '../../../src/services/planConfig.js';
+import { cleanPersona } from './personas.js';
 
 /**
  * Everything a tool may know about who is asking, built fresh per request.
@@ -69,6 +70,8 @@ export async function buildAgentContext({ user, token, orgId, body = {}, actionI
     pending: cleanPending(body.pending),
     openCards: cleanCards(body.context?.openCards),
     voice: body.voice === true,
+    // The chosen cofounder's voice for the prompt — tone only (personas.js).
+    persona: cleanPersona(body.context?.persona),
     cache: new Map(),
   };
 

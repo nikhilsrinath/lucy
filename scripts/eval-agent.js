@@ -14,6 +14,9 @@
  * Targets (docs/edgeai-agent.md): ≥ 95% correct tool, ≥ 90% fully correct
  * args, 0 unconfirmed writes.
  *
+ * EVAL_PERSONA=<id> runs every case as that cofounder (default mira) — the
+ * persona changes tone only, and the targets are the same for all of them.
+ *
  * Needs GEMINI_API_KEY (read from .env if not in the environment). Costs one
  * to three model calls per case; it does not touch Supabase or the AI meter.
  */
@@ -36,6 +39,8 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const filters = process.argv.slice(2);
+const PERSONA = process.env.EVAL_PERSONA || 'mira';
+console.log(`persona: ${PERSONA}`);
 const cases = filters.length ? CASES.filter((c) => filters.some((f) => c.id.startsWith(f))) : CASES;
 
 function same(want, got) {
@@ -52,6 +57,7 @@ function same(want, got) {
 async function runCase(c) {
   const db = fakeDb(worldSeed());
   const ctx = fakeCtx({ db, perms: structuredClone(OWNER_PERMS), today: TODAY, recentEntities: c.recent || [] });
+  ctx.persona = PERSONA;
   const proposals = [];
   ctx.actionStore = {
     countPending: async () => 0,

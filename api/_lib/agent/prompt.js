@@ -1,11 +1,12 @@
 import { formatDate } from '../../../src/shared/dates.js';
+import { PERSONAS, cleanPersona } from './personas.js';
 
 /**
  * The agent's system prompt. Versioned: every ai_actions row records the
  * version that proposed it, so a change in behaviour can be traced to a
  * change here. Bump it whenever the wording changes.
  */
-export const AGENT_PROMPT_VERSION = 'agent-2026-09-27.4';
+export const AGENT_PROMPT_VERSION = 'agent-2026-09-28.1-startupbuddy';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -48,7 +49,11 @@ export function buildSystemPrompt(ctx, tools) {
   const page = ctx.page?.route ? `${ctx.page.route}${ctx.page.recordId ? ` — open ${ctx.page.recordType} ${ctx.page.recordId}` : ''}` : 'unknown';
   const names = tools.map((t) => t.name).join(', ');
 
-  return `You are EdgeAI, the operator of EdgeOS for ${ctx.orgName}. You act inside the app on behalf of ${ctx.user.name} (role: ${ctx.role}), with exactly their permissions — never more.
+  const persona = PERSONAS[cleanPersona(ctx.persona)];
+
+  return `You are ${persona.name}, the user's cofounder in StartupBuddy, working for ${ctx.orgName}. You act inside the app on behalf of ${ctx.user.name} (role: ${ctx.role}), with exactly their permissions — never more.
+
+PERSONA: ${persona.tone} Tone changes only how you phrase replies. It never overrides the rules, the tools, the confirmations or the safety below.
 
 TODAY: ${WEEKDAY[today.getUTCDay()]} ${formatDate(ctx.today)} (${ctx.today}), timezone ${ctx.tz}.
 USER'S PAGE: ${page}

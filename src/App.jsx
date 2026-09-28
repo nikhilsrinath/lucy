@@ -16,7 +16,6 @@ import subPages from './components/landing/subPageData';
 import OfferForm from './components/OfferForm';
 import InternRecords from './components/InternRecords';
 import DocumentLibrary from './components/library/DocumentLibrary';
-import LandingPage from './components/LandingPage';
 import CertificateForm from './components/CertificateForm';
 import NdaForm from './components/NdaForm';
 import MoUForm from './components/MoUForm';
@@ -33,11 +32,9 @@ import Customers from './components/Customers';
 import BillingRevenue from './components/BillingRevenue';
 import ProductPlanner from './components/ProductPlanner';
 import Products from './components/Products';
-import Registration from './components/Registration';
 import CompanyProfile from './components/CompanyProfile';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { OrgProvider, useOrg } from './context/OrgContext';
-import Auth from './components/Auth';
 import CRM from './components/CRM';
 import Employees from './components/Employees';
 import EmployeeForm from './components/EmployeeForm';
@@ -58,6 +55,8 @@ import TeamScreen from './team/TeamScreen';
 import SettingsScreen from './settings/SettingsScreen';
 import ShellProvider from './shell/ShellProvider';
 import { useCofounder } from './design/useCofounder';
+import Onboarding, { Welcome, SignIn } from './onboarding/Onboarding';
+import { onboardingStep } from './onboarding/onboardingState';
 import EdgeBrain from './components/brain/EdgeBrain';
 import { useTaskDeadlineMonitor } from './hooks/useTaskDeadlineMonitor';
 import AppShell from './shell/AppShell';
@@ -70,6 +69,7 @@ import BulkTeamMembers from './components/bulk/BulkTeamMembers';
 import OfferTracker from './components/OfferTracker';
 import BulkHistory from './components/bulk/BulkHistory';
 import RecipientPortal from './components/portal/RecipientPortal';
+import './portal/portalTheme.css';
 import EmployeePortal from './components/portal/EmployeePortal';
 import JoinPortal from './components/portal/JoinPortal';
 import AttendanceSheet from './components/people/AttendanceSheet';
@@ -309,7 +309,7 @@ function AppContent() {
       <div className="app-loading">
         <div style={{ textAlign: 'center' }}>
           <div className="app-loading-spinner" />
-          <span className="app-loading-text">Loading EdgeOS...</span>
+          <span className="app-loading-text">Loading StartupBuddy…</span>
         </div>
       </div>
     );
@@ -317,14 +317,17 @@ function AppContent() {
 
   if (!user) {
     const pathname = location.pathname;
-    if (pathname === '/login') return <Auth />;
-    if (pathname === '/signup') return <Registration onBack={() => routerNavigate('/login')} />;
-    return <LandingPage onEnter={() => routerNavigate('/login')} />;
+    if (pathname === '/login') return <SignIn />;
+    if (pathname === '/signup') return <Onboarding initial="account" />;
+    return <Welcome />;
   }
 
-  if (needsOnboarding) {
-    return <Registration isGoogleUser={true} onBack={() => logout()} />;
-  }
+  // Signed in with no company yet (a Google sign-up): name the company.
+  if (needsOnboarding) return <Onboarding initial="company" />;
+
+  // Company created, onboarding not finished: resume where it stopped.
+  const resumeAt = onboardingStep(user);
+  if (resumeAt) return <Onboarding initial={resumeAt} />;
 
   // Wait for the role before choosing a shell, so an employee never sees the
   // admin sidebar flash past on the way to their portal.
@@ -333,7 +336,7 @@ function AppContent() {
       <div className="app-loading">
         <div style={{ textAlign: 'center' }}>
           <div className="app-loading-spinner" />
-          <span className="app-loading-text">Loading EdgeOS...</span>
+          <span className="app-loading-text">Loading StartupBuddy…</span>
         </div>
       </div>
     );
@@ -366,7 +369,7 @@ function AppContent() {
   const editor = /^\/money\/invoices\/(new|[^/]+\/edit)\/?$/.test(location.pathname) || /^\/team\/letters\//.test(location.pathname);
 
   return (
-    <AssistantProvider orgId={activeOrg?.id || null} userId={user?.id || null} assistantName={persona.name}>
+    <AssistantProvider orgId={activeOrg?.id || null} userId={user?.id || null} assistantName={persona.name} personaId={persona.id}>
       <ShellProvider>
       <AppShell composer={!flush && !editor}>
         <ShellFrame
@@ -517,7 +520,7 @@ function PortalRouteWrapper() {
   const { documentId } = useParams();
   return (
     <ToastProvider>
-      <RecipientPortal documentId={documentId} />
+      <div className="sb-portal"><RecipientPortal documentId={documentId} /></div>
     </ToastProvider>
   );
 }

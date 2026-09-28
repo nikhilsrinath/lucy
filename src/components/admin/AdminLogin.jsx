@@ -71,7 +71,7 @@ export default function AdminLogin({ wrongAccount }) {
             <ShieldCheck size={15} aria-hidden="true" />
           </div>
           <h1 style={{ margin: 0, fontSize: 14, fontWeight: 500, color: t.text, letterSpacing: '-0.01em' }}>
-            EdgeOS Platform Console
+            StartupBuddy Platform Console
           </h1>
           <p style={{ margin: '6px 0 0', fontSize: 10.5, color: t.faint, lineHeight: 1.6 }}>
             Every tenant, their revenue and their contacts. Restricted to the

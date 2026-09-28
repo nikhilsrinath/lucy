@@ -75,3 +75,14 @@ describe('sectionOf', () => {
         expect(sectionOf('/dashboard')).toBeNull();
     });
 });
+
+describe('agent labels', async () => {
+    const { openedLabel, statusLabel } = await import('./agentLabels');
+    it('renames old pages and leaves record labels alone', () => {
+        expect(openedLabel('/timesheets', 'Timesheets')).toBe('Work');
+        expect(openedLabel('/edgebrain', 'EdgeBrain')).toBe('Settings');
+        expect(openedLabel('/customers', 'Acme Corp')).toBe('Acme Corp');
+        expect(statusLabel('Asking EdgeBrain…')).toBe('Checking what I know…');
+        expect(statusLabel('Checking tasks…')).toBe('Checking tasks…');
+    });
+});

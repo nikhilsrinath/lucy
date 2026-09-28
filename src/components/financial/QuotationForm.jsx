@@ -1470,7 +1470,7 @@ export default function QuotationForm({ editDocId }) {
             >
               This is not a tax invoice. This is a quotation/estimate only.
               <br />
-              Generated via EdgeOS.
+              Generated via StartupBuddy.
             </div>
           </div>
         </A4Stage>

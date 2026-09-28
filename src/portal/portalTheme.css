@@ -1,0 +1,63 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   The recipient portal in StartupBuddy's look — chrome only.
+
+   Overrides the portal's rp-* rules (index.css) under .sb-portal, one class
+   more specific, so nothing it does changes: every action, field and step is
+   the same element. The document itself (the A4 paper, rp-a4 and rp-doc-*)
+   is left exactly as it was — it is the thing being signed.
+
+   The wrapper is deliberately NOT `.sb`: those base resets would reach into
+   the document's own typography.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.sb-portal {
+  --p-bg: #F7F6F3; --p-surface: #fff; --p-ink: #111113; --p-ink2: #2B2B30; --p-muted: #6E6D73; --p-faint: #A09FA5;
+  --p-line: #E7E5E0; --p-line2: #F0EEEA; --p-soft: #F3F2EE;
+  --p-font: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --p-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.sb-portal .rp-page, .sb-portal .rp-loading { background: var(--p-bg); font-family: var(--p-font); color: var(--p-ink); letter-spacing: -.005em; }
+.sb-portal .rp-loading-inner h2 { font-weight: 650; letter-spacing: -.03em; color: var(--p-ink); }
+.sb-portal .rp-loading-spinner { border-color: var(--p-line); border-top-color: var(--p-ink); }
+
+.sb-portal .rp-header { background: var(--p-surface); border-bottom: 1px solid var(--p-line2); box-shadow: none; }
+.sb-portal .rp-header-brand h1 { font-family: var(--p-font); font-weight: 650; letter-spacing: -.02em; color: var(--p-ink); }
+.sb-portal .rp-header-brand span, .sb-portal .rp-header-doctype { color: var(--p-muted); }
+.sb-portal .rp-header-doctype { background: var(--p-soft); border: 1px solid var(--p-line2); border-radius: 999px; }
+.sb-portal .rp-security-bar { background: var(--p-bg); border-bottom: 1px solid var(--p-line2); }
+.sb-portal .rp-security-inner { color: var(--p-muted); font-size: 12px; }
+
+.sb-portal .rp-card, .sb-portal .rp-doc-info-card { background: var(--p-surface); border: 1px solid var(--p-line); border-radius: 14px; box-shadow: 0 1px 2px rgba(17,17,19,.05); }
+.sb-portal .rp-card-header h3 { font-weight: 600; letter-spacing: -.02em; color: var(--p-ink); }
+.sb-portal .rp-card-header svg { color: var(--p-ink); }
+.sb-portal .rp-card-desc, .sb-portal .rp-agree { color: var(--p-muted); font-size: 14px; }
+.sb-portal .rp-doc-info-label { color: var(--p-muted); }
+.sb-portal .rp-doc-info-value { color: var(--p-ink); }
+
+.sb-portal .rp-btn { border-radius: 10px; font-weight: 550; font-size: 15px; min-height: 48px; font-family: var(--p-font); }
+.sb-portal .rp-btn-primary { background: var(--p-ink); color: #fff; box-shadow: 0 1px 2px rgba(17,17,19,.05); }
+.sb-portal .rp-btn-primary:not(:disabled):hover { background: #2a2a2e; transform: none; box-shadow: 0 1px 2px rgba(17,17,19,.05); }
+.sb-portal .rp-btn-outline, .sb-portal .rp-btn-ghost { background: var(--p-surface); color: var(--p-ink); border: 1px solid var(--p-line); }
+.sb-portal .rp-btn-outline:hover, .sb-portal .rp-btn-ghost:hover { background: var(--p-soft); }
+.sb-portal .rp-btn-danger-outline { background: var(--p-surface); color: #B42318; border: 1px solid #F6D4D2; }
+.sb-portal .rp-btn-danger { background: #B42318; }
+.sb-portal .rp-btn:focus-visible { outline: 2px solid #3B6CFF; outline-offset: 2px; }
+
+.sb-portal .rp-amount-hero { background: var(--p-bg); border: 1px solid var(--p-line2); border-radius: 14px; }
+.sb-portal .rp-amount-value { font-family: var(--p-mono); font-weight: 500; letter-spacing: -.04em; color: var(--p-ink); }
+.sb-portal .rp-label { font-size: 13px; font-weight: 550; color: var(--p-ink2); text-transform: none; letter-spacing: normal; }
+.sb-portal .rp-field-group input, .sb-portal .rp-field-group select, .sb-portal .rp-field-group textarea, .sb-portal .rp-modal-textarea {
+  border: 1px solid var(--p-line); border-radius: 11px; background: var(--p-surface); font-size: 16px; color: var(--p-ink); font-family: var(--p-font);
+}
+.sb-portal .rp-field-group input:focus, .sb-portal .rp-field-group select:focus, .sb-portal .rp-field-group textarea:focus, .sb-portal .rp-modal-textarea:focus {
+  border-color: var(--p-ink); box-shadow: 0 0 0 3px rgba(17,17,19,.08); outline: none;
+}
+.sb-portal .rp-step-num { background: var(--p-ink); }
+.sb-portal .rp-success-icon { background: #E7F5EC; color: #17803D; }
+.sb-portal .rp-overlay { background: rgba(17,17,19,.28); backdrop-filter: none; }
+.sb-portal .rp-modal { border-radius: 16px; box-shadow: 0 30px 80px -24px rgba(17,17,19,.35); font-family: var(--p-font); }
+
+.sb-portal .rp-footer { background: var(--p-bg); border-top: 1px solid var(--p-line2); }
+.sb-portal .rp-footer-brand, .sb-portal .rp-footer-tagline { color: var(--p-muted); font-family: var(--p-font); }
+.sb-portal .rp-footer-brand strong { color: var(--p-ink); }
+.sb-portal .rp-download-pdf-btn { background: var(--p-ink) !important; border-radius: 8px !important; }

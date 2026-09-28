@@ -52,7 +52,7 @@ export async function insertProposal(ctx, { chatId, messageId, tool, args, targe
     expires_at: new Date(now + PROPOSAL_TTL_MS).toISOString(),
   }).select().single();
   if (error) {
-    if (isMissingTable(error)) throw Object.assign(new Error('EdgeAI cannot make changes yet: the ai_actions table (migration 0068) is not on this database.'), { code: 'no_table' });
+    if (isMissingTable(error)) throw Object.assign(new Error('Your cofounder cannot make changes yet: the ai_actions table (migration 0068) is not on this database.'), { code: 'no_table' });
     throw error;
   }
   return data;

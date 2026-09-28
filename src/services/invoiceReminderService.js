@@ -54,7 +54,7 @@ export const invoiceReminderService = {
     const { subject, text } = buildReminder(doc, profile);
     const res = await emailService.sendEmail({
       to: doc.clientEmail, subject, text, orgProfile: profile,
-      fromName: profile?.company_name || 'EdgeOS',
+      fromName: profile?.company_name || 'StartupBuddy',
     });
     if (res && res.success === false) return res;
     await documentStore.updateMeta(doc.id, {

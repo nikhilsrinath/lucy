@@ -444,7 +444,7 @@ async function sendEmail({ to, subject, body, html }, admin) {
   let info;
   try {
     info = await transporter.sendMail({
-      from: `"${(process.env.PLATFORM_MAIL_FROM || 'EdgeOS').replace(/["\r\n]/g, '')}" <${user}>`,
+      from: `"${(process.env.PLATFORM_MAIL_FROM || 'StartupBuddy').replace(/["\r\n]/g, '')}" <${user}>`,
       to: user,
       bcc: recipients,
       subject: line,

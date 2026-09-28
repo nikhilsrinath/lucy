@@ -26,7 +26,7 @@ export const categoryLabel = (id) => CATEGORIES.find((c) => c.id === id)?.label 
 
 /** What the reader can and cannot do with a file, for the upload hint. */
 export const READABLE_HINT =
-  'PDF, Word, PowerPoint, Excel/CSV, OpenDocument, text, Markdown, HTML and images are read by EdgeBrain. ' +
+  'PDF, Word, PowerPoint, Excel/CSV, OpenDocument, text, Markdown, HTML and images can be read by your cofounder. ' +
   'Anything else is stored but not searchable.';
 
 const LIST_COLUMNS =

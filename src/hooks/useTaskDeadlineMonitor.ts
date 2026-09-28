@@ -44,7 +44,7 @@ async function runCheck() {
           subject,
           text: body,
           orgProfile: profile,
-          fromName: profile.company_name || 'EdgeOS',
+          fromName: profile.company_name || 'StartupBuddy',
         });
         await taskStore.markFollowUpSent(task.id);
       } catch (err) {

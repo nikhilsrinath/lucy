@@ -936,7 +936,7 @@ function ProformaPreview({ formData, totals, itemCalcs, company, activeAdvancePe
 
       {/* Footer */}
       <div className="inv-footer">
-        This is a computer-generated proforma invoice. Generated via EdgeOS.
+        This is a computer-generated proforma invoice. Generated via StartupBuddy.
       </div>
     </div>
   );

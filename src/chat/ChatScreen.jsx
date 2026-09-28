@@ -16,6 +16,8 @@ import { isoDay } from './brief';
 import Brief from './BriefCard';
 import Feed from './Feed';
 import ChatsSheet from './ChatsSheet';
+import CofounderCarousel from '../design/CofounderCarousel';
+import { Sheet } from '../design/ui';
 import './chat.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -38,10 +40,17 @@ export default function ChatScreen() {
     const location = useLocation();
     const { user } = useAuth();
     const { activeOrg } = useOrg();
-    const { persona } = useCofounder();
+    const { persona, chosen, setCofounder } = useCofounder();
     const me = useMe();
     const { brief, build, building, buildError } = useBrief({ persona, name: me.name });
     const [chatsOpen, setChatsOpen] = useState(false);
+    // Existing users who never picked a cofounder are asked once, here.
+    const chooserKey = user?.id ? `startupbuddy.chooser.seen.${user.id}` : null;
+    const [chooserSeen, setChooserSeen] = useState(() => {
+        try { return !chooserKey || !!localStorage.getItem(chooserKey); } catch { return true; }
+    });
+    const [pick, setPick] = useState(persona);
+    const closeChooser = () => { try { localStorage.setItem(chooserKey, '1'); } catch { /* fine */ } setChooserSeen(true); };
     const scrollRef = useRef(null);
 
     const today = isoDay(new Date());
@@ -140,6 +149,11 @@ export default function ChatScreen() {
 
             {a.note && <div className="sb sb-toast" role="status">{a.note}</div>}
             <ChatsSheet open={chatsOpen} onClose={() => setChatsOpen(false)} />
+            <Sheet open={!chosen && !chooserSeen && !!chooserKey} onClose={closeChooser} title="Choose your cofounder"
+                footer={<Button variant="primary" block size="lg" onClick={async () => { await setCofounder(pick.id).catch(() => {}); closeChooser(); }}>Continue with {pick.name}</Button>}>
+                <p className="sb-say quiet" style={{ textAlign: 'center' }}>Same skills, different personalities. You can switch anytime in Settings.</p>
+                <CofounderCarousel compact value={persona.id} onChange={setPick} />
+            </Sheet>
         </section>
     );
 }

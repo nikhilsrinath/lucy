@@ -11,7 +11,7 @@ import { supabase } from '../lib/supabase';
 
 async function token() {
   const { data: { session } } = await supabase.auth.getSession();
-  if (!session?.access_token) throw new Error('You are signed out. Sign in again to use EdgeAI.');
+  if (!session?.access_token) throw new Error('You are signed out. Sign in again to talk to your cofounder.');
   return session.access_token;
 }
 

@@ -271,7 +271,7 @@ export async function downloadPdf(doc, activeOrg) {
           </div>` : ''}
         ${stampUrl ? `<div class="inv-stamp-float"><img src="${stampUrl}" alt="Company Stamp" class="doc-stamp-img" /></div>` : ''}
         <div class="inv-footer">
-          This is a computer-generated ${doc.type === 'quotation' ? 'quotation' : doc.type === 'proforma' ? 'proforma invoice' : 'invoice'}. Generated via EdgeOS.
+          This is a computer-generated ${doc.type === 'quotation' ? 'quotation' : doc.type === 'proforma' ? 'proforma invoice' : 'invoice'}. Generated via StartupBuddy.
         </div>
       </div>`;
     document.body.appendChild(container);

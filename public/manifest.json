@@ -1,22 +1,29 @@
 {
-  "name": "EdgeOS | Business Operations Platform",
-  "short_name": "EdgeOS",
-  "start_url": "/",
+  "name": "StartupBuddy",
+  "short_name": "StartupBuddy",
+  "description": "An AI cofounder for Indian startups.",
+  "start_url": "/chat",
   "display": "standalone",
-  "background_color": "#000000",
-  "theme_color": "#000000",
+  "background_color": "#F7F6F3",
+  "theme_color": "#F7F6F3",
   "icons": [
     {
-      "src": "app-icon.png",
+      "src": "startupbuddy-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "app-icon.png",
+      "src": "startupbuddy-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
+    },
+    {
+      "src": "startupbuddy-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
     }
   ]
 }

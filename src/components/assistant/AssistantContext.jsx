@@ -12,6 +12,7 @@ import { orgStore } from '../../services/orgStore';
 import {
     OLD_KEY, scopedKey, migratedKey, cardlessClaimedKey, readChats, cardIds, selectMigratable, mergeChats,
 } from './chatStore';
+import { openedLabel, statusLabel } from '../../shell/agentLabels';
 
 // The orgStore sections that show each table the agent can change. After a
 // confirm or an undo the confirming tab re-reads them at once; other tabs and
@@ -103,7 +104,7 @@ const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* quota o
  * `orgId` and `userId` pick the conversation list. `assistantName` is how the
  * assistant signs a shared transcript (the chosen cofounder's name).
  */
-export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantName = 'Your cofounder', edgeContext, children }) {
+export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantName = 'Your cofounder', personaId = null, edgeContext, children }) {
     const orgId = orgIdProp ?? edgeContext?.orgId ?? null;
     // Until both are known the list is in memory only: nothing is written to
     // a key that could belong to someone else.
@@ -238,7 +239,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
 
         const onEvent = (event, data) => {
             switch (event) {
-                case 'status': setWorking(data.text || ''); break;
+                case 'status': setWorking(statusLabel(data.text || '')); break;
                 case 'text':
                     said = said ? `${said}\n\n${data.text}` : data.text;
                     patchMessage(chatId, replyId, { content: said });
@@ -266,7 +267,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
                     navigate(data.href);
                     // The full-screen workspace would hide the page just opened.
                     setOpen(false);
-                    add({ kind: 'notice', content: `Opened ${data.label}.` });
+                    add({ kind: 'notice', content: `Opened ${openedLabel(data.href, data.label)}.` });
                     break;
                 case 'entities': remember(chatId, replyId, data.entities); break;
                 case 'card_update': cardUpdateRef.current?.(chatId, data); added += 1; break;
@@ -292,6 +293,8 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
             message_id: replyId,
             history: historyOf(chatNow?.messages || []),
             context: {
+                // The chosen cofounder, for tone. The server accepts only known ids.
+                persona: personaId || undefined,
                 page: pageRef.current,
                 recentEntities: recent,
                 // Cards still waiting, so "scrap that" or (on a call) "yes, do it"
@@ -308,7 +311,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
             patchMessage(chatId, replyId, { content: err?.message || 'Something went wrong.', error: true });
             finish();
         });
-    }, [orgId, append, patchChat, patchMessage, remember, navigate]);
+    }, [orgId, personaId, append, patchChat, patchMessage, remember, navigate]);
 
     /** The question still waiting on this chat, if its last message is one. */
     const openQuestion = (chat) => {
