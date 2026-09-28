@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation, Navigate, useParams } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation, Navigate, useParams, useSearchParams } from 'react-router-dom';
 import {
   LayoutDashboard, Briefcase, Award, Scale, ShieldCheck,
   Layers, Archive, Users,
@@ -51,6 +51,7 @@ import Portfolio from './components/projects/Portfolio';
 import Timesheets from './components/projects/Timesheets';
 import { AssistantProvider } from './components/assistant/AssistantContext';
 import ChatScreen from './chat/ChatScreen';
+import MoneyScreen from './money/MoneyScreen';
 import ShellProvider from './shell/ShellProvider';
 import { useCofounder } from './design/useCofounder';
 import EdgeBrain from './components/brain/EdgeBrain';
@@ -89,7 +90,7 @@ import { RecurringInvoiceForm, RecurringInvoiceList } from './components/financi
 import { documentStore, docNumber } from './services/documentStore';
 
 // Until a section's new screens land, these are where its nav entry leads.
-const INTERIM_HOME = { money: '/finance-status', clients: '/crm', work: '/tasks', team: '/employees', settings: '/profile' };
+const INTERIM_HOME = { clients: '/crm', work: '/tasks', team: '/employees', settings: '/profile' };
 
 
 const MODULE_FILTER = {
@@ -359,11 +360,13 @@ function AppContent() {
     ? NAV_ITEMS.filter((i) => i.id && sectionPages.includes(i.id))
     : activeModule ? NAV_ITEMS.filter((i) => i.id && MODULE_FILTER[activeModule]?.includes(i.id)) : [];
   const flush = FLUSH_PAGES.has(activePage) || /^\/recurring\/(new|edit)/.test(location.pathname);
+  // The document editors keep their own full-page form; no composer under them.
+  const editor = /^\/money\/invoices\/(new|[^/]+\/edit)\/?$/.test(location.pathname);
 
   return (
     <AssistantProvider orgId={activeOrg?.id || null} userId={user?.id || null} assistantName={persona.name}>
       <ShellProvider>
-      <AppShell composer={!flush}>
+      <AppShell composer={!flush && !editor}>
         <ShellFrame
           on={framed}
           theme="light" user={user}
@@ -376,6 +379,10 @@ function AppContent() {
           <Routes>
             <Route index element={<Navigate to="/chat" replace />} />
             <Route path="chat" element={<ChatScreen />} />
+            <Route path="money" element={<Navigate to="/money/transactions" replace />} />
+            <Route path="money/invoices/new" element={<DocEditor />} />
+            <Route path="money/invoices/:docId/edit" element={<DocEditor />} />
+            <Route path="money/:tab" element={<MoneyScreen />} />
             {Object.entries(INTERIM_HOME).map(([id, to]) => (
               <Route key={id} path={`${id}/*`} element={<Navigate to={to} replace />} />
             ))}
@@ -450,6 +457,23 @@ function AppContent() {
 function ShellFrame({ on, children, ...props }) {
   if (!on) return children;
   return <div className="sb-legacy"><ModuleShell embedded {...props}>{children}</ModuleShell></div>;
+}
+
+// Invoice, quotation and proforma editors: their existing form-beside-preview
+// pages, full screen in their old frame (the A4 preview is the document).
+function DocEditor() {
+  const { docId } = useParams();
+  const [params] = useSearchParams();
+  const type = docId ? 'quotation' : (params.get('type') || 'invoice');
+  const title = docId ? 'Edit quotation' : { invoice: 'New invoice', quotation: 'New quotation', proforma: 'New proforma invoice' }[type] || 'New document';
+  const form = docId ? <QuotationForm editDocId={docId} />
+    : type === 'quotation' ? <QuotationForm editDocId={null} />
+      : type === 'proforma' ? <ProformaInvoiceForm /> : <InvoiceForm />;
+  return (
+    <div className="sb-legacy">
+      <ModuleShell embedded theme="light" title={title} subtitle="Back to Money when you save" items={[]} flush>{form}</ModuleShell>
+    </div>
+  );
 }
 
 function QuotationFormWrapper() {

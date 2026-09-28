@@ -16,7 +16,7 @@
 
 /** Sections whose new screens are built. Legacy paths into any other section
  *  are left alone (they still render their old screen). */
-export const LIVE_SECTIONS = new Set(['chat']);
+export const LIVE_SECTIONS = new Set(['chat', 'money']);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
