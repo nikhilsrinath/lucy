@@ -13,13 +13,12 @@ export default function ShellProvider({ children }) {
 
     const openFiles = useCallback(({ upload = false } = {}) => { setFilesUpload(upload); setFilesOpen(true); }, []);
     const closeFiles = useCallback(() => { setFilesOpen(false); setFilesUpload(false); }, []);
-    const startCall = useCallback((mode = 'app') => setCall({ mode, at: Date.now() }), []);
+    const startCall = useCallback((mode = 'app', { greeting = '' } = {}) => setCall({ mode, greeting, at: Date.now() }), []);
     const endCall = useCallback(() => setCall(null), []);
 
     const value = useMemo(() => ({
         filesOpen, filesUpload, openFiles, closeFiles,
-        // The call screen arrives in Phase 3; until then nothing offers a call.
-        canCall: false, call, startCall, endCall,
+        canCall: true, call, startCall, endCall,
         brainBuilt, setBrainBuilt,
     }), [filesOpen, filesUpload, openFiles, closeFiles, call, startCall, endCall, brainBuilt]);
 

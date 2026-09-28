@@ -572,6 +572,14 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
         return () => setDocks((n) => Math.max(0, n - 1));
     }, []);
 
+    /**
+     * A display-only message in the open chat (the call summary). It has no
+     * `content`, so historyOf() never sends it to the model.
+     */
+    const addLocal = useCallback((msg) => {
+        append(active.id, [{ id: uid('m'), role: 'assistant', content: '', ...msg }]);
+    }, [append, active.id]);
+
     const pendingQuestion = openQuestion(active);
 
     const value = useMemo(() => ({
@@ -581,13 +589,13 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
         answer, takeOffer, dismissQuestion, pendingQuestion,
         confirmCard, cancelCard, undoCard,
         open, setOpen, view, setView, docked: docks > 0, registerDock,
-        note, setNote, speech,
+        note, setNote, speech, addLocal,
     }), [
         chats, active, draft, streaming, working, send, askNew, regenerate,
         startChat, pickChat, removeChat, clearHistory, renameChat, togglePin, shareChat,
         answer, takeOffer, dismissQuestion, pendingQuestion,
         confirmCard, cancelCard, undoCard,
-        open, view, docks, registerDock, note, speech,
+        open, view, docks, registerDock, note, speech, addLocal,
     ]);
 
     return <AssistantCtx.Provider value={value}>{children}</AssistantCtx.Provider>;

@@ -11,6 +11,7 @@ import { useNavCounts } from './useNavCounts';
 import { useShell } from './shellContext';
 import Composer from '../chat/Composer';
 import FilesSheet from '../chat/FilesSheet';
+import CallHost from '../call/CallHost';
 import '../chat/chat.css';
 import '../design/sb.css';
 import './shell.css';
@@ -107,6 +108,7 @@ export default function AppShell({ children, composer = true }) {
                 {composer && current && <Composer section={current} persona={persona} brainBuilt={shell.brainBuilt} />}
             </main>
             <FilesSheet />
+            <CallHost />
 
             <nav className="sb-tabbar" aria-label="Main">
                 {['money', 'clients'].map((id) => tab(id))}

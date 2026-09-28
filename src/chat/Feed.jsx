@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import Markdown from '../components/assistant/Markdown';
 import { confirmDialog } from '../services/confirm';
-import { PixelAvatar, Button } from '../design/ui';
-import { IconChevronRight, IconRefresh, IconSpeaker } from '../design/icons';
+import { PixelAvatar, Button, IconTile, Badge } from '../design/ui';
+import { IconChevronRight, IconRefresh, IconSpeaker, IconCall } from '../design/icons';
 import ActionCard from './ActionCard';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -52,9 +52,11 @@ export default function Feed({ a, persona, onOpen }) {
 function Item({ a, m, i, replying, working, activeId, onOpen, persona }) {
     const { messages, streaming } = a;
 
+    if (m.kind === 'call' && m.call) return <CallSummary call={m.call} persona={persona} />;
+
     if (m.kind === 'action' && m.card) {
         return (
-            <>
+            <div id={`msg-${m.id}`} style={{ display: 'contents' }}>
                 <ContextChips card={m.card} onOpen={onOpen} />
                 <ActionCard
                     card={m.card}
@@ -63,7 +65,7 @@ function Item({ a, m, i, replying, working, activeId, onOpen, persona }) {
                     onUndo={() => a.undoCard(activeId, m.id)}
                     onOpen={onOpen}
                 />
-            </>
+            </div>
         );
     }
 
@@ -238,3 +240,38 @@ function Actions({ a, m, canRegenerate, after }) {
 const CopyGlyph = () => (
     <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true"><rect x="5" y="5" width="9" height="9" rx="2" stroke="currentColor" strokeWidth="1.5" fill="none" /><path d="M11 5V3.5A1.5 1.5 0 0 0 9.5 2h-6A1.5 1.5 0 0 0 2 3.5v6A1.5 1.5 0 0 0 3.5 11H5" stroke="currentColor" strokeWidth="1.5" fill="none" /></svg>
 );
+
+/* What a call left behind: what was confirmed, what still waits (with a way
+   back to each waiting card). Display-only — never part of the history. */
+function CallSummary({ call, persona }) {
+    const jump = (id) => {
+        // The wrapper is display:contents, so scroll to the card inside it.
+        const el = document.getElementById(`msg-${id}`)?.querySelector('section');
+        el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el?.querySelector('button')?.focus({ preventScroll: true });
+    };
+    return (
+        <section className="sb-cd sb-ac" aria-label={`Voice call with ${persona.name}, ${call.duration}`}>
+            <div className="sb-ach">
+                <IconTile tone="n"><IconCall size={14} /></IconTile>
+                <span>Voice call with {persona.name}</span>
+                <span className="right"><Badge tone="n" plain className="sb-num">{call.duration}</Badge></span>
+            </div>
+            <div className="sb-acb">
+                <h4>Call summary</h4>
+                <dl>
+                    {call.confirmed.map((c) => <div key={c.id} className="sb-kv2"><dt>{c.title}</dt><dd>Done</dd></div>)}
+                    {call.waiting.map((c) => (
+                        <div key={c.id} className="sb-kv2"><dt>{c.title}</dt><dd>{c.risk === 'high' ? 'Needs your tap' : 'Waiting for you'}</dd></div>
+                    ))}
+                    {!call.confirmed.length && !call.waiting.length && <div className="sb-kv2"><dt>No changes were proposed.</dt><dd /></div>}
+                </dl>
+            </div>
+            {call.waiting.length > 0 && (
+                <div className="sb-acf">
+                    {call.waiting.map((c) => <Button key={c.id} size="sm" variant="primary" onClick={() => jump(c.id)}>Review {c.title.length > 28 ? `${c.title.slice(0, 28)}…` : c.title}</Button>)}
+                </div>
+            )}
+        </section>
+    );
+}
