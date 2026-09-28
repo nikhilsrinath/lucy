@@ -1,23 +1,20 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAssistant } from '../components/assistant/assistantStore';
 import { useShell } from '../shell/shellContext';
-import { IconAttach, IconCall, IconMic, IconSend } from '../design/icons';
+import { useMoneyData } from '../money/useMoneyData';
+import { IconPlus, IconCall, IconMic, IconSend } from '../design/icons';
+import PlusMenu from './PlusMenu';
+import SlashPalette from './SlashPalette';
+import { matchSlashCommands, SLASH_COMMANDS } from './slashCommands';
 
 /* ══════════════════════════════════════════════════════════════════════════
    The one message box — under every section, not just Chat (plan §8.2).
 
-   Sending from a section switches to Chat first; the page and record the
-   person was looking at still go with the message (AssistantContext sends
-   `context.page` from the router), so "this client" means the one on screen.
-
-   Suggestion chips show on Chat only. Each is a plain prompt an agent tool
-   handles today (checked against api/_lib/agent/registry.js):
-     Who owes me?     → list_invoices
-     Log an expense   → create_cash_entry, which asks for the amount
-     New quote        → create_quotation_draft, which asks for the client
-     Add a task       → create_task, which asks for the title
-     How's the month? → finance_summary (only when the knowledge base is built)
+   Upgraded with:
+   1. '+' Button context menu with folder submenus & quick actions
+   2. Instant slash commands ('/netcash', '/revenue', '/overdue', '/tax', etc.)
+   3. Direct 0ms execution without LLM calls for instant business queries
    ══════════════════════════════════════════════════════════════════════════ */
 
 const SUGGESTIONS = [
@@ -29,8 +26,8 @@ const SUGGESTIONS = [
 ];
 
 const placeholderFor = (section, name) => ({
-    chat: `Message ${name}`,
-    money: `Ask ${name} about money, or log a payment`,
+    chat: `Message ${name}, or type / for commands`,
+    money: `Ask ${name} about money, or type /`,
     clients: 'Ask about a client, or add a lead',
     work: "Add a task, or ask what's next",
     team: 'Ask about the team',
@@ -40,14 +37,28 @@ const placeholderFor = (section, name) => ({
 export default function Composer({ section, persona, brainBuilt = false }) {
     const a = useAssistant();
     const shell = useShell();
+    const moneyData = useMoneyData();
     const navigate = useNavigate();
     const inputRef = useRef(null);
-    const { draft, setDraft, send, streaming, speech } = a;
+    const { draft, setDraft, send, streaming, speech, addLocal } = a;
     const { supported, listening, finalText, interim, start, stop, reset } = speech;
     const onChat = section === 'chat';
+
+    const [showPlusMenu, setShowPlusMenu] = useState(false);
+    const [webSearchEnabled, setWebSearchEnabled] = useState(true);
+    const [slashIndex, setSlashIndex] = useState(0);
+
     // Dictation writes into the draft; `baseRef` is what was typed before it.
     const baseRef = useRef('');
     const dictatingRef = useRef(false);
+
+    // Check if user is typing a slash command
+    const isSlash = draft.startsWith('/');
+    const slashMatches = useMemo(() => (isSlash ? matchSlashCommands(draft) : []), [isSlash, draft]);
+
+    useEffect(() => {
+        setSlashIndex(0);
+    }, [draft]);
 
     useEffect(() => {
         const el = inputRef.current;
@@ -67,6 +78,18 @@ export default function Composer({ section, persona, brainBuilt = false }) {
         if (dictatingRef.current) { dictatingRef.current = false; stop(); }
     }, [a.activeId, stop]);
 
+    // Ctrl+U global shortcut to open file upload
+    useEffect(() => {
+        const onGlobalKey = (e) => {
+            if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u') {
+                e.preventDefault();
+                shell.openFiles({ upload: true });
+            }
+        };
+        window.addEventListener('keydown', onGlobalKey);
+        return () => window.removeEventListener('keydown', onGlobalKey);
+    }, [shell]);
+
     const toggleMic = () => {
         if (listening) { stop(); return; }
         baseRef.current = draft.trim();
@@ -75,17 +98,113 @@ export default function Composer({ section, persona, brainBuilt = false }) {
         start({ autoStop: true });
     };
 
+    /**
+     * Executes or routes a slash command
+     */
+    const executeCommand = (cmd, textAfter = '') => {
+        setShowPlusMenu(false);
+        if (!onChat) navigate('/chat');
+
+        // 1. Instant calculation (0ms, 0 tokens)
+        if (cmd.instant && typeof cmd.run === 'function') {
+            setDraft('');
+            const result = cmd.run({ data: moneyData, a, shell, navigate });
+            if (result) {
+                addLocal({
+                    content: result,
+                    kind: 'instant',
+                    title: cmd.description,
+                    at: Date.now(),
+                });
+            }
+            return;
+        }
+
+        // 2. Direct client-side action
+        if (cmd.action) {
+            setDraft('');
+            cmd.action({ a, shell, navigate });
+            return;
+        }
+
+        // 3. Navigation command
+        if (cmd.navigate && !textAfter.trim()) {
+            setDraft('');
+            navigate(cmd.navigate);
+            return;
+        }
+
+        // 4. Prompt routing to cofounder
+        const promptText = (cmd.prompt ? cmd.prompt : '') + (textAfter || '');
+        setDraft('');
+        send(promptText || `/${cmd.name}`);
+    };
+
+    const handleSelectSlash = (cmd) => {
+        executeCommand(cmd);
+    };
+
     const go = (text) => {
         if (streaming) return;
         dictatingRef.current = false;
         if (listening) stop();
+
+        const msg = String(text ?? draft).trim();
+        if (!msg) return;
+
+        // Intercept slash commands
+        if (msg.startsWith('/')) {
+            const parts = msg.slice(1).split(/\s+/);
+            const cmdName = parts[0].toLowerCase();
+            const rest = parts.slice(1).join(' ');
+            const found = SLASH_COMMANDS.find(
+                (c) => c.name === cmdName || c.aliases?.includes(cmdName)
+            );
+
+            if (found) {
+                executeCommand(found, rest);
+                return;
+            }
+        }
+
         if (!onChat) navigate('/chat');
-        send(text);
+        send(msg);
     };
 
     const canSend = Boolean(draft.trim()) && !streaming;
     const submit = (e) => { e?.preventDefault(); if (canSend) go(); };
     const pending = onChat && a.pendingQuestion && !streaming ? a.pendingQuestion : null;
+
+    const handleKeyDown = (e) => {
+        if (isSlash && slashMatches.length > 0) {
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                setSlashIndex((prev) => (prev + 1) % slashMatches.length);
+                return;
+            }
+            if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                setSlashIndex((prev) => (prev - 1 + slashMatches.length) % slashMatches.length);
+                return;
+            }
+            if ((e.key === 'Enter' || e.key === 'Tab') && !e.shiftKey) {
+                e.preventDefault();
+                const selected = slashMatches[slashIndex] || slashMatches[0];
+                if (selected) handleSelectSlash(selected);
+                return;
+            }
+            if (e.key === 'Escape') {
+                e.preventDefault();
+                setDraft('');
+                return;
+            }
+        }
+
+        if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) {
+            e.preventDefault();
+            submit();
+        }
+    };
 
     return (
         <div className="sb-composer">
@@ -103,33 +222,105 @@ export default function Composer({ section, persona, brainBuilt = false }) {
                         <button type="button" onClick={() => a.dismissQuestion(a.activeId, pending.id)}>Skip</button>
                     </div>
                 )}
-                <form className="sb-bar" onSubmit={submit} autoComplete="off">
-                    <button type="button" className="i" onClick={() => shell.openFiles({ upload: true })} aria-label="Attach a file">
-                        <IconAttach />
-                    </button>
-                    <textarea
-                        ref={inputRef} rows={1} value={draft}
-                        onChange={(e) => setDraft(e.target.value)}
-                        onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey && !e.nativeEvent.isComposing) { e.preventDefault(); submit(); } }}
-                        placeholder={listening ? 'Listening…' : placeholderFor(section, persona.name)}
-                        aria-label={`Message ${persona.name}`}
+
+                <div className="sb-composer-box">
+                    {/* Floating Plus Menu matching screenshot */}
+                    <PlusMenu
+                        isOpen={showPlusMenu}
+                        onClose={() => setShowPlusMenu(false)}
+                        onUpload={() => shell.openFiles({ upload: true })}
+                        onCapture={() => shell.openFiles({ upload: true })}
+                        onRunInstant={(type, customPrompt) => {
+                            if (type === 'prompt' && customPrompt) {
+                                go(customPrompt);
+                            } else {
+                                const found = SLASH_COMMANDS.find((c) => c.name === type);
+                                if (found) executeCommand(found);
+                            }
+                        }}
+                        onNavigate={(path) => navigate(path)}
+                        onStartCall={() => shell.startCall()}
+                        webSearchEnabled={webSearchEnabled}
+                        onToggleWebSearch={() => setWebSearchEnabled((prev) => !prev)}
                     />
-                    {supported && (
-                        <button type="button" className={`i${listening ? ' on' : ''}`} onClick={toggleMic}
-                            aria-label={listening ? 'Stop dictation' : 'Dictate'} aria-pressed={listening}>
-                            <IconMic size={18} />
-                        </button>
+
+                    {/* Floating Slash Autocomplete Palette */}
+                    {isSlash && slashMatches.length > 0 && (
+                        <SlashPalette
+                            commands={slashMatches}
+                            selectedIndex={slashIndex}
+                            onSelect={handleSelectSlash}
+                            onClose={() => setDraft('')}
+                        />
                     )}
-                    {shell.canCall && (
-                        <button type="button" className="i" onClick={() => shell.startCall()} aria-label={`Call ${persona.name}`}>
-                            <IconCall size={17} outline />
+
+                    <form className="sb-bar" onSubmit={submit} autoComplete="off">
+                        {/* The '+' button triggering the context menu */}
+                        <button
+                            type="button"
+                            className={`i sb-plus-btn ${showPlusMenu ? 'on' : ''}`}
+                            onClick={() => setShowPlusMenu((prev) => !prev)}
+                            aria-label="Add actions, files and skills"
+                            title="Add actions and skills"
+                        >
+                            <IconPlus size={15} />
                         </button>
-                    )}
-                    {streaming
-                        ? <span className="spin" role="status" aria-label={`${persona.name} is replying`}><i /></span>
-                        : <button type="submit" className="i send" disabled={!canSend} aria-label="Send"><IconSend /></button>}
-                </form>
-                {onChat && <div className="sb-hint">{persona.name} proposes changes as cards. Nothing is saved until you confirm.</div>}
+
+                        <textarea
+                            ref={inputRef}
+                            rows={1}
+                            value={draft}
+                            onChange={(e) => setDraft(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            placeholder={listening ? 'Listening…' : placeholderFor(section, persona.name)}
+                            aria-label={`Message ${persona.name}`}
+                        />
+
+                        {supported && (
+                            <button
+                                type="button"
+                                className={`i${listening ? ' on' : ''}`}
+                                onClick={toggleMic}
+                                aria-label={listening ? 'Stop dictation' : 'Dictate'}
+                                aria-pressed={listening}
+                            >
+                                <IconMic size={18} />
+                            </button>
+                        )}
+
+                        {shell.canCall && (
+                            <button
+                                type="button"
+                                className="i"
+                                onClick={() => shell.startCall()}
+                                aria-label={`Call ${persona.name}`}
+                            >
+                                <IconCall size={17} outline />
+                            </button>
+                        )}
+
+                        {streaming ? (
+                            <span className="spin" role="status" aria-label={`${persona.name} is replying`}>
+                                <i />
+                            </span>
+                        ) : (
+                            <button
+                                type="submit"
+                                className="i send"
+                                disabled={!canSend}
+                                aria-label="Send"
+                            >
+                                <IconSend />
+                            </button>
+                        )}
+                    </form>
+                </div>
+
+                {onChat && (
+                    <div className="sb-hint">
+                        {persona.name} proposes changes as cards. Type <b>/</b> for instant metrics or click <b>+</b> for tools.
+                    </div>
+                )}
             </div>
         </div>
     );
