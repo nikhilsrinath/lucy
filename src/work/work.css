@@ -1,0 +1,13 @@
+/* Work — the mockup's checkbox rows (.cbx, .who, .mdue), prefixed. */
+.sb-tabs-row { display: flex; align-items: flex-start; gap: 8px; }
+.sb-tabs-row .sb-tabs { flex: 1; min-width: 0; }
+.sb-task .t { text-align: left; }
+.sb-cbx { width: 44px; height: 44px; margin: -12px -8px -12px -12px; display: grid; place-items: center; flex: none; }
+.sb-cbx::before { content: ""; width: 20px; height: 20px; border-radius: 6px; border: 1.5px solid #C9C7C1; transition: .15s; box-sizing: border-box; }
+.sb-cbx.d::before { background: var(--ink); border-color: var(--ink); }
+.sb-cbx.d::after { content: ""; position: absolute; width: 8px; height: 4px; border: 1.8px solid #fff; border-top: 0; border-right: 0; transform: rotate(-45deg) translate(1px, -1px); }
+.sb-cbx { position: relative; }
+.sb-task.dn .t b { text-decoration: line-through; color: var(--faint); }
+.sb-who { display: flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); white-space: nowrap; }
+.sb-task .mdue { display: none; }
+@media (max-width: 760px) { .sb-task .mdue { display: inline; } .sb-who { font-size: 0; gap: 0; } }

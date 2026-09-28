@@ -52,6 +52,10 @@ import Timesheets from './components/projects/Timesheets';
 import { AssistantProvider } from './components/assistant/AssistantContext';
 import ChatScreen from './chat/ChatScreen';
 import MoneyScreen from './money/MoneyScreen';
+import ClientsScreen from './clients/ClientsScreen';
+import WorkScreen from './work/WorkScreen';
+import TeamScreen from './team/TeamScreen';
+import SettingsScreen from './settings/SettingsScreen';
 import ShellProvider from './shell/ShellProvider';
 import { useCofounder } from './design/useCofounder';
 import EdgeBrain from './components/brain/EdgeBrain';
@@ -89,8 +93,6 @@ import InvoiceList from './components/financial/InvoiceList';
 import { RecurringInvoiceForm, RecurringInvoiceList } from './components/financial/RecurringInvoiceForm';
 import { documentStore, docNumber } from './services/documentStore';
 
-// Until a section's new screens land, these are where its nav entry leads.
-const INTERIM_HOME = { clients: '/crm', work: '/tasks', team: '/employees', settings: '/profile' };
 
 
 const MODULE_FILTER = {
@@ -361,7 +363,7 @@ function AppContent() {
     : activeModule ? NAV_ITEMS.filter((i) => i.id && MODULE_FILTER[activeModule]?.includes(i.id)) : [];
   const flush = FLUSH_PAGES.has(activePage) || /^\/recurring\/(new|edit)/.test(location.pathname);
   // The document editors keep their own full-page form; no composer under them.
-  const editor = /^\/money\/invoices\/(new|[^/]+\/edit)\/?$/.test(location.pathname);
+  const editor = /^\/money\/invoices\/(new|[^/]+\/edit)\/?$/.test(location.pathname) || /^\/team\/letters\//.test(location.pathname);
 
   return (
     <AssistantProvider orgId={activeOrg?.id || null} userId={user?.id || null} assistantName={persona.name}>
@@ -383,9 +385,11 @@ function AppContent() {
             <Route path="money/invoices/new" element={<DocEditor />} />
             <Route path="money/invoices/:docId/edit" element={<DocEditor />} />
             <Route path="money/:tab" element={<MoneyScreen />} />
-            {Object.entries(INTERIM_HOME).map(([id, to]) => (
-              <Route key={id} path={`${id}/*`} element={<Navigate to={to} replace />} />
-            ))}
+            <Route path="clients" element={<ClientsScreen />} />
+            <Route path="work" element={<WorkScreen />} />
+            <Route path="team" element={<TeamScreen />} />
+            <Route path="team/letters/:kind/new" element={<LetterEditor />} />
+            <Route path="settings" element={<SettingsScreen />} />
             <Route path="dashboard" element={<Overview />} />
             <Route path="dashboard/finance" element={<FinanceDash />} />
             <Route path="dashboard/sales" element={<SalesDash />} />
@@ -472,6 +476,17 @@ function DocEditor() {
   return (
     <div className="sb-legacy">
       <ModuleShell embedded theme="light" title={title} subtitle="Back to Money when you save" items={[]} flush>{form}</ModuleShell>
+    </div>
+  );
+}
+
+// Offer letters and NDAs: their existing form-and-preview editors.
+function LetterEditor() {
+  const { kind } = useParams();
+  const form = kind === 'nda' ? <NdaForm /> : <OfferForm />;
+  return (
+    <div className="sb-legacy">
+      <ModuleShell embedded theme="light" title={kind === 'nda' ? 'New NDA' : 'New offer letter'} subtitle="Saved letters appear on Team" items={[]} flush>{form}</ModuleShell>
     </div>
   );
 }

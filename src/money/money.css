@@ -68,3 +68,14 @@
   .sb-xl { gap: 8px; }
   .sb-bars .tip { right: auto; left: 50%; transform: translateX(-60%); }
 }
+
+/* Team's two columns (mockup .split). */
+.sb-split { display: grid; grid-template-columns: 1.3fr 1fr; gap: 24px; }
+@media (max-width: 900px) { .sb-split { grid-template-columns: 1fr; } }
+
+/* Settings' save bar: sticks to the bottom of the page while edits are pending. */
+.sb-savebar { position: sticky; bottom: 12px; margin: 0 auto 12px; max-width: 760px; width: calc(100% - 32px); display: flex; align-items: center; gap: 8px; padding: 10px 12px 10px 16px; background: var(--ink); color: #fff; border-radius: 14px; box-shadow: var(--sh-l); z-index: 5; }
+.sb-savebar span { flex: 1; font-size: 14px; font-weight: 550; }
+.sb-savebar .sb-btn.ghost { color: #fff; }
+.sb-savebar .sb-btn.ghost:hover { background: rgba(255,255,255,.12); }
+.sb-savebar .sb-btn.p { background: #fff; color: var(--ink); border-color: #fff; }

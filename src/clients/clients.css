@@ -1,0 +1,19 @@
+/* The clients board — the mockup's .board / .lane / .pc, prefixed. */
+.sb-board { display: grid; grid-template-columns: repeat(4, minmax(220px, 1fr)); gap: 14px; overflow-x: auto; padding-bottom: 8px; }
+.sb-lane { background: var(--bg); border: 1px solid var(--line2); border-radius: var(--r); padding: 10px; min-height: 360px; }
+.sb-lane h4 { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; padding: 4px 6px 8px; }
+.sb-lane h4 .sb-bd { padding: 0 8px; }
+.sb-lane h4 em { margin-left: auto; font-weight: 500; color: var(--faint); font-style: normal; }
+.sb-lane-empty { font-size: 13px; color: var(--faint); padding: 8px 6px; }
+.sb-lane .sb-pc { display: flex; flex-direction: column; gap: 10px; padding: 12px; margin-top: 8px; width: 100%; transition: box-shadow .15s, transform .1s; text-align: left; }
+.sb-lane .sb-pc:hover { box-shadow: var(--sh-m); }
+.sb-pc .pt { display: flex; align-items: center; gap: 10px; }
+.sb-pc b { font-size: 14px; font-weight: 600; display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-pc small { font-size: 12px; color: var(--muted); display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-pc .pf { display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--muted); gap: 8px; }
+.sb-pc .pf span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-pc .pf .late { color: var(--r-tx); font-weight: 550; }
+@media (max-width: 760px) {
+  .sb-board { grid-template-columns: repeat(4, 84%); scroll-snap-type: x mandatory; margin: 0 -16px; padding: 0 16px 8px; }
+  .sb-lane { scroll-snap-align: start; min-height: 0; }
+}
