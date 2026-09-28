@@ -9,6 +9,9 @@ import { useMe } from './useMe';
 import { SECTIONS, sectionOf } from './sections';
 import { useNavCounts } from './useNavCounts';
 import { useShell } from './shellContext';
+import Composer from '../chat/Composer';
+import FilesSheet from '../chat/FilesSheet';
+import '../chat/chat.css';
 import '../design/sb.css';
 import './shell.css';
 
@@ -21,7 +24,7 @@ import './shell.css';
 const ICONS = { chat: IconChat, money: IconMoney, clients: IconClients, work: IconWork, team: IconTeam, settings: IconSettings };
 const NAV = SECTIONS.filter((s) => s.id !== 'settings');
 
-export default function AppShell({ children, hideMobileTop = false }) {
+export default function AppShell({ children, composer = true }) {
     const location = useLocation();
     const navigate = useNavigate();
     const { persona } = useCofounder();
@@ -94,12 +97,16 @@ export default function AppShell({ children, hideMobileTop = false }) {
                 </div>
             </nav>
 
-            <header className={`sb-mtop${hideMobileTop ? ' hidden' : ''}`}>
+            <header className={`sb-mtop${current === 'chat' ? ' hidden' : ''}`}>
                 <div className="tt"><b>{me.company}</b><small>{sectionLabel}</small></div>
                 <Link to="/settings" className="meb" aria-label="Settings"><PixelAvatar spec={ME_AVATAR} round /></Link>
             </header>
 
-            <main className="sb-main" id="sb-main">{children}</main>
+            <main className="sb-main" id="sb-main">
+                {children}
+                {composer && current && <Composer section={current} persona={persona} brainBuilt={shell.brainBuilt} />}
+            </main>
+            <FilesSheet />
 
             <nav className="sb-tabbar" aria-label="Main">
                 {['money', 'clients'].map((id) => tab(id))}

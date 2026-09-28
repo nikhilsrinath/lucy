@@ -9,6 +9,9 @@ import {
 import { amountHints } from '../../shared/cashIntent';
 import { cardLine } from './cardText';
 import { orgStore } from '../../services/orgStore';
+import {
+    OLD_KEY, scopedKey, migratedKey, cardlessClaimedKey, readChats, cardIds, selectMigratable, mergeChats,
+} from './chatStore';
 
 // The orgStore sections that show each table the agent can change. After a
 // confirm or an undo the confirming tab re-reads them at once; other tabs and
@@ -55,10 +58,11 @@ function refreshScreens(tables) {
    action id. A chat stores its cards by that id, so a reloaded thread asks
    the server for their current state instead of trusting a stale copy.
 
-   Conversations live in localStorage, so the history survives a reload.
+   Conversations live in localStorage, one list per company and person
+   (chatStore.js), so the history survives a reload and never shows up for
+   someone else on the same browser.
    ══════════════════════════════════════════════════════════════════════════ */
 
-const STORE_KEY = 'edgeos.ai.chats';
 const MAX_CHATS = 60;
 const MAX_ENTITIES = 10;
 const LIVE = new Set(['proposed', 'executing', 'confirmed']);
@@ -82,32 +86,6 @@ function historyOf(messages) {
         .map((m) => ({ role: m.role, content: m.kind === 'action' ? cardLine(m.card) : m.content }));
 }
 
-function loadChats() {
-    try {
-        const raw = JSON.parse(localStorage.getItem(STORE_KEY) || '[]');
-        if (Array.isArray(raw) && raw.length) {
-            // A reply that was mid-stream when the tab closed will never finish.
-            // Left empty it would render as a typing indicator forever.
-            return raw.map((c) => ({
-                entities: [],
-                ...c,
-                messages: (c.messages || [])
-                    // The old in-browser cash card (before the agent) cannot be
-                    // acted on any more; its stored line says what it was.
-                    .map((m) => (m.kind === 'card' || m.kind === 'ask' ? { ...m, kind: undefined } : m))
-                    .map((m) => (
-                        m.role === 'assistant' && !m.content && !m.kind
-                            ? { ...m, content: 'This reply was interrupted.', error: true }
-                            : m
-                    )),
-            }));
-        }
-    } catch {
-        // A corrupt or unreadable store is not worth a broken assistant.
-    }
-    return [newChat()];
-}
-
 /** The record open on the current page, when the URL names one. */
 function pageOf(location) {
     const route = location.pathname + location.search;
@@ -118,9 +96,30 @@ function pageOf(location) {
     return { route };
 }
 
-export function AssistantProvider({ edgeContext, children }) {
-    const [chats, setChats] = useState(loadChats);
-    const [activeId, setActiveId] = useState(() => chats[0].id);
+const lsGet = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, v); } catch { /* quota or private mode */ } };
+
+/**
+ * `orgId` and `userId` pick the conversation list. `assistantName` is how the
+ * assistant signs a shared transcript (the chosen cofounder's name).
+ */
+export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantName = 'Your cofounder', edgeContext, children }) {
+    const orgId = orgIdProp ?? edgeContext?.orgId ?? null;
+    // Until both are known the list is in memory only: nothing is written to
+    // a key that could belong to someone else.
+    const key = orgId && userId ? scopedKey(orgId, userId) : null;
+    const [store, setStore] = useState(() => ({ key, chats: (key && readChats(key)) || [newChat()] }));
+    const [activeId, setActiveId] = useState(() => store.chats[0].id);
+    // Another company or person: their own list.
+    if (store.key !== key) {
+        const next = (key && readChats(key)) || [newChat()];
+        setStore({ key, chats: next });
+        setActiveId(next[0].id);
+    }
+    const chats = store.chats;
+    const setChats = useCallback((fn) => {
+        setStore((st) => ({ ...st, chats: typeof fn === 'function' ? fn(st.chats) : fn }));
+    }, []);
     const [draft, setDraft] = useState('');
     const [streaming, setStreaming] = useState(false);
     // A one-line "Checking tasks…" while a read tool runs. Not stored.
@@ -133,8 +132,6 @@ export function AssistantProvider({ edgeContext, children }) {
     const speech = useSpeechRecognition();
     const navigate = useNavigate();
     const location = useLocation();
-    const orgId = edgeContext?.orgId || null;
-
     const chatsRef = useRef(chats);
     useEffect(() => { chatsRef.current = chats; }, [chats]);
     const pageRef = useRef(pageOf(location));
@@ -143,13 +140,14 @@ export function AssistantProvider({ edgeContext, children }) {
     const active = useMemo(() => chats.find((c) => c.id === activeId) || chats[0], [chats, activeId]);
 
     useEffect(() => {
-        try { localStorage.setItem(STORE_KEY, JSON.stringify(chats.slice(0, MAX_CHATS))); } catch { /* quota */ }
-    }, [chats]);
+        if (store.key) lsSet(store.key, JSON.stringify(store.chats.slice(0, MAX_CHATS)));
+    }, [store]);
 
-    // Another tab wrote the history. Adopt it unless this tab is mid-reply.
+    // Another tab wrote this list. Adopt it unless this tab is mid-reply.
     useEffect(() => {
+        if (!key) return undefined;
         const onStorage = (e) => {
-            if (e.key !== STORE_KEY || streaming) return;
+            if (e.key !== key || streaming) return;
             try {
                 const next = JSON.parse(e.newValue || '[]');
                 if (Array.isArray(next) && next.length) setChats(next);
@@ -157,7 +155,33 @@ export function AssistantProvider({ edgeContext, children }) {
         };
         window.addEventListener('storage', onStorage);
         return () => window.removeEventListener('storage', onStorage);
-    }, [streaming]);
+    }, [key, streaming, setChats]);
+
+    // Once per company and person: bring over their chats from the old
+    // browser-wide list. Carded chats move only when the server confirms the
+    // cards are theirs in this company; see chatStore.js for the rest.
+    const activeIdRef = useRef(activeId);
+    useEffect(() => { activeIdRef.current = activeId; }, [activeId]);
+    useEffect(() => {
+        if (!key || lsGet(migratedKey(orgId, userId))) return undefined;
+        const old = readChats(OLD_KEY);
+        const done = () => lsSet(migratedKey(orgId, userId), String(Date.now()));
+        if (!old) { done(); return undefined; }
+        let gone = false;
+        const ids = cardIds(old);
+        const verify = ids.length
+            ? actionStatus(orgId, ids).then((r) => new Set((r.cards || []).map((c) => c.action_id)))
+            : Promise.resolve(new Set());
+        verify.then((verified) => {
+            if (gone) return;
+            const takeCardless = !lsGet(cardlessClaimedKey(userId));
+            const moving = selectMigratable(old, verified, takeCardless);
+            if (moving.length) setChats((cs) => mergeChats(cs, moving, activeIdRef.current));
+            if (takeCardless) lsSet(cardlessClaimedKey(userId), orgId);
+            done();
+        }).catch(() => { /* offline or signed out: try again next load */ });
+        return () => { gone = true; };
+    }, [key, orgId, userId, setChats]);
 
     useEffect(() => {
         if (!note) return undefined;
@@ -167,7 +191,7 @@ export function AssistantProvider({ edgeContext, children }) {
 
     const patchChat = useCallback((id, fn) => {
         setChats((cs) => cs.map((c) => (c.id === id ? fn(c) : c)));
-    }, []);
+    }, [setChats]);
 
     const patchMessage = useCallback((chatId, messageId, fields) => {
         patchChat(chatId, (c) => ({
@@ -181,7 +205,8 @@ export function AssistantProvider({ edgeContext, children }) {
             ...c,
             at: Date.now(),
             title: (c.titled || c.messages.length) ? c.title : titleFor(firstText || msgs[0]?.content || ''),
-            messages: [...c.messages, ...msgs],
+            // `at` is display-only (the time beside a reply); older messages have none.
+            messages: [...c.messages, ...msgs.map((m) => (m.at ? m : { ...m, at: Date.now() }))],
         }));
     }, [patchChat]);
 
@@ -409,7 +434,8 @@ export function AssistantProvider({ edgeContext, children }) {
         const msg = active.messages.find((m) => m.id === messageId);
         const src = msg?.input || msg?.choice;
         if (!src?.resume) return;
-        patchMessage(chatId, messageId, { resolved: true });
+        // `picked` is display-only: which chip to highlight once answered.
+        patchMessage(chatId, messageId, { resolved: true, picked: option.value });
         runTurn(chatId, {
             resume: { ...src.resume, param: src.param, value: option.value },
         }, [{ id: uid('m'), role: 'user', content: option.label }]);
@@ -461,7 +487,7 @@ export function AssistantProvider({ edgeContext, children }) {
         }
         setDraft('');
         setView('chat');
-    }, []);
+    }, [setChats]);
 
     /** A question from elsewhere on the page, asked in a fresh chat. */
     const askNew = useCallback((text) => {
@@ -483,7 +509,7 @@ export function AssistantProvider({ edgeContext, children }) {
         setView('chat');
         send(content, { chatId });
         return true;
-    }, [streaming, activeId, send]);
+    }, [streaming, activeId, send, setChats]);
 
     const pickChat = useCallback((id) => {
         setActiveId(id);
@@ -498,7 +524,7 @@ export function AssistantProvider({ edgeContext, children }) {
             if (id === activeId) setActiveId(next[0].id);
             return next;
         });
-    }, [activeId]);
+    }, [activeId, setChats]);
 
     /** Deletes every chat except those pinned. */
     const clearHistory = useCallback(() => {
@@ -508,7 +534,7 @@ export function AssistantProvider({ edgeContext, children }) {
             if (!next.some((c) => c.id === activeId)) setActiveId(next[0].id);
             return next;
         });
-    }, [activeId]);
+    }, [activeId, setChats]);
 
     const renameChat = useCallback((id, title) => {
         const clean = String(title || '').replace(/\s+/g, ' ').trim().slice(0, 60);
@@ -525,7 +551,7 @@ export function AssistantProvider({ edgeContext, children }) {
     const shareChat = useCallback(async (chat) => {
         const text = (chat.messages || [])
             .filter((m) => !m.error && m.content)
-            .map((m) => `${m.role === 'user' ? 'You' : 'EdgeAI'}: ${m.content}`)
+            .map((m) => `${m.role === 'user' ? 'You' : assistantName}: ${m.content}`)
             .join('\n\n');
         if (!text) { setNote('That chat is empty — nothing to share yet.'); return; }
         const payload = `${chat.title}\n\n${text}`;
@@ -539,7 +565,7 @@ export function AssistantProvider({ edgeContext, children }) {
         } catch {
             if (!navigator.share) setNote('Could not copy this conversation.');
         }
-    }, []);
+    }, [assistantName]);
 
     const registerDock = useCallback(() => {
         setDocks((n) => n + 1);

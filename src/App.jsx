@@ -50,7 +50,9 @@ import ProjectDetail from './components/projects/ProjectDetail';
 import Portfolio from './components/projects/Portfolio';
 import Timesheets from './components/projects/Timesheets';
 import { AssistantProvider } from './components/assistant/AssistantContext';
-import Copilot from './components/assistant/Copilot';
+import ChatScreen from './chat/ChatScreen';
+import ShellProvider from './shell/ShellProvider';
+import { useCofounder } from './design/useCofounder';
 import EdgeBrain from './components/brain/EdgeBrain';
 import { useTaskDeadlineMonitor } from './hooks/useTaskDeadlineMonitor';
 import AppShell from './shell/AppShell';
@@ -269,6 +271,7 @@ function AppContent() {
 
   const { user, loading, logout, needsOnboarding } = useAuth();
   const { activeOrg } = useOrg();
+  const { persona } = useCofounder();
 
   // One theme (D10). The older pages read data-theme from <html>; pinning it
   // keeps them light inside the new frame whatever an old toggle left behind.
@@ -358,8 +361,9 @@ function AppContent() {
   const flush = FLUSH_PAGES.has(activePage) || /^\/recurring\/(new|edit)/.test(location.pathname);
 
   return (
-    <AssistantProvider edgeContext={{ orgId: activeOrg?.id || null }}>
-      <AppShell>
+    <AssistantProvider orgId={activeOrg?.id || null} userId={user?.id || null} assistantName={persona.name}>
+      <ShellProvider>
+      <AppShell composer={!flush}>
         <ShellFrame
           on={framed}
           theme="light" user={user}
@@ -371,7 +375,7 @@ function AppContent() {
         >
           <Routes>
             <Route index element={<Navigate to="/chat" replace />} />
-            <Route path="chat" element={<InterimChat />} />
+            <Route path="chat" element={<ChatScreen />} />
             {Object.entries(INTERIM_HOME).map(([id, to]) => (
               <Route key={id} path={`${id}/*`} element={<Navigate to={to} replace />} />
             ))}
@@ -435,6 +439,7 @@ function AppContent() {
           </Routes>
         </ShellFrame>
       </AppShell>
+      </ShellProvider>
     </AssistantProvider>
   );
 }
@@ -445,16 +450,6 @@ function AppContent() {
 function ShellFrame({ on, children, ...props }) {
   if (!on) return children;
   return <div className="sb-legacy"><ModuleShell embedded {...props}>{children}</ModuleShell></div>;
-}
-
-// Until Phase 2's chat screen: the existing copilot, filling the frame.
-function InterimChat() {
-  return (
-    <div className="sb-interim-chat" style={{ flex: 1, minHeight: 0, display: 'flex' }}>
-      <style>{'.sb-interim-chat .cp-dock{width:100%!important;max-width:none!important;border-left:0!important;flex:1}'}</style>
-      <Copilot variant="dock" theme="light" />
-    </div>
-  );
 }
 
 function QuotationFormWrapper() {
