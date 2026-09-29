@@ -10,7 +10,7 @@ import { resolveLegacyPath } from './redirects';
    ══════════════════════════════════════════════════════════════════════════ */
 
 const PAGE_LABEL = {
-    Hub: 'Chat', Overview: 'Reports', 'Finance dashboard': 'Reports', 'Sales dashboard': 'Clients',
+    Hub: 'Buddy', Overview: 'Home', 'Finance dashboard': 'Reports', 'Sales dashboard': 'Business',
     'Team dashboard': 'Team', Usage: 'Plan and usage', Tasks: 'Work', Projects: 'Work', 'New project': 'a new project',
     Timesheets: 'Work', 'CRM board': 'Clients', Clients: 'Clients', Products: 'Items', Invoices: 'Invoices',
     'New invoice': 'a new invoice', Quotations: 'Quotes', 'New quotation': 'a new quote', 'Proforma invoices': 'Proformas',

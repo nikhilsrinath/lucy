@@ -8,17 +8,19 @@ import {
 } from '../services/projectService';
 import { confirmDialog } from '../services/confirm';
 import { useSectionList } from '../shell/useSectionList';
-import { Button, Badge, Card, PageHeader, Sheet, Field, Segmented, PixelAvatar } from '../design/ui';
+import { Button, Badge, Card, PageHeader, Sheet, Field, Segmented, PixelAvatar, KpiStrip } from '../design/ui';
 import { personAvatar } from '../design/personas';
 import { IconPlus, IconMore } from '../design/icons';
 import { isoDay, endOfWeek } from '../chat/brief';
 import '../money/money.css';
+import '../design/hub.css';
 import './work.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Work — tasks, grouped Overdue / This week / Later / Done, with a tab per
-   open project. taskStore underneath (orgStore → tasks; it announces
-   `edgeos:tasks-changed`, as it always did).
+   Work — tasks, projects, deadlines and who is on what. Tasks are grouped
+   Overdue / This week / Later (or by person, for assignments), filtered by
+   project through the project cards. taskStore underneath (orgStore → tasks;
+   it announces `edgeos:tasks-changed`, as it always did).
 
    Projects keep only what the mockup shows — a name to file tasks under —
    plus a small "New project" sheet (decision D6), because neither the agent
@@ -51,6 +53,7 @@ export default function WorkScreen() {
     const [editing, setEditing] = useState(null);
     const [projectSheet, setProjectSheet] = useState(null);
     const [menu, setMenu] = useState(false);
+    const [groupBy, setGroupBy] = useState('due');
     const notify = (m) => { setNote(m); setTimeout(() => setNote(''), 2600); };
 
     const now = new Date();
@@ -80,16 +83,29 @@ export default function WorkScreen() {
 
     const shown = tasks.filter((t) => (tab === 'done' ? t.status === 'done'
         : t.status !== 'done' && (tab === 'all' || (tab === 'general' ? !t.projectId : t.projectId === tab))));
+    const byDue = (a, b) => String(a.deadline || '9999').localeCompare(String(b.deadline || '9999'));
+    const whoOf = (t) => empById[t.assignedTo]?.name || t.assignedName || '';
     const groups = tab === 'done'
         ? [['Done', shown.sort((a, b) => String(b.updated_at || b.createdAt).localeCompare(String(a.updated_at || a.createdAt)))]]
-        : [
-            ['Overdue', shown.filter((t) => t.deadline && t.deadline < today)],
-            ['This week', shown.filter((t) => t.deadline && t.deadline >= today && t.deadline <= eow)],
-            ['Later', shown.filter((t) => !t.deadline || t.deadline > eow)],
-        ].map(([n, l]) => [n, l.sort((a, b) => String(a.deadline || '9999').localeCompare(String(b.deadline || '9999')))]);
+        : groupBy === 'person'
+            ? Object.entries(shown.reduce((m, t) => { const k = whoOf(t) || 'Unassigned'; (m[k] = m[k] || []).push(t); return m; }, {}))
+                .sort((a, b) => (a[0] === 'Unassigned') - (b[0] === 'Unassigned') || b[1].length - a[1].length)
+                .map(([n, l]) => [n, l.sort(byDue)])
+            : [
+                ['Overdue', shown.filter((t) => t.deadline && t.deadline < today)],
+                ['This week', shown.filter((t) => t.deadline && t.deadline >= today && t.deadline <= eow)],
+                ['Later', shown.filter((t) => !t.deadline || t.deadline > eow)],
+            ].map(([n, l]) => [n, l.sort(byDue)]);
 
     const openCount = tasks.filter((t) => t.status !== 'done').length;
     const lateCount = tasks.filter((t) => t.status !== 'done' && t.deadline && t.deadline < today).length;
+    const weekCount = tasks.filter((t) => t.status !== 'done' && t.deadline && t.deadline >= today && t.deadline <= eow).length;
+    const people = new Set(tasks.filter((t) => t.status !== 'done').map(whoOf).filter(Boolean)).size;
+    const projectStats = open.map((p) => {
+        const mine = tasks.filter((t) => t.projectId === p.id);
+        const done = mine.filter((t) => t.status === 'done').length;
+        return { ...p, total: mine.length, done, open: mine.length - done, late: mine.filter((t) => t.status !== 'done' && t.deadline && t.deadline < today).length };
+    });
     const canEdit = orgStore.can('tasks', 'edit');
 
     const toggle = async (t) => {
@@ -102,9 +118,11 @@ export default function WorkScreen() {
     };
 
     const current = open.find((p) => p.id === tab);
+    // Projects are picked from their cards; the tabs keep the cross-cutting views
+    // (and the picked project, so it reads as the current filter).
     const tabs = [
-        { id: 'all', label: 'All' },
-        ...open.map((p) => ({ id: p.id, label: p.name, count: tasks.filter((t) => t.projectId === p.id && t.status !== 'done').length })),
+        { id: 'all', label: 'All open', count: openCount },
+        ...(current ? [{ id: current.id, label: current.name }] : []),
         ...(open.length ? [{ id: 'general', label: 'General' }] : []),
         { id: 'done', label: 'Done' },
     ];
@@ -112,13 +130,34 @@ export default function WorkScreen() {
     return (
         <div className="sb-scroll">
             <div className="sb-page" style={{ maxWidth: 860 }}>
-                <PageHeader title="Work" sub={`${openCount} open${lateCount ? `, ${lateCount} overdue` : ''}`}
+                <PageHeader title="Work" sub={`Tasks, projects and deadlines · ${openCount} open${lateCount ? `, ${lateCount} overdue` : ''}`}
                     actions={(
                         <>
                             {canCreateProjects() && <Button onClick={() => setProjectSheet({})}>Project</Button>}
                             {orgStore.can('tasks', 'create') && <Button variant="primary" onClick={() => setEditing({ projectId: current?.id || null })}><IconPlus /><span className="lbl">New task</span></Button>}
                         </>
                     )} />
+
+                <KpiStrip items={[
+                    { label: 'Overdue', value: String(lateCount), sub: lateCount ? 'Needs a new date or a nudge' : 'Nothing late', tone: lateCount ? 'r' : 'g', onClick: () => { setTab('all'); setGroupBy('due'); } },
+                    { label: 'Due this week', value: String(weekCount), sub: `Through ${new Date(`${eow}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long' })}`, tone: weekCount ? 'a' : 'n', onClick: () => { setTab('all'); setGroupBy('due'); } },
+                    { label: 'Assigned', value: `${people} ${people === 1 ? 'person' : 'people'}`, sub: `${open.length} active ${open.length === 1 ? 'project' : 'projects'}`, tone: 'n', onClick: () => { setTab('all'); setGroupBy('person'); } },
+                ]} />
+
+                {projectStats.length > 0 && (
+                    <>
+                        <div className="sb-lh"><span>Projects</span><span>{projectStats.length}</span></div>
+                        <div className="sb-projs">
+                            {projectStats.map((p) => (
+                                <button key={p.id} type="button" className="sb-cd sb-proj" aria-pressed={tab === p.id} onClick={() => setTab(tab === p.id ? 'all' : p.id)}>
+                                    <span><b>{p.name}</b><small>{[p.code, p.client_name].filter(Boolean).join(' · ') || (p.client_id ? 'Client project' : 'Internal')}</small></span>
+                                    <span className="bar" aria-hidden="true"><i style={{ width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` }} /></span>
+                                    <span className="ft"><span>{p.total ? `${p.done} of ${p.total} done` : 'No tasks yet'}</span>{p.late ? <span className="late">{p.late} late</span> : <span>{p.open} open</span>}</span>
+                                </button>
+                            ))}
+                        </div>
+                    </>
+                )}
 
                 <div className="sb-tabs-row">
                     <div className="sb-tabs" role="tablist" aria-label="Projects">
@@ -128,6 +167,10 @@ export default function WorkScreen() {
                             </button>
                         ))}
                     </div>
+                    {tab !== 'done' && (
+                        <Segmented label="Group tasks" value={groupBy} onChange={setGroupBy}
+                            options={[{ value: 'due', label: 'By date' }, { value: 'person', label: 'By person' }]} />
+                    )}
                     {current && canEditProjects() && (
                         <Button variant="ghost" size="sm" iconOnly aria-label={`${current.name} options`} aria-expanded={menu} onClick={() => setMenu((v) => !v)}><IconMore /></Button>
                     )}

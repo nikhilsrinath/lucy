@@ -10,14 +10,19 @@ import { createPortalLink } from '../services/portalService';
 import { portalAccessService } from '../services/portalAccessService';
 import { confirmDialog } from '../services/confirm';
 import { useSectionList } from '../shell/useSectionList';
-import { Button, Badge, Card, ListRow, PageHeader, Sheet, Field, Segmented, PixelAvatar, IconTile } from '../design/ui';
+import { Button, Badge, Card, ListRow, PageHeader, Sheet, Field, Segmented, PixelAvatar, IconTile, KpiStrip } from '../design/ui';
 import { personAvatar } from '../design/personas';
-import { IconDoc, IconPlus, IconChevronRight } from '../design/icons';
+import { IconDoc, IconPlus, IconChevronRight, IconSparkle, IconLock } from '../design/icons';
+import { useAssistant } from '../components/assistant/assistantStore';
+import { useCofounder } from '../design/useCofounder';
 import { inr } from '../chat/brief';
 import '../money/money.css';
+import '../design/hub.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Team — people and their letters.
+   Team — people, their details, and their letters (offer letters, NDAs and
+   what was issued before), with a summary on top and the letters that are
+   still waiting on someone first.
 
    People are the employees section (exited people under "Past"). Pay shows
    only where the database returns it (employee_compensation is owner/admin
@@ -34,6 +39,8 @@ const LETTER_STATUS = {
     declined: ['r', 'Declined'], cancelled: ['n', 'Cancelled'], issued: ['g', 'Issued'],
 };
 const letterStatus = (r) => LETTER_STATUS[r.status] || ['n', r.status || 'Draft'];
+// Letters still waiting on someone: not sent yet, or sent and not answered.
+const WAITING = new Set(['draft', 'pending', 'sent', 'viewed']);
 const fmt = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '');
 const TYPE_LABEL = { fulltime: 'Full-time', parttime: 'Part-time', intern: 'Intern', internship: 'Intern', contract: 'Contract', collaboration: 'Collaboration' };
 
@@ -48,6 +55,10 @@ export default function TeamScreen() {
     const [view, setView] = useState('current');
     const [adding, setAdding] = useState(false);
     const [letter, setLetter] = useState(null);
+    const [letterView, setLetterView] = useState('all');
+    const assistant = useAssistant();
+    const { persona } = useCofounder();
+    const ask = (text) => { navigate('/chat'); assistant.send(text); };
     const [note, setNote] = useState('');
     const notify = (m) => { setNote(m); setTimeout(() => setNote(''), 2600); };
 
@@ -66,18 +77,37 @@ export default function TeamScreen() {
     const closeAdd = () => { setAdding(false); if (params.has('addPerson')) setParams({}, { replace: true }); };
     const list = view === 'current' ? people : past;
     const joining = people.filter((p) => p.startDate && p.startDate > new Date().toISOString().slice(0, 10));
+    const waiting = letters.filter((r) => WAITING.has(r.status) && (r.type === 'offer' || r.type === 'nda'));
+    const signedThisMonth = letters.filter((r) => ['signed', 'accepted', 'fully_signed', 'acknowledged'].includes(r.status)
+        && String(r.updated_at || r.created_at || '').slice(0, 7) === new Date().toISOString().slice(0, 7)).length;
+    const shownLetters = letterView === 'waiting' ? waiting : letters;
+    const canLetters = orgStore.can('records', 'create');
+    const canPeople = orgStore.can('employees', 'create');
 
     return (
         <div className="sb-scroll">
             <div className="sb-page">
                 <PageHeader title="Team"
                     sub={`${people.length} ${people.length === 1 ? 'person' : 'people'}${joining.length ? `. ${joining[0].name.split(' ')[0]} joins ${fmt(joining[0].startDate)}.` : ''}`}
-                    actions={orgStore.can('records', 'create') && (
-                        <>
-                            <Button onClick={() => navigate('/team/letters/nda/new')}><IconDoc size={14} /><span className="lbl">NDA</span></Button>
-                            <Button variant="primary" onClick={() => navigate('/team/letters/offer/new')}><IconPlus /><span className="lbl">Offer letter</span></Button>
-                        </>
-                    )} />
+                    actions={canLetters && <Button variant="primary" onClick={() => navigate('/team/letters/offer/new')}><IconPlus /><span className="lbl">Offer letter</span></Button>} />
+
+                <KpiStrip items={[
+                    { label: 'People', value: String(people.length), sub: past.length ? `${past.length} past` : 'Everyone current', tone: 'g', onClick: () => setView('current') },
+                    { label: 'Joining soon', value: String(joining.length), sub: joining.length ? `${joining[0].name.split(' ')[0]}, ${fmt(joining[0].startDate)}` : 'No one scheduled', tone: joining.length ? 'b' : 'n' },
+                    { label: 'Awaiting signature', value: String(waiting.length), sub: signedThisMonth ? `${signedThisMonth} signed this month` : 'Offer letters and NDAs', tone: waiting.length ? 'a' : 'n', onClick: () => setLetterView('waiting') },
+                ]} />
+
+                {(canLetters || canPeople) && (
+                    <section aria-labelledby="team-qa">
+                        <h2 id="team-qa" className="sb-sr">Quick actions</h2>
+                        <div className="sb-qa">
+                            {canLetters && <button type="button" className="sb-cd" onClick={() => navigate('/team/letters/offer/new')}><IconTile tone="g"><IconDoc /></IconTile><span><b>Offer letter</b><small>Hire with a signed offer</small></span></button>}
+                            {canLetters && <button type="button" className="sb-cd" onClick={() => navigate('/team/letters/nda/new')}><IconTile tone="n"><IconLock /></IconTile><span><b>NDA</b><small>Before you share anything</small></span></button>}
+                            {canPeople && <button type="button" className="sb-cd" onClick={() => setAdding(true)}><IconTile tone="b"><IconPlus /></IconTile><span><b>Add a person</b><small>Someone already on board</small></span></button>}
+                            <button type="button" className="sb-cd" onClick={() => ask('Who on the team has the most open tasks?')}><IconTile tone="n"><IconSparkle /></IconTile><span><b>Ask {persona.name}</b><small>Who is on what</small></span></button>
+                        </div>
+                    </section>
+                )}
 
                 <div className="sb-split">
                     <div>
@@ -100,9 +130,13 @@ export default function TeamScreen() {
                         )}
                     </div>
                     <div>
-                        <div className="sb-lh"><span>Letters</span><span>{letters.length}</span></div>
+                        <div className="sb-lh" style={{ alignItems: 'center' }}>
+                            <span>Letters</span>
+                            <Segmented label="Letters" value={letterView} onChange={setLetterView}
+                                options={[{ value: 'all', label: `All ${letters.length}` }, { value: 'waiting', label: `Waiting ${waiting.length}` }]} />
+                        </div>
                         <Card list>
-                            {letters.slice(0, 40).map((r) => {
+                            {shownLetters.slice(0, 40).map((r) => {
                                 const [tone, label] = letterStatus(r);
                                 return (
                                     <ListRow key={r.id} onClick={() => setLetter(r)} lead={<IconTile><IconDoc /></IconTile>}
@@ -110,7 +144,7 @@ export default function TeamScreen() {
                                         trail={<Badge tone={tone}>{label}</Badge>} />
                                 );
                             })}
-                            {!letters.length && <div className="sb-empty">No letters yet.</div>}
+                            {!shownLetters.length && <div className="sb-empty">{letterView === 'waiting' ? 'Nothing waiting on anyone.' : 'No letters yet.'}</div>}
                         </Card>
                     </div>
                 </div>

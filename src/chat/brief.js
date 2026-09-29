@@ -92,7 +92,7 @@ export function buildBrief(p) {
     };
 
     const kpis = [];
-    if (netCash !== null) kpis.push({ id: 'cash', label: 'Net cash', value: inr(netCash), sub: 'Recorded money in, less out', tone: netCash >= 0 ? 'g' : 'r', to: '/money' });
+    if (netCash !== null) kpis.push({ id: 'cash', label: 'Net cash', value: inr(netCash), sub: 'Recorded money in, less out', tone: netCash >= 0 ? 'g' : 'r', to: '/business' });
     if (pos) kpis.push({ id: 'owed', label: 'Owed to you', value: inr(pos.outstanding), sub: pos.overdueCount ? `${pos.overdueCount} overdue` : 'None overdue', tone: pos.overdueCount ? 'r' : 'g', ask: 'Who owes me money?' });
     if (tb) kpis.push({ id: 'week', label: 'This week', value: `${tb.dueByWeekEnd} ${tb.dueByWeekEnd === 1 ? 'task' : 'tasks'}`, sub: tb.overdue.length ? `${tb.overdue.length} overdue` : 'None overdue', tone: tb.overdue.length ? 'a' : 'g', to: '/work' });
     if (gst !== null) kpis.push({ id: 'gst', label: 'GST payable', value: inr(Math.max(0, gst)), sub: gst < 0 ? `${inr(-gst)} input credit` : now.toLocaleDateString('en-IN', { month: 'long' }), tone: 'n', to: '/money/reports' });

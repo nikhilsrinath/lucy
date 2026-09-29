@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { orgStore } from '../services/orgStore';
 import { docNumber as docNo } from '../services/documentStore';
 import {
@@ -8,20 +8,24 @@ import {
 import { categoryLabel, methodLabel, rowTreatment } from '../services/financeCategories';
 import { useAssistant } from '../components/assistant/assistantStore';
 import { useShell } from '../shell/shellContext';
-import { Button, Badge, Card, ListRow, ListHeader, PageHeader, KpiStrip, Segmented, Sheet, IconTile, Initials } from '../design/ui';
+import { Button, Badge, Card, ListRow, ListHeader, PageHeader, KpiStrip, Segmented, IconTile, Initials } from '../design/ui';
 import { IconIn, IconOut, IconDoc, IconPlus, IconChat } from '../design/icons';
+import BusinessNav from '../business/BusinessNav';
+import { useAddFlow } from '../business/useAddFlow';
 import { inr } from '../chat/brief';
 import { useMoneyData, docClient } from './useMoneyData';
 import DocSheet from './DocSheet';
 import EntrySheet from './EntrySheet';
 import BillSheet from './BillSheet';
 import ItemSheet from './ItemSheet';
-import { statusOf, blankEntry, blankBill, blankItem } from './blanks';
+import { statusOf, blankEntry } from './blanks';
 import '../chat/chat.css';
 import './money.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Money — transactions, invoices & quotes, bills, items and reports, over
+   Money — the Business hub's money tabs: transactions, invoices & quotes,
+   expenses, bills, items and reports (BusinessNav joins them with the
+   overview and Clients), over
    the same rows and rules as before (orgStore sections; financeAnalytics for
    every figure). Nothing here computes a number the rest of the app doesn't:
      Net cash  cashPosition().net            (the brief and the old hub)
@@ -29,13 +33,16 @@ import './money.css';
      Spent     profitAndLoss().expenses       net of GST, this month
    ══════════════════════════════════════════════════════════════════════════ */
 
-const TABS = [
-    { id: 'transactions', label: 'Transactions' },
-    { id: 'invoices', label: 'Invoices & quotes' },
-    { id: 'bills', label: 'Bills' },
-    { id: 'items', label: 'Items' },
-    { id: 'reports', label: 'Reports' },
-];
+const TAB_SUB = {
+    transactions: 'Every rupee in and out',
+    invoices: 'What you have billed and quoted',
+    expenses: 'What the company spends',
+    bills: 'What vendors have billed you',
+    items: 'What you sell',
+    reports: 'How the business is doing',
+};
+// The figures on top belong where cash is the subject.
+const WITH_KPIS = new Set(['transactions', 'expenses', 'reports']);
 const fmt = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
 const PAGE = 60;
 
@@ -49,8 +56,8 @@ export default function MoneyScreen() {
     const { docs, income, expenses, purchases, vendors, catalog, byId } = data;
     const [note, setNote] = useState('');
     const [sheet, setSheet] = useState(null);   // { kind, value }
-    const [newOpen, setNewOpen] = useState(false);
     const notify = (m) => { if (!m) return; setNote(m); setTimeout(() => setNote(''), 2600); };
+    const add = useAddFlow({ data, notify });
 
     const now = new Date();
     const seeAll = ['financial_documents', 'income_entries', 'expenses', 'purchase_invoices'].every((r) => orgStore.can(r, 'view'));
@@ -85,21 +92,25 @@ export default function MoneyScreen() {
         invoices: docs.filter((d) => d.status !== 'cancelled' && d.status !== 'converted').length,
         bills: purchases.filter((b) => b.status !== 'void' && b.status !== 'paid').length,
     };
+    const lateCount = docs.filter((d) => d.type === 'invoice' && !['draft', 'cancelled', 'paid'].includes(d.status) && isOverdue(d)).length;
 
     const ask = (text) => { navigate('/chat'); a.send(text); };
 
     return (
         <div className="sb-scroll">
             <div className="sb-page">
-                <PageHeader title="Money" sub={now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                <PageHeader title="Business" sub={`${TAB_SUB[tab] || 'Money'} · ${now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`}
                     actions={(
                         <>
-                            {shell.brainBuilt && <Button onClick={() => ask('How did we do this month?')}><IconChat size={14} /><span className="lbl">Ask</span></Button>}
-                            <Button variant="primary" onClick={() => setNewOpen(true)}><IconPlus /><span className="lbl">New</span></Button>
+                            {shell.brainBuilt && <Button onClick={() => ask(tab === 'expenses' ? 'Where did we spend money this month?' : 'How did we do this month?')}><IconChat size={14} /><span className="lbl">Ask</span></Button>}
+                            {tab === 'expenses' && orgStore.can('expenses', 'create')
+                                ? <Button variant="primary" onClick={() => add.start('expense')}><IconPlus /><span className="lbl">Expense</span></Button>
+                                : <Button variant="primary" onClick={add.open}><IconPlus /><span className="lbl">New</span></Button>}
                         </>
                     )} />
+                <BusinessNav counts={{ invoices: lateCount || null, bills: counts.bills }} />
 
-                {seeAll && (
+                {seeAll && WITH_KPIS.has(tab) && (
                     <KpiStrip items={[
                         { label: 'Net cash', value: inr(figures.net), sub: 'Recorded money in, less out', tone: figures.net >= 0 ? 'g' : 'r' },
                         { label: 'Earned this month', value: inr(figures.pl.income), sub: earnedDelta === null ? 'Net of GST' : `${earnedDelta >= 0 ? '↑' : '↓'} ${Math.abs(earnedDelta)}% vs last month so far` },
@@ -107,15 +118,14 @@ export default function MoneyScreen() {
                     ]} />
                 )}
 
-                <div className="sb-tabs" role="tablist" aria-label="Money">
-                    {TABS.map((t) => (
-                        <Link key={t.id} to={`/money/${t.id}`} role="tab" aria-selected={tab === t.id} aria-current={tab === t.id ? 'page' : undefined}>
-                            {t.label}{counts[t.id] ? <span className="c">{counts[t.id]}</span> : null}
-                        </Link>
-                    ))}
-                </div>
-
                 {tab === 'transactions' && <Transactions data={data} onOpen={(e) => setSheet({ kind: 'entry', value: { ...e, date: e.day } })} />}
+                {tab === 'expenses' && (
+                    <>
+                        <SpendByGroup pl={figures.pl} />
+                        <Transactions key="out" data={data} only="out" onOpen={(e) => setSheet({ kind: 'entry', value: { ...e, date: e.day } })}
+                            onAdd={orgStore.can('expenses', 'create') ? () => setSheet({ kind: 'entry', value: blankEntry('out') }) : null} />
+                    </>
+                )}
                 {tab === 'invoices' && <Documents docs={docs} type={params.get('type') || 'all'} setType={(t) => setParams(t === 'all' ? {} : { type: t })}
                     onOpen={(d) => setParams((p) => { const n = new URLSearchParams(p); n.set('doc', d.id); return n; })} />}
                 {tab === 'bills' && <Bills bills={purchases} vendorsById={byId.vendor} onOpen={(b) => setSheet({ kind: 'bill', value: b })} />}
@@ -123,23 +133,7 @@ export default function MoneyScreen() {
                 {tab === 'reports' && <Reports figures={figures} />}
             </div>
 
-            <Sheet open={newOpen} onClose={() => setNewOpen(false)} title="Add to Money">
-                <Card list>
-                    {[
-                        ['Invoice', 'A tax invoice to bill a client', () => navigate('/money/invoices/new?type=invoice'), 'financial_documents'],
-                        ['Quote', 'A quotation the client can accept online', () => navigate('/money/invoices/new?type=quotation'), 'financial_documents'],
-                        ['Proforma', 'Ask for an advance before the tax invoice', () => navigate('/money/invoices/new?type=proforma'), 'financial_documents'],
-                        ['Money in', 'Anything received without an invoice', () => setSheet({ kind: 'entry', value: blankEntry('in') }), 'income_entries'],
-                        ['Expense', 'Anything paid without a vendor bill', () => setSheet({ kind: 'entry', value: blankEntry('out') }), 'expenses'],
-                        ['Bill', 'A bill from a vendor, to pay later', () => setSheet({ kind: 'bill', value: blankBill() }), 'purchase_invoices'],
-                        ['Item', 'Something you sell, with its price and GST', () => setSheet({ kind: 'item', value: blankItem() }), 'catalog_items'],
-                    ].filter(([, , , r]) => orgStore.can(r, 'create')).map(([t, s, go]) => (
-                        <ListRow key={t} title={t} sub={s} onClick={() => { setNewOpen(false); go(); }} />
-                    ))}
-                </Card>
-                <p className="sb-acnote">Or tell your cofounder in the chat, for example “spent 4,500 on chairs yesterday”.</p>
-            </Sheet>
-
+            {add.element}
             {openDoc && <DocSheet key={openDoc.id} doc={openDoc} activeOrg={data.activeOrg} onClose={closeDoc} notify={notify} />}
             {sheet?.kind === 'entry' && <EntrySheet entry={sheet.value} data={data} onClose={() => setSheet(null)} onSaved={notify} />}
             {sheet?.kind === 'bill' && <BillSheet bill={sheet.value} vendors={vendors} onClose={() => setSheet(null)} notify={notify} />}
@@ -151,9 +145,10 @@ export default function MoneyScreen() {
 
 /* ── Transactions ─────────────────────────────────────────────────────── */
 
-function Transactions({ data, onOpen }) {
+function Transactions({ data, onOpen, only, onAdd }) {
     const { income, expenses, byId, catsReady } = data;
-    const [view, setView] = useState('all');
+    const [picked, setView] = useState('all');
+    const view = only || picked;
     const [q, setQ] = useState('');
     const [shown, setShown] = useState(PAGE);
     const rows = useMemo(() => {
@@ -173,11 +168,12 @@ function Transactions({ data, onOpen }) {
     return (
         <>
             <div className="sb-toolbar">
-                <input className="sb-search" type="search" placeholder="Search transactions" aria-label="Search transactions" value={q} onChange={(e) => setQ(e.target.value)} />
-                <Segmented label="Show" value={view} onChange={setView} options={[{ value: 'all', label: 'All' }, { value: 'in', label: 'In' }, { value: 'out', label: 'Out' }]} />
+                <input className="sb-search" type="search" placeholder={only === 'out' ? 'Search expenses' : 'Search transactions'} aria-label={only === 'out' ? 'Search expenses' : 'Search transactions'} value={q} onChange={(e) => setQ(e.target.value)} />
+                {!only && <Segmented label="Show" value={view} onChange={setView} options={[{ value: 'all', label: 'All' }, { value: 'in', label: 'In' }, { value: 'out', label: 'Out' }]} />}
+                {onAdd && <Button onClick={onAdd}><IconPlus />Add</Button>}
             </div>
             <Card list>
-                {list.length === 0 && <div className="sb-empty">{rows.length ? 'Nothing matches.' : 'No money recorded yet. Tell your cofounder, or tap New.'}</div>}
+                {list.length === 0 && <div className="sb-empty">{rows.some((r) => !only || r.direction === only) ? 'Nothing matches.' : only === 'out' ? 'No expenses yet. Tell your cofounder “spent 4,500 on chairs”, or tap Add.' : 'No money recorded yet. Tell your cofounder, or tap New.'}</div>}
                 {list.slice(0, shown).map((r) => (
                     <ListRow key={`${r.direction}-${r.id}`} onClick={() => onOpen(r)}
                         lead={<IconTile tone={r.direction === 'in' ? 'g' : 'n'}>{r.direction === 'in' ? <IconIn /> : <IconOut />}</IconTile>}
@@ -187,6 +183,28 @@ function Transactions({ data, onOpen }) {
                 ))}
             </Card>
             {list.length > shown && <div style={{ textAlign: 'center', marginTop: 12 }}><Button onClick={() => setShown((n) => n + PAGE)}>Show more</Button></div>}
+        </>
+    );
+}
+
+/* ── Expenses: where this month's money went ──────────────────────────── */
+
+function SpendByGroup({ pl }) {
+    const groups = (pl.byGroup || []).filter((g) => g.value > 0).slice(0, 5);
+    if (!groups.length) return null;
+    const top = groups[0].value;
+    return (
+        <>
+            <ListHeader count={inr(pl.expenses)}>{new Date().toLocaleDateString('en-IN', { month: 'long' })} by category</ListHeader>
+            <Card list style={{ marginBottom: 18 }}>
+                {groups.map((g) => (
+                    <div key={g.name} className="sb-kvr">
+                        <span style={{ flex: 1, minWidth: 0 }}>{g.name}</span>
+                        <span className="sb-spend" aria-hidden="true"><i style={{ width: `${Math.max(4, (g.value / top) * 100)}%` }} /></span>
+                        <b>{inr(g.value)}</b>
+                    </div>
+                ))}
+            </Card>
         </>
     );
 }

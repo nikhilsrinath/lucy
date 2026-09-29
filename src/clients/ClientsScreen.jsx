@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrg } from '../context/OrgContext';
 import { orgStore } from '../services/orgStore';
@@ -13,11 +13,13 @@ import { Button, Badge, Card, ListRow, PageHeader, Sheet, Field, Initials, IconT
 import { IconPlus, IconDoc } from '../design/icons';
 import { inr } from '../chat/brief';
 import { statusOf } from '../money/blanks';
+import BusinessNav from '../business/BusinessNav';
 import '../money/money.css';
 import './clients.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Clients — the pipeline board and the client sheet, over one `clients` row
+   Clients — the Business hub's pipeline board and client sheet (BusinessNav
+   joins it with the overview and the money tabs), over one `clients` row
    per client (0016), exactly as the CRM and the directory read it:
 
      column      Lead     In talks     Won       Lost
@@ -80,13 +82,24 @@ export default function ClientsScreen() {
     const openId = params.get('client');
     const open = openId ? (leads.find((l) => l.id === openId) || byCustomer[openId]) : null;
     const setOpen = (id) => setParams(id ? { client: id } : {});
+    // ?addLead=1 — the Business overview's and the Add sheet's "Lead".
+    const addOpen = adding || params.get('addLead') === '1';
+    // A lead just added opens its sheet (?client=), which already drops ?addLead.
+    const justAdded = useRef(false);
+    const closeAdd = () => {
+        setAdding(false);
+        if (params.has('addLead') && !justAdded.current) setParams({}, { replace: true });
+        justAdded.current = false;
+    };
+    const lateCount = Object.values(money).filter((x) => x.late).length;
 
     return (
         <div className="sb-scroll">
             <div className="sb-page" style={{ maxWidth: 1200 }}>
-                <PageHeader title="Clients"
-                    sub={owedTotal > 0 ? `${inr(owedTotal)} owed across ${owedCount} ${owedCount === 1 ? 'client' : 'clients'}` : 'Nobody owes you money right now'}
+                <PageHeader title="Business"
+                    sub={`Clients · ${owedTotal > 0 ? `${inr(owedTotal)} owed across ${owedCount} ${owedCount === 1 ? 'client' : 'clients'}` : 'nobody owes you money right now'}`}
                     actions={orgStore.can('clients', 'create') && <Button variant="primary" onClick={() => setAdding(true)}><IconPlus /><span className="lbl">Add lead</span></Button>} />
+                <BusinessNav counts={{ clients: leads.length, invoices: lateCount || null }} />
 
                 <div className="sb-board">
                     {STAGES.map((s) => {
@@ -131,7 +144,7 @@ export default function ClientsScreen() {
 
             {open && <ClientSheet key={open.id} lead={open} client={byCustomer[open.id]} docs={docsOf[open.id] || []}
                 money={money[open.id]} onClose={() => setOpen(null)} notify={notify} tz={activeOrg?.timezone} />}
-            {adding && <ClientForm onClose={() => setAdding(false)} notify={notify} onCreated={(id) => setOpen(id)} />}
+            {addOpen && <ClientForm onClose={closeAdd} notify={notify} onCreated={(id) => { justAdded.current = true; setOpen(id); }} />}
             {note && <div className="sb sb-toast" role="status">{note}</div>}
         </div>
     );

@@ -16,17 +16,18 @@
 
 /** Sections whose new screens are built. Legacy paths into any other section
  *  are left alone (they still render their old screen). */
-export const LIVE_SECTIONS = new Set(['chat', 'money', 'clients', 'work', 'team', 'settings']);
+export const LIVE_SECTIONS = new Set(['home', 'chat', 'business', 'money', 'clients', 'work', 'team', 'settings']);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 // [pattern, section, to(match, params) → new path]
 const RULES = [
-    [/^\/?$/, 'chat', () => '/chat'],
-    [/^\/hub\/?$/, 'chat', () => '/chat'],
+    [/^\/?$/, 'home', () => '/home'],
+    [/^\/dashboard\/?$/, 'home', () => '/home'],
+    [/^\/(hub|buddy)\/?$/, 'chat', () => '/chat'],
     [/^\/library\/?$/, 'chat', () => '/chat?files=1'],
 
-    [/^\/(dashboard|dashboard\/finance|revenue|tax-summary|profit-loss)\/?$/, 'money', () => '/money/reports'],
+    [/^\/(dashboard\/finance|revenue|tax-summary|profit-loss)\/?$/, 'money', () => '/money/reports'],
     [/^\/cashbook\/?$/, 'money', () => '/money/transactions'],
     [/^\/invoices\/?$/, 'money', () => '/money/invoices?type=invoice'],
     [/^\/quotations\/?$/, 'money', () => '/money/invoices?type=quotation'],

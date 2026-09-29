@@ -194,7 +194,7 @@ button.sb-lr:hover, a.sb-lr:hover { background: #FAFAF8; }
   .sb-sheet .grab { display: block; width: 40px; height: 5px; border-radius: 3px; background: var(--line); margin: 8px auto 0; flex: none; }
   .sb-sheet .db { padding: 16px; }
   .sb-sheet .df { padding: 10px 16px calc(10px + var(--sab)); }
-  .sb-toast { bottom: calc(96px + var(--sab)); }
+  .sb-toast { bottom: calc(92px + var(--sab)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

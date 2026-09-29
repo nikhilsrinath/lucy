@@ -3,15 +3,14 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAssistant } from '../components/assistant/assistantStore';
 import { useAuth } from '../context/AuthContext';
 import { useOrg } from '../context/OrgContext';
-import { documentStore } from '../services/documentStore';
 import { useCofounder } from '../design/useCofounder';
 import { Button, PixelAvatar } from '../design/ui';
 import { ME_AVATAR } from '../design/personas';
-import { IconCall, IconFile, IconClock, IconPlus } from '../design/icons';
+import { IconCall, IconFile, IconClock, IconPlus, IconBolt } from '../design/icons';
 import { useShell } from '../shell/shellContext';
 import { useMe } from '../shell/useMe';
-import { notificationTarget } from '../shell/notifications';
 import { useBrief } from './useBrief';
+import { useBriefActions } from './useBriefActions';
 import { isoDay } from './brief';
 import Brief from './BriefCard';
 import Feed from './Feed';
@@ -21,7 +20,8 @@ import { Sheet } from '../design/ui';
 import './chat.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Chat — the home screen.
+   Buddy — the cofounder: conversation, voice, files and memory, commands,
+   and the actions it prepares for you to review and confirm.
 
    The first chat of each day opens with the brief (brief.js): built in the
    browser, never sent to the model, never stored as a message. Which chat is
@@ -90,24 +90,18 @@ export default function ChatScreen() {
 
     const open = (href) => navigate(href);
 
-    const onKpi = (k) => { if (k.ask) a.send(k.ask); else if (k.to) navigate(k.to); };
-    const onSuggestion = (s) => {
-        if (s.build) { build(); return; }
-        if (s.notification) {
-            const to = notificationTarget(s.notification);
-            documentStore.deleteNotification(s.notification.id);
-            if (to) navigate(to);
-            return;
-        }
-        // An overdue invoice opens its list, where Send reminder lives.
-        if (s.doc) { navigate('/invoices'); return; }
-        if (s.to) navigate(s.to);
+    const { onKpi, onSuggestion } = useBriefActions({ build });
+
+    // "/" in the composer opens the command palette.
+    const openCommands = () => {
+        a.setDraft('/');
+        requestAnimationFrame(() => document.querySelector('.sb-composer textarea')?.focus());
     };
 
     const title = isBriefChat ? `${new Date().toLocaleDateString('en-IN', { weekday: 'long' })} brief` : a.active.title;
 
     return (
-        <section className="sb-chat" aria-label="Chat">
+        <section className="sb-chat" aria-label={`Buddy: ${persona.name}`}>
             <header className="sb-top">
                 <div className="tt"><b>{title}</b><small>{isBriefChat ? 'Today' : `${a.messages.length} messages`}</small></div>
                 <div className="tools">
@@ -140,6 +134,24 @@ export default function ChatScreen() {
                                     <h2 className="sb-greet" style={{ fontSize: 26 }}>What's on your mind, {me.name}?</h2>
                                     <p className="sb-lede2">Ask a question, or tell me something that happened and I'll prepare the change for you to confirm.</p>
                                 </div>
+                            </div>
+                        )}
+                        {a.messages.length === 0 && (
+                            <div className="sb-tools" role="group" aria-label={`What ${persona.name} can do`}>
+                                {shell.canCall && (
+                                    <button type="button" className="sb-cd" onClick={() => shell.startCall()}>
+                                        <span className="sb-ico g"><IconCall size={15} /></span><span><b>Talk</b><small>Call {persona.name} and say it out loud</small></span>
+                                    </button>
+                                )}
+                                <button type="button" className="sb-cd" onClick={openCommands}>
+                                    <span className="sb-ico n"><IconBolt /></span><span><b>Commands</b><small>Type / for invoices, expenses, tasks</small></span>
+                                </button>
+                                <button type="button" className="sb-cd" onClick={() => shell.openFiles()}>
+                                    <span className="sb-ico b"><IconFile /></span><span><b>Files & memory</b><small>What {persona.name} knows about the company</small></span>
+                                </button>
+                                <button type="button" className="sb-cd" onClick={() => setChatsOpen(true)}>
+                                    <span className="sb-ico n"><IconClock /></span><span><b>Past chats</b><small>Pick up where you left off</small></span>
+                                </button>
                             </div>
                         )}
                         <Feed a={a} persona={persona} onOpen={open} />

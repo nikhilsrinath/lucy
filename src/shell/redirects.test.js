@@ -37,6 +37,9 @@ describe('legacy redirects', () => {
     it('also covers the write tools’ result hrefs', () => {
         expect(resolveLegacyPath('/cashbook', { live: ALL })).toBe('/money/transactions');
         expect(resolveLegacyPath('/purchases', { live: ALL })).toBe('/money/bills');
+        expect(resolveLegacyPath('/', { live: ALL })).toBe('/home');
+        expect(resolveLegacyPath('/dashboard', { live: ALL })).toBe('/home');
+        expect(resolveLegacyPath('/buddy', { live: ALL })).toBe('/chat');
     });
 
     it('keeps the record a link points at', () => {
@@ -71,7 +74,9 @@ describe('sectionOf', () => {
         expect(sectionOf('/tasks')).toBe('work');
         expect(sectionOf('/ndas')).toBe('team');
         expect(sectionOf('/profile')).toBe('settings');
-        expect(sectionOf('/')).toBe('chat');
+        expect(sectionOf('/')).toBe('home');
+        expect(sectionOf('/business')).toBe('business');
+        expect(sectionOf('/buddy')).toBe('chat');
         expect(sectionOf('/dashboard')).toBeNull();
     });
 });

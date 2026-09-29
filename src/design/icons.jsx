@@ -112,3 +112,13 @@ export const IconMore = ({ size = 16 }) => svg(size, '0 0 16 16', <><circle cx="
 export const IconTrash = ({ size = 14 }) => svg(size, '0 0 16 16', <path d="M2.5 4.5h11M6 4.5V2.8h4v1.7M4 4.5l.7 9h6.6l.7-9" {...S} strokeWidth="1.5" />);
 export const IconDownload = ({ size = 14 }) => svg(size, '0 0 16 16', <path d="M8 2v8M4.5 6.8L8 10.3l3.5-3.5M2.5 13.5h11" {...S} strokeWidth="1.6" />);
 export const IconLink = ({ size = 14 }) => svg(size, '0 0 16 16', <path d="M6.8 9.2a3 3 0 0 0 4.2 0l2.2-2.2a3 3 0 0 0-4.2-4.2l-.9.9M9.2 6.8a3 3 0 0 0-4.2 0L2.8 9a3 3 0 0 0 4.2 4.2l.9-.9" {...S} strokeWidth="1.5" />);
+export const IconHome = ({ size = 18 }) => svg(size, '0 0 18 18', <>
+    <path d="M2.8 8L9 2.8 15.2 8v6.2a1.3 1.3 0 0 1-1.3 1.3H4.1a1.3 1.3 0 0 1-1.3-1.3z" {...S} strokeWidth="1.6" />
+    <path d="M7 15.5v-4.2h4v4.2" {...S} strokeWidth="1.6" />
+</>);
+export const IconBusiness = ({ size = 18 }) => svg(size, '0 0 18 18', <>
+    <rect x="2" y="5.2" width="14" height="10.3" rx="2.4" {...S} strokeWidth="1.6" />
+    <path d="M6.5 5.2V4a1.5 1.5 0 0 1 1.5-1.5h2A1.5 1.5 0 0 1 11.5 4v1.2M2 9.5h14" {...S} strokeWidth="1.6" />
+</>);
+export const IconSparkle = ({ size = 14 }) => svg(size, '0 0 16 16',
+    <path d="M8 1.5l1.5 4.2L13.8 7.3 9.5 8.8 8 13l-1.5-4.2L2.2 7.3l4.3-1.6z" fill="currentColor" />);

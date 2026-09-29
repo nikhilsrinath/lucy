@@ -79,3 +79,8 @@
 .sb-savebar .sb-btn.ghost { color: #fff; }
 .sb-savebar .sb-btn.ghost:hover { background: rgba(255,255,255,.12); }
 .sb-savebar .sb-btn.p { background: #fff; color: var(--ink); border-color: #fff; }
+
+/* Expenses: this month's spend by category, as a bar per row. */
+.sb-spend { width: 34%; max-width: 220px; height: 6px; border-radius: 3px; background: var(--line2); overflow: hidden; flex: none; }
+.sb-spend i { display: block; height: 100%; border-radius: 3px; background: var(--ink); }
+@media (max-width: 760px) { .sb-spend { width: 22%; } }

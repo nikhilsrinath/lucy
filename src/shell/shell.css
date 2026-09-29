@@ -1,13 +1,20 @@
 /* The app frame — the mockup's .shell / .side / .nv family, prefixed.
    Desktop: 264px sidebar. ≤1180px: 76px icon rail. ≤760px: bottom tab bar
-   with the cofounder in the middle, Settings behind the avatar top-right. */
+   (Home · Work · Buddy · Business · Team) as a floating icon dock with the
+   cofounder in the middle; Settings behind the company name and the avatar top-right. */
 
 .sb-shell { display: grid; grid-template-columns: 264px 1fr; height: 100vh; height: 100dvh; background: var(--bg); overflow: hidden; }
 .sb-side { display: flex; flex-direction: column; gap: 2px; padding: 14px 12px 12px; border-right: 1px solid var(--line); background: var(--bg); min-height: 0; overflow-y: auto; }
-.sb-side .ws { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; font-weight: 600; font-size: 14px; height: 42px; min-width: 0; }
+.sb-side .ws { display: flex; align-items: center; gap: 10px; padding: 6px 8px; border-radius: 10px; font-weight: 600; font-size: 14px; height: 42px; min-width: 0; color: inherit; text-decoration: none; transition: background .12s; }
+.sb-side .ws:hover, .sb-side .ws[aria-current="page"] { background: var(--hover); }
+.sb-side .ws .wg { margin-left: auto; color: var(--faint); opacity: 0; transition: opacity .12s; }
+.sb-side .ws:hover .wg, .sb-side .ws:focus-visible .wg, .sb-side .ws[aria-current="page"] .wg { opacity: 1; }
 .sb-side .ws .wl { width: 26px; height: 26px; border-radius: 8px; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 650; flex: none; }
 .sb-side .ws .wn { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sb-side .cof { margin: 10px 0 14px; padding: 12px; display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; }
+.sb-side .cof { margin: 10px 0 14px; padding: 12px; display: flex; align-items: center; gap: 11px; text-decoration: none; color: inherit; transition: box-shadow .15s, border-color .15s; position: relative; }
+.sb-side .cof:hover { box-shadow: var(--sh-m); }
+.sb-side .cof.on { border-color: var(--ink); box-shadow: var(--sh-m), 0 0 0 1px var(--ink); }
+.sb-side .cof .sb-ava { box-shadow: inset 0 0 0 1px rgba(17,17,19,.1), 0 0 0 2px #fff, 0 0 0 3.5px var(--acc); }
 .sb-side .cof .sb-ava { width: 42px; height: 42px; }
 .sb-side .cof .t { flex: 1; min-width: 0; }
 .sb-side .cof b { display: block; font-size: 14px; font-weight: 600; }
@@ -29,6 +36,8 @@
 .sb-side .me:hover, .sb-side .me[aria-current="page"] { background: var(--hover); }
 .sb-side .me .sb-ava { width: 32px; height: 32px; }
 .sb-side .me .t { min-width: 0; flex: 1; }
+.sb-side .me .mg { color: var(--faint); }
+.sb-side .me:hover .mg, .sb-side .me[aria-current="page"] .mg { color: var(--ink); }
 .sb-side .me b { display: block; font-size: 13px; font-weight: 600; }
 .sb-side .me small { display: block; font-size: 12px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -46,7 +55,7 @@
 @media (max-width: 1180px) {
   .sb-shell { grid-template-columns: 76px 1fr; }
   .sb-side { align-items: center; padding: 14px 8px; }
-  .sb-side .ws .wn, .sb-side .cof .t, .sb-side .cof .callb, .sb-nv span, .sb-nv .c, .sb-side .sh, .sb-side .rc, .sb-side .me .t { display: none; }
+  .sb-side .ws .wn, .sb-side .ws .wg, .sb-side .me .mg, .sb-side .cof .t, .sb-side .cof .callb, .sb-nv span, .sb-nv .c, .sb-side .sh, .sb-side .rc, .sb-side .me .t { display: none; }
   .sb-side .ws { padding: 6px; }
   .sb-side .cof { padding: 6px; margin: 10px 0 12px; border: 0; box-shadow: none; background: none; }
   .sb-side .cof .sb-ava { width: 46px; height: 46px; }
@@ -59,16 +68,29 @@
   .sb-side { display: none; }
   .sb-main { grid-row: 2; }
   .sb-mtop { grid-row: 1; display: flex; align-items: center; gap: 10px; padding: var(--sat) 14px 0; height: calc(56px + var(--sat)); border-bottom: 1px solid var(--line2); background: var(--surface); }
-  .sb-mtop .tt { min-width: 0; flex: 1; }
+  .sb-mtop .tt { min-width: 0; flex: 1; display: flex; align-items: center; gap: 10px; color: inherit; text-decoration: none; min-height: 44px; }
+  .sb-mtop .tt .wl { width: 30px; height: 30px; border-radius: 9px; background: var(--ink); color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 650; flex: none; }
+  .sb-mtop .tt .tx { min-width: 0; }
   .sb-mtop .tt b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .sb-mtop .tt small { display: block; font-size: 12px; color: var(--muted); }
   .sb-mtop .meb { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; }
   .sb-mtop .meb .sb-ava { width: 32px; height: 32px; }
   .sb-mtop.hidden { display: none; }
-  .sb-tabbar { grid-row: 3; display: flex; justify-content: space-around; align-items: flex-end; padding: 6px 6px calc(6px + var(--sab)); border-top: 1px solid var(--line); background: rgba(255,255,255,.96); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); position: relative; z-index: 50; }
-  .sb-tab { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 4px 0; min-height: 44px; justify-content: flex-end; font-size: 10.5px; font-weight: 550; color: var(--faint); text-decoration: none; }
-  .sb-tab[aria-current="page"] { color: var(--ink); }
-  .sb-tab.co { flex: 0 0 auto; padding: 0 6px; }
-  .sb-tab.co .sb-ava { width: 56px; height: 56px; margin-top: -24px; box-shadow: 0 0 0 4px #fff, var(--sh-m); }
-  .sb-tab.co[aria-current="page"] .sb-ava { box-shadow: 0 0 0 4px #fff, 0 0 0 6px var(--ink); }
+  /* Tab bar: a floating white dock of five icons, no labels.
+     The icon colour is set on the dock and the tabs are scoped under it:
+     index.css has `a:visited { color: inherit }`, which outranks a bare
+     .sb-tab and would otherwise turn every visited icon ink. */
+  .sb-tabbar { grid-row: 3; display: flex; align-items: center; justify-content: space-between; height: 60px; margin: 6px 16px calc(10px + var(--sab)); padding: 0 8px; border-radius: 999px; background: #fff; color: var(--muted); border: 1px solid var(--line); box-shadow: 0 12px 32px -14px rgba(17,17,19,.22), 0 2px 6px rgba(17,17,19,.04); position: relative; z-index: 50; }
+  .sb-tabbar .sb-tab, .sb-tabbar .sb-tab:visited, .sb-tabbar .sb-tab:focus { position: relative; width: 44px; height: 44px; border-radius: 50%; display: grid; place-items: center; color: var(--muted); text-decoration: none; transition: color .2s, background .25s cubic-bezier(.2,.8,.2,1), transform .12s; -webkit-tap-highlight-color: transparent; }
+  .sb-tabbar .sb-tab:hover { color: var(--ink); }
+  .sb-tabbar .sb-tab:active { transform: scale(.9); }
+  .sb-tabbar .sb-tab[aria-current="page"] { background: var(--ink); color: #fff; }
+  .sb-tabbar .sb-tab .dot { position: absolute; top: 9px; right: 9px; width: 8px; height: 8px; border-radius: 50%; background: #E5484D; box-shadow: 0 0 0 2px #fff; }
+  .sb-tabbar .sb-tab[aria-current="page"] .dot { box-shadow: 0 0 0 2px var(--ink); }
+
+  /* Buddy: the cofounder's portrait in the middle, ringed in their colour when open. */
+  .sb-tabbar .sb-tab.co { width: 48px; height: 48px; }
+  .sb-tabbar .sb-tab.co .sb-ava { width: 40px; height: 40px; box-shadow: 0 0 0 1px var(--line); transition: box-shadow .25s, transform .12s; }
+  .sb-tabbar .sb-tab.co[aria-current="page"] { background: none; }
+  .sb-tabbar .sb-tab.co[aria-current="page"] .sb-ava { box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--acc); }
 }

@@ -441,3 +441,12 @@
   .sb-wiz-review .edit { opacity: 1; }
   .sb-wiz-hint { display: none; }
 }
+
+/* Buddy's tools, under an empty conversation: talk, commands, memory, chats. */
+.sb-tools { display: grid; grid-template-columns: repeat(2, 1fr); gap: 8px; margin-left: 42px; max-width: 560px; animation: sbRise .3s ease-out both; }
+.sb-tools button { display: flex; align-items: center; gap: 10px; padding: 11px 12px; text-align: left; transition: box-shadow .15s; }
+.sb-tools button:hover { box-shadow: var(--sh-m); }
+.sb-tools .sb-ico { width: 30px; height: 30px; border-radius: 9px; }
+.sb-tools b { display: block; font-size: 13.5px; font-weight: 600; }
+.sb-tools small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; line-height: 1.35; }
+@media (max-width: 760px) { .sb-tools { margin-left: 0; gap: 6px; } .sb-tools small { display: none; } }

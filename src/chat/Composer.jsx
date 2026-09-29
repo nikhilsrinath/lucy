@@ -29,6 +29,8 @@ const SUGGESTIONS = [
 
 const placeholderFor = (section, name) => ({
     chat: `Message ${name}, or type / for commands`,
+    home: `Tell ${name} what happened, or type /`,
+    business: `Ask ${name} about money or clients, or type /`,
     money: `Ask ${name} about money, or type /`,
     clients: 'Ask about a client, or add a lead',
     work: "Add a task, or ask what's next",

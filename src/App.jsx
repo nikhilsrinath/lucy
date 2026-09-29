@@ -48,6 +48,8 @@ import Portfolio from './components/projects/Portfolio';
 import Timesheets from './components/projects/Timesheets';
 import { AssistantProvider } from './components/assistant/AssistantContext';
 import ChatScreen from './chat/ChatScreen';
+import HomeScreen from './home/HomeScreen';
+import BusinessScreen from './business/BusinessScreen';
 import MoneyScreen from './money/MoneyScreen';
 import ClientsScreen from './clients/ClientsScreen';
 import WorkScreen from './work/WorkScreen';
@@ -384,8 +386,10 @@ function AppContent() {
           onLogout={logout}
         >
           <Routes>
-            <Route index element={<Navigate to="/chat" replace />} />
+            <Route index element={<Navigate to="/home" replace />} />
+            <Route path="home" element={<HomeScreen />} />
             <Route path="chat" element={<ChatScreen />} />
+            <Route path="business" element={<BusinessScreen />} />
             <Route path="money" element={<Navigate to="/money/transactions" replace />} />
             <Route path="money/invoices/new" element={<DocEditor />} />
             <Route path="money/invoices/:docId/edit" element={<DocEditor />} />
@@ -451,7 +455,7 @@ function AppContent() {
             <Route path="bulk-certificates" element={<BulkCertificates />} />
             <Route path="bulk-team" element={<BulkTeamMembers />} />
             <Route path="bulk-history" element={<BulkHistory />} />
-            <Route path="*" element={<Navigate to="/chat" replace />} />
+            <Route path="*" element={<Navigate to="/home" replace />} />
           </Routes>
         </ShellFrame>
       </AppShell>

@@ -1,0 +1,105 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Hub pages — Home, Business, and the summary tops of Work and Team.
+   Built from the same tokens and card families as the rest (sb.css); these
+   are only the layouts those pages add: the cofounder hero, quick actions,
+   two-column panels, the pipeline strip and project cards.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── cofounder hero: the Buddy entry point on a page ───────────────────── */
+.sb-hero { position: relative; overflow: hidden; padding: 20px 20px 18px; margin-bottom: 20px;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--acc) 26%, #fff) 0%, #fff 58%); animation: sbRise .3s ease-out both; }
+.sb-hero .hh { display: flex; align-items: flex-start; gap: 14px; }
+.sb-hero .hh .sb-ava { width: 52px; height: 52px; box-shadow: inset 0 0 0 1px rgba(17,17,19,.1), 0 0 0 3px #fff, 0 0 0 4.5px var(--acc); }
+.sb-hero .hx { flex: 1; min-width: 0; }
+.sb-hero .hn { display: flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--muted); font-weight: 550; }
+.sb-hero h1 { font-size: 28px; font-weight: 650; letter-spacing: -.03em; line-height: 1.12; margin-top: 3px; }
+.sb-hero .hl { font-size: 15px; line-height: 1.55; color: var(--ink2); margin-top: 6px; max-width: 620px; }
+.sb-hero .ha { display: flex; gap: 8px; flex: none; }
+.sb-hero .hc { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 16px; }
+.sb-hero .hc button { height: 34px; padding: 0 13px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,.85); font-size: 13px; font-weight: 550; color: var(--ink2); display: inline-flex; align-items: center; gap: 6px; transition: border-color .12s, background .12s; }
+.sb-hero .hc button:hover { border-color: var(--ink); background: #fff; }
+.sb-hero .hc button svg { color: var(--muted); }
+.sb-steps { display: flex; align-items: center; gap: 6px; margin-top: 14px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+.sb-steps b { font-weight: 600; color: var(--ink2); }
+.sb-steps i { width: 14px; height: 1px; background: var(--line); }
+
+/* ── quick actions ─────────────────────────────────────────────────────── */
+.sb-qa { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-bottom: 24px; }
+.sb-qa > button, .sb-qa > a { display: flex; align-items: center; gap: 10px; padding: 12px; min-height: 58px; text-align: left; color: inherit; text-decoration: none; transition: box-shadow .15s, transform .08s; }
+.sb-qa > button:hover, .sb-qa > a:hover { box-shadow: var(--sh-m); }
+.sb-qa > button:active, .sb-qa > a:active { transform: translateY(1px); }
+.sb-qa .sb-ico { width: 32px; height: 32px; border-radius: 9px; }
+.sb-qa b { display: block; font-size: 13.5px; font-weight: 600; }
+.sb-qa small { display: block; font-size: 12px; color: var(--muted); margin-top: 1px; }
+
+/* ── panels: a titled card with a "see all" link ───────────────────────── */
+.sb-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+.sb-cols.w { grid-template-columns: 1.35fr 1fr; }
+.sb-panel { overflow: hidden; }
+.sb-panel > .ph { display: flex; align-items: center; gap: 8px; padding: 14px 16px 8px; }
+.sb-panel > .ph h2 { font-size: 14px; font-weight: 600; }
+.sb-panel > .ph .c { font-size: 12px; color: var(--faint); font-weight: 500; }
+.sb-panel > .ph a, .sb-panel > .ph .lk { margin-left: auto; font-size: 12.5px; font-weight: 550; color: var(--muted); text-decoration: none; display: inline-flex; align-items: center; gap: 2px; min-height: 32px; }
+.sb-panel > .ph a:hover, .sb-panel > .ph .lk:hover { color: var(--ink); }
+.sb-panel .sb-lr { min-height: 56px; }
+.sb-panel .sb-lr:first-of-type { border-top: 1px solid var(--line2); }
+.sb-panel .pe { padding: 6px 16px 18px; font-size: 13.5px; color: var(--muted); line-height: 1.5; }
+.sb-panel .pf { display: flex; align-items: center; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line2); font-size: 12.5px; color: var(--muted); }
+.sb-panel .pf a, .sb-panel .pf button { color: var(--ink); font-weight: 600; text-decoration: none; margin-left: auto; min-height: 32px; display: inline-flex; align-items: center; }
+.sb-when { font-size: 12px; font-weight: 550; color: var(--muted); white-space: nowrap; }
+.sb-when.r { color: var(--r-tx); }
+.sb-when.a { color: var(--a-tx); }
+
+/* ── pipeline strip ────────────────────────────────────────────────────── */
+.sb-pipe { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--line2); border-top: 1px solid var(--line2); }
+.sb-pipe > a { background: var(--surface); padding: 12px 14px 14px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 6px; transition: background .12s; min-width: 0; }
+.sb-pipe > a:hover { background: #FAFAF8; }
+.sb-pipe .pl { font-size: 12px; color: var(--muted); font-weight: 550; display: flex; align-items: center; gap: 6px; }
+.sb-pipe .pv { font-family: var(--mono); font-size: 20px; font-weight: 500; letter-spacing: -.03em; }
+.sb-pipe .pb { height: 4px; border-radius: 2px; background: var(--line2); overflow: hidden; }
+.sb-pipe .pb i { display: block; height: 100%; border-radius: 2px; background: var(--ink); transition: width .4s ease; }
+
+/* ── project cards ─────────────────────────────────────────────────────── */
+.sb-projs { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 10px; margin-bottom: 20px; }
+.sb-proj { display: flex; flex-direction: column; gap: 10px; padding: 14px; text-align: left; width: 100%; transition: box-shadow .15s, border-color .15s; }
+.sb-proj:hover { box-shadow: var(--sh-m); }
+.sb-proj[aria-pressed="true"] { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink); }
+.sb-proj b { font-size: 14px; font-weight: 600; display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-proj small { font-size: 12px; color: var(--muted); display: block; margin-top: 2px; }
+.sb-proj .bar { height: 5px; border-radius: 3px; background: var(--line2); overflow: hidden; }
+.sb-proj .bar i { display: block; height: 100%; background: var(--ink); border-radius: 3px; transition: width .4s ease; }
+.sb-proj .ft { display: flex; justify-content: space-between; font-size: 12px; color: var(--muted); }
+.sb-proj .ft .late { color: var(--r-tx); font-weight: 550; }
+
+/* ── compact progress row inside a panel ───────────────────────────────── */
+.sb-lr .mini { width: 72px; height: 5px; border-radius: 3px; background: var(--line2); overflow: hidden; flex: none; }
+.sb-lr .mini i { display: block; height: 100%; background: var(--ink); border-radius: 3px; }
+
+@media (max-width: 900px) {
+  .sb-cols, .sb-cols.w { grid-template-columns: 1fr; }
+}
+@media (max-width: 760px) {
+  .sb-hero { padding: 16px 16px 14px; margin-bottom: 16px; }
+  .sb-hero h1 { font-size: 23px; }
+  .sb-hero .hl { font-size: 14px; }
+  .sb-hero .hh { display: grid; grid-template-columns: 36px 1fr; column-gap: 10px; align-items: center; }
+  .sb-hero .hx { display: contents; }
+  .sb-hero .hh .sb-ava { width: 36px; height: 36px; }
+  .sb-hero h1, .sb-hero .hl { grid-column: 1 / -1; }
+  .sb-hero h1 { margin-top: 12px; }
+  .sb-hero .ha { display: none; }
+  .sb-hero .hc { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 14px -16px 0; padding: 0 16px; }
+  .sb-hero .hc::-webkit-scrollbar { display: none; }
+  .sb-hero .hc button { flex: none; }
+  .sb-qa { grid-template-columns: repeat(2, 1fr); gap: 8px; margin-bottom: 20px; }
+  .sb-qa > button, .sb-qa > a { padding: 10px; min-height: 54px; }
+  .sb-qa small { display: none; }
+  .sb-pipe { grid-template-columns: repeat(2, 1fr); }
+  .sb-projs { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: 78%; overflow-x: auto; scroll-snap-type: x mandatory; margin: 0 -16px 18px; padding: 2px 16px 6px; scrollbar-width: none; }
+  .sb-projs::-webkit-scrollbar { display: none; }
+  .sb-proj { scroll-snap-align: start; }
+  .sb-lr .mini { width: 48px; }
+}
+@media (prefers-reduced-motion: reduce) { .sb-hero { animation: none; } }
+
+.sb-lr.late .amt { color: var(--r-tx); }
