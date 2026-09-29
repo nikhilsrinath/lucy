@@ -7,7 +7,7 @@ import './carousel.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Choose a cofounder. A port of the mockup's carousel(): previous/next
-   buttons, swipe, arrow keys, thumbnails, an "01 / 08" counter, and a preview
+   buttons, swipe, arrow keys, thumbnails, an "01 / 06" counter, and a preview
    of how the persona talks. "Hear a sample" speaks the (data-free) sample
    line with the browser's own voice — local, no model call, nothing metered.
    ══════════════════════════════════════════════════════════════════════════ */

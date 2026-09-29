@@ -71,7 +71,7 @@ const Auth = () => {
         <div className="auth-visual-noise" />
 
         <div className="auth-visual-top">
-          <img src="/edgeos-logo.png" alt="EdgeOS" className="auth-visual-logo" />
+          <img src="/startupbuddy-wordmark.png" alt="StartupBuddy" className="auth-visual-logo" />
         </div>
 
         <div className="auth-visual-content">

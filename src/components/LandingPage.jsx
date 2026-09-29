@@ -53,7 +53,7 @@ const LandingPage = ({ onEnter }) => {
       <nav className="eos-nav">
         <div className="eos-nav-inner">
           <div className="eos-nav-logo">
-            <img src="/edgeos-logo.png" alt="EdgeOS" className="eos-logo-img" />
+            <img src="/startupbuddy-wordmark.png" alt="StartupBuddy" className="eos-logo-img" />
           </div>
 
           <div className="eos-nav-links">
@@ -109,7 +109,7 @@ const LandingPage = ({ onEnter }) => {
         <div className="eos-mobile-overlay" onClick={() => setMobileMenuOpen(false)}>
           <div className="eos-mobile-menu" onClick={(e) => e.stopPropagation()}>
             <div className="eos-mobile-menu-header">
-              <img src="/edgeos-logo.png" alt="EdgeOS" className="eos-logo-img" style={{ height: 32 }} />
+              <img src="/startupbuddy-wordmark.png" alt="StartupBuddy" className="eos-logo-img" style={{ height: 40 }} />
               <button
                 className="eos-mobile-close-btn"
                 onClick={() => setMobileMenuOpen(false)}
@@ -909,7 +909,7 @@ const LandingPage = ({ onEnter }) => {
           <div className="eos-footer-grid">
             <div className="eos-footer-brand">
               <div className="eos-nav-logo" style={{ marginBottom: '0.5rem' }}>
-                <img src="/edgeos-logo.png" alt="EdgeOS" className="eos-logo-img" />
+                <img src="/startupbuddy-wordmark.png" alt="StartupBuddy" className="eos-logo-img" />
               </div>
               <p>
                 The all-in-one operating system for business documents, financial operations, and team management.

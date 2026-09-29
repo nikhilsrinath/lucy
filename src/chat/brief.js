@@ -46,10 +46,6 @@ const LEDES = {
     mira: (f) => (f.owed > 0
         ? `You're owed ${inr(f.owed)}${f.overdueCount ? `, and ${f.overdueCount} ${f.overdueCount === 1 ? 'invoice is' : 'invoices are'} past due` : ''}.${f.netCash !== null ? ` Net cash stands at ${inr(f.netCash)}.` : ''}`
         : `No one owes you money right now.${f.netCash !== null ? ` Net cash stands at ${inr(f.netCash)}.` : ''}`),
-    kabir: (f) => (f.overdueCount
-        ? `${f.overdueCount} ${f.overdueCount === 1 ? 'invoice is' : 'invoices are'} late, ${inr(f.overdueAmount)} in all. Let's get that money in.`
-        : f.owed > 0 ? `${inr(f.owed)} is out with clients, none of it late yet.` : 'Nothing to chase today. Every invoice is settled.'),
-    zoya: (f) => `${f.overdueCount ? `${f.overdueCount} late ${f.overdueCount === 1 ? 'invoice' : 'invoices'}` : 'No late invoices'} and ${f.tasksDue} ${f.tasksDue === 1 ? 'task' : 'tasks'} this week. Here is the list.`,
     arjun: (f) => (f.overdueCount
         ? `${f.overdueCount} late. ${inr(f.overdueAmount)}. Chase it.`
         : f.tasksOverdue ? `${f.tasksOverdue} ${f.tasksOverdue === 1 ? 'task' : 'tasks'} overdue. Clear ${f.tasksOverdue === 1 ? 'it' : 'them'}.` : 'Nothing urgent.'),
@@ -57,9 +53,9 @@ const LEDES = {
         ? `${inr(f.owed)} is on its way to you. Let's bring it home!`
         : `Clean slate: nobody owes you a rupee. ${f.tasksDue ? `${f.tasksDue} ${f.tasksDue === 1 ? 'task' : 'tasks'} to knock out this week.` : 'Enjoy it.'}`),
     neel: (f) => `${f.owed > 0 ? `Receivables: ${inr(f.owed)} across ${f.owedCount} ${f.owedCount === 1 ? 'invoice' : 'invoices'}` : 'Receivables: nil'}${f.gst !== null ? `. GST payable this month: ${inr(Math.max(0, f.gst))}` : ''}.`,
-    ishaan: (f) => (f.overdueCount || f.tasksOverdue
-        ? `${[f.overdueCount && `${f.overdueCount} late ${f.overdueCount === 1 ? 'invoice' : 'invoices'}`, f.tasksOverdue && `${f.tasksOverdue} overdue ${f.tasksOverdue === 1 ? 'task' : 'tasks'}`].filter(Boolean).join(' and ')}. Let's unstick them.`
-        : 'Nothing is stuck. Good day to get ahead.'),
+    sam: (f) => (f.overdueCount || f.tasksOverdue
+        ? `${[f.overdueCount && `${f.overdueCount} late ${f.overdueCount === 1 ? 'invoice' : 'invoices'}`, f.tasksOverdue && `${f.tasksOverdue} overdue ${f.tasksOverdue === 1 ? 'task' : 'tasks'}`].filter(Boolean).join(' and ')}. No stress, let's sort them.`
+        : 'Nothing is stuck. Easy day to get ahead.'),
     dia: (f) => (f.owed > 0
         ? `${inr(f.owed)} is owed to you. Worth checking your terms on the ${f.overdueCount ? 'late ones' : 'next quote'}.`
         : 'Nothing outstanding. A good moment to send the next quote.'),

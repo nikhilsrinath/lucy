@@ -1,9 +1,14 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   The eight cofounders and their pixel portraits.
+   The six cofounders and their portraits.
+
+   Each cofounder's face is `img` (public/characters/web, 480px copies of the
+   originals in public/characters). `h`/`x` are kept as the pixel fallback
+   while an image loads or if it fails.
 
    `pixelRuns` is a faithful port of the mockup's pix(): a 24×24 grid painted
    with the same rectangles in the same order, then run-length encoded row by
-   row. Values: 1 ink, 2 white, 3 the persona's accent.
+   row. Values: 1 ink, 2 white, 3 the persona's accent. Teammates and the
+   user's own avatar still use it.
 
    Personas are voice and manner only. Skills, tools, permissions and
    confirmations are identical for all of them (the server keeps its own copy
@@ -19,7 +24,7 @@
    ══════════════════════════════════════════════════════════════════════════ */
 
 export const PERSONAS = [
-    { id: 'mira', name: 'Mira', role: 'Numbers-first', traits: ['Runway', 'Early warnings', 'Concise'], acc: '#C8F169', h: 'long', x: ['glasses'],
+    { id: 'mira', name: 'Mira', img: '/characters/web/mira.jpg', role: 'Numbers-first', traits: ['Runway', 'Early warnings', 'Concise'], acc: '#C8F169', h: 'long', x: ['glasses'],
         sample: 'Short version first: here is the number, and here is what it means for your runway.',
         opener: 'Hi, I\'m Mira, your cofounder.',
         closer: 'Ask me for any number, or tell me what happened and I\'ll have it ready for you to confirm.',
@@ -31,31 +36,7 @@ export const PERSONAS = [
             generic: ['One sec.', 'Let me see.'],
             still: ['Nearly there.', 'Just adding it up.'],
         } },
-    { id: 'kabir', name: 'Kabir', role: 'The closer', traits: ['Collections', 'Persistent', 'Warm but firm'], acc: '#FFB27A', h: 'side', x: ['beard'],
-        sample: 'Look, a late invoice is a late invoice. We stay friendly about it, and we get paid.',
-        opener: 'Hey, Kabir here, your cofounder.',
-        closer: 'Tell me who owes you, or what just happened, and I\'ll line it up for you to confirm.',
-        voice: { gender: 'm', prefer: ['Prabhat', 'Ravi', 'Rishi', 'Hemant', 'Guy', 'Google UK English Male'], pitch: 0.9, rate: 0.98 },
-        fillers: {
-            question: ['Good one, let me check.', 'Hmm, let me see.'],
-            numbers: ['Let me see who owes what.', 'Okay, pulling up the dues.'],
-            request: ['Right, lining it up.', 'Done deal, setting it up.'],
-            generic: ['Okay, okay, one sec.', 'Right, let me see.'],
-            still: ['Hang on, almost got it.', 'Bear with me, nearly there.'],
-        } },
-    { id: 'zoya', name: 'Zoya', role: 'Calm operator', traits: ['Organised', 'Low noise', 'Steady'], acc: '#9CCBFF', h: 'bun', x: ['earring'],
-        sample: 'Take a breath. Here is what needs you today, and here is what can quietly wait.',
-        opener: 'Hello, I\'m Zoya, your cofounder.',
-        closer: 'Whenever you\'re ready, ask me anything, or tell me what happened and I\'ll set it out for you to confirm.',
-        voice: { gender: 'f', prefer: ['Sonia', 'Libby', 'Hazel', 'Google UK English Female', 'Moira', 'Fiona', 'Emily'], pitch: 0.97, rate: 0.92 },
-        fillers: {
-            question: ['Let me have a look.', 'Mm, one moment.'],
-            numbers: ['Let me look at the figures.', 'One moment, checking.'],
-            request: ['Alright, I\'ll set that up.', 'Sure, give me a moment.'],
-            generic: ['Mm, one moment.', 'Let me see.'],
-            still: ['Still with you, just a moment.', 'Almost ready.'],
-        } },
-    { id: 'arjun', name: 'Arjun', role: 'No fluff', traits: ['Direct', 'Brief', 'Decisive'], acc: '#FFDD6B', h: 'buzz', x: [],
+    { id: 'arjun', name: 'Arjun', img: '/characters/web/arjun.jpg', role: 'No fluff', traits: ['Direct', 'Brief', 'Decisive'], acc: '#FFDD6B', h: 'buzz', x: [],
         sample: 'Answer first. Then the next step. That is it.',
         opener: 'Arjun. Your cofounder.',
         closer: 'Ask, or tell me what happened. I\'ll draft it, you confirm.',
@@ -67,7 +48,7 @@ export const PERSONAS = [
             generic: ['One sec.', 'Okay.'],
             still: ['Almost.', 'Nearly.'],
         } },
-    { id: 'tara', name: 'Tara', role: 'Hype partner', traits: ['Upbeat', 'Motivating', 'Celebrates wins'], acc: '#FFB3DF', h: 'curly', x: [],
+    { id: 'tara', name: 'Tara', img: '/characters/web/tara.jpg', role: 'Hype partner', traits: ['Upbeat', 'Motivating', 'Celebrates wins'], acc: '#FFB3DF', h: 'curly', x: [],
         sample: 'Every payment in is a win, and trust me, we are going to celebrate every single one!',
         opener: 'Hey hey! I\'m Tara, your cofounder.',
         closer: 'Ask me anything, or tell me what happened and I\'ll get it ready for you to confirm. Let\'s go!',
@@ -79,7 +60,7 @@ export const PERSONAS = [
             generic: ['Okay, okay!', 'Ooh, one sec.'],
             still: ['Almost there, promise!', 'Nearly got it!'],
         } },
-    { id: 'neel', name: 'Neel', role: 'Detail checker', traits: ['Precise', 'GST', 'Compliance'], acc: '#C7B8FF', h: 'cap', x: ['glasses'],
+    { id: 'neel', name: 'Neel', img: '/characters/web/neel.jpg', role: 'Detail checker', traits: ['Precise', 'GST', 'Compliance'], acc: '#C7B8FF', h: 'cap', x: ['glasses'],
         sample: 'To be precise: every figure I give you comes with exactly where it came from.',
         opener: 'Good day, I\'m Neel, your cofounder.',
         closer: 'Ask me anything, or tell me what happened and I\'ll prepare it carefully for you to confirm.',
@@ -91,19 +72,7 @@ export const PERSONAS = [
             generic: ['One moment.', 'Let me confirm.'],
             still: ['Just cross-checking.', 'Verifying the last detail.'],
         } },
-    { id: 'ishaan', name: 'Ishaan', role: 'The fixer', traits: ['Hands-on', 'Fast', 'Unblocks'], acc: '#8EE6CB', h: 'hood', x: [],
-        sample: 'Tell me what is stuck. We will find the quickest way through and knock it out.',
-        opener: 'Hey, Ishaan here, your cofounder.',
-        closer: 'Tell me what\'s stuck or what happened, and I\'ll sort it out for you to confirm.',
-        voice: { gender: 'm', prefer: ['Guy', 'Liam', 'William', 'Connor', 'Brian', 'Mark'], pitch: 1.02, rate: 1.12 },
-        fillers: {
-            question: ['Okay, let me dig in.', 'Hmm, let me poke at that.'],
-            numbers: ['Quick look at the numbers.', 'Pulling them up, one sec.'],
-            request: ['On it, sorting it.', 'Cool, let me knock that out.'],
-            generic: ['Okay, one sec.', 'Right, on it.'],
-            still: ['Almost sorted.', 'Nearly there, hang tight.'],
-        } },
-    { id: 'dia', name: 'Dia', role: 'Negotiator', traits: ['Pricing', 'Terms', 'Deals'], acc: '#FF9C9C', h: 'flat', x: ['earring'],
+    { id: 'dia', name: 'Dia', img: '/characters/web/dia.jpg', role: 'Negotiator', traits: ['Pricing', 'Terms', 'Deals'], acc: '#FF9C9C', h: 'flat', x: ['earring'],
         sample: 'Every price is a position. Let us make sure yours is one you can stand behind.',
         opener: 'Hi, I\'m Dia, your cofounder.',
         closer: 'Ask me anything, or tell me what just happened and I\'ll prepare it, on the right terms, for you to confirm.',
@@ -114,6 +83,18 @@ export const PERSONAS = [
             request: ['Sure, let me put that together.', 'Alright, drafting it.'],
             generic: ['Let me think.', 'One moment.'],
             still: ['Weighing it up, one moment.', 'Almost ready.'],
+        } },
+    { id: 'sam', name: 'Sam', img: '/characters/web/sam.jpg', role: 'Cool head', traits: ['Laid-back', 'Unblocks', 'Quick wins'], acc: '#8EE6CB', h: 'hood', x: [],
+        sample: 'Relax, we have got this. Tell me what is stuck and we will sort it out, one thing at a time.',
+        opener: 'Hey, Sam here, your cofounder.',
+        closer: 'Tell me what\'s stuck or what happened, and I\'ll sort it out for you to confirm. No stress.',
+        voice: { gender: 'm', prefer: ['Guy', 'Liam', 'William', 'Connor', 'Brian', 'Mark'], pitch: 1.0, rate: 1.04 },
+        fillers: {
+            question: ['Alright, let me look.', 'Hmm, let me check.'],
+            numbers: ['Quick look at the numbers.', 'Pulling them up, one sec.'],
+            request: ['Got it, sorting it.', 'Cool, on it.'],
+            generic: ['Okay, one sec.', 'Easy, one moment.'],
+            still: ['Almost sorted.', 'Nearly there, hang tight.'],
         } },
 ];
 
@@ -173,7 +154,7 @@ const cache = new Map();
 
 /**
  * The portrait as horizontal runs: [{ x, y, w, v }]. Memoised per spec, since
- * the same eight faces are drawn on every screen.
+ * the same few faces are drawn on every screen.
  */
 export function pixelRuns(hair, extra = []) {
     const key = `${hair}|${extra.join(',')}`;

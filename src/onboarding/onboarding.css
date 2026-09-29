@@ -2,7 +2,7 @@
 .sb-onb { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); padding-top: var(--sat); }
 .sb-obar { display: flex; align-items: center; gap: 16px; padding: 18px 28px; height: 72px; flex: none; }
 .sb-logo { display: flex; align-items: center; gap: 9px; font-weight: 650; font-size: 16px; letter-spacing: -.02em; color: var(--ink); text-decoration: none; }
-.sb-logo i { width: 26px; height: 26px; border-radius: 8px; background: var(--ink); color: #fff; display: grid; place-items: center; }
+.sb-logo img { height: 38px; width: auto; display: block; }
 .sb-ostep { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 13px; color: var(--muted); }
 .sb-pbars { display: flex; gap: 4px; }
 .sb-pbars i { width: 26px; height: 4px; border-radius: 2px; background: var(--line); }
@@ -19,9 +19,9 @@
 .sb-back { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 550; color: var(--muted); margin-bottom: 22px; align-self: flex-start; min-height: 32px; padding: 0 8px 0 4px; border-radius: 8px; }
 .sb-back:hover { background: var(--hover); color: var(--ink); }
 .sb-stack { display: flex; justify-content: center; margin: 26px 0 30px; }
-.sb-stack .sb-ava { width: 76px; height: 76px; margin-left: -14px; box-shadow: 0 0 0 4px var(--bg), inset 0 0 0 1px rgba(17,17,19,.1); }
+.sb-stack .sb-ava { width: min(80px, 17vw); height: min(80px, 17vw); margin-left: -14px; box-shadow: 0 0 0 4px var(--bg), inset 0 0 0 1px rgba(17,17,19,.1); }
 .sb-stack .sb-ava:first-child { margin-left: 0; }
-.sb-stack .sb-ava:nth-child(3) { width: 92px; height: 92px; margin-top: -8px; z-index: 2; }
+.sb-stack .sb-ava:nth-child(3), .sb-stack .sb-ava:nth-child(4) { width: min(92px, 19vw); height: min(92px, 19vw); margin-top: -8px; z-index: 2; }
 .sb-feat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin: 34px 0 30px; }
 .sb-feat > div { padding: 16px; }
 .sb-feat b { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; margin-bottom: 6px; }

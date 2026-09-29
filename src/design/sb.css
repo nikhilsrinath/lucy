@@ -82,6 +82,9 @@
 .sb-ava { display: grid; place-items: end center; border-radius: 28%; background: color-mix(in srgb, var(--a, #ddd) 55%, #fff); overflow: hidden; flex: none; box-shadow: inset 0 0 0 1px rgba(17,17,19,.1); position: relative; }
 .sb-ava svg { image-rendering: pixelated; width: 90%; height: 90%; }
 .sb-ava.round { border-radius: 50%; }
+.sb-ava.photo { place-items: stretch; background: #fff; }
+.sb-ava.photo::after { content: ""; position: absolute; inset: 0; border-radius: inherit; box-shadow: inset 0 0 0 1px rgba(17,17,19,.1); pointer-events: none; }
+.sb-ava.photo img { width: 100%; height: 100%; object-fit: cover; object-position: 50% 20%; display: block; -webkit-user-drag: none; }
 .sb-ini { width: 34px; height: 34px; border-radius: 10px; background: var(--soft); border: 1px solid var(--line2); display: grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--ink2); flex: none; }
 .sb-ico { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; }
 .sb-ico.g { background: var(--g-bg); color: var(--g-tx); } .sb-ico.r { background: var(--r-bg); color: var(--r-tx); }

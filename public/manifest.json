@@ -2,28 +2,30 @@
   "name": "StartupBuddy",
   "short_name": "StartupBuddy",
   "description": "An AI cofounder for Indian startups.",
+  "id": "/chat",
   "start_url": "/chat",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#F7F6F3",
-  "theme_color": "#F7F6F3",
+  "background_color": "#FFFFFF",
+  "theme_color": "#FFFFFF",
   "icons": [
     {
-      "src": "startupbuddy-icon-192.png",
+      "src": "/startupbuddy-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "startupbuddy-icon-512.png",
+      "src": "/startupbuddy-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
-      "purpose": "any maskable"
+      "purpose": "any"
     },
     {
-      "src": "startupbuddy-icon.svg",
-      "sizes": "any",
-      "type": "image/svg+xml",
-      "purpose": "any"
+      "src": "/startupbuddy-icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

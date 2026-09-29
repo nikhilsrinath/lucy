@@ -12,7 +12,7 @@ import { PERSONAS } from '../design/personas';
 import { useCofounder } from '../design/useCofounder';
 import { Button, Field, Segmented, PixelAvatar, Card, Switch, IconTile } from '../design/ui';
 import CofounderCarousel from '../design/CofounderCarousel';
-import { IconBolt, IconChevronLeft, IconChat, IconCheck, IconCall, IconInvoice, IconMail, IconBank } from '../design/icons';
+import { IconChevronLeft, IconChat, IconCheck, IconCall, IconInvoice, IconMail, IconBank } from '../design/icons';
 import { introGreeting } from '../call/greeting';
 import { setOnboardingStep, INTRO_CALL_KEY } from './onboardingState';
 import '../design/sb.css';
@@ -33,7 +33,7 @@ import './onboarding.css';
    first knowledge-base build. The intro call's greeting is spoken locally.
    ══════════════════════════════════════════════════════════════════════════ */
 
-const STACK = [3, 1, 0, 2, 4].map((i) => PERSONAS[i]);
+const STACK = [3, 4, 0, 5, 2, 1].map((i) => PERSONAS[i]);
 const SIZES = ['Just me', '2–5', '6–20', '20+'];
 const SELLS = [{ value: 'services', label: 'Services' }, { value: 'products', label: 'Products' }, { value: 'both', label: 'Both' }];
 const STEPS = { account: 1, company: 2, cofounder: 3, headstart: 4 };
@@ -43,7 +43,7 @@ function Frame({ step, children }) {
     return (
         <div className="sb sb-onb">
             <div className="sb-obar">
-                <Link to="/" className="sb-logo"><i aria-hidden="true"><IconBolt /></i>StartupBuddy</Link>
+                <Link to="/" className="sb-logo"><img src="/startupbuddy-wordmark.png" alt="StartupBuddy" /></Link>
                 {n && (
                     <div className="sb-ostep" aria-label={`Step ${n} of 4`}>
                         <span>Step {n} of 4</span>

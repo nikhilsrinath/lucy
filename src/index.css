@@ -1146,7 +1146,7 @@ h3 {
 }
 
 .auth-visual-logo {
-  height: 26px;
+  height: 34px;
   width: auto;
   /* invert so the dark logo shows on dark bg */
   filter: brightness(0) invert(1);

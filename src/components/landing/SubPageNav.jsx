@@ -17,7 +17,7 @@ const SubPageNav = () => {
     <nav className="eos-nav">
       <div className="eos-nav-inner">
         <a href="/" className="eos-nav-logo" style={{ textDecoration: 'none' }}>
-          <img src="/edgeos-logo.png" alt="EdgeOS" className="eos-logo-img" />
+          <img src="/startupbuddy-wordmark.png" alt="StartupBuddy" className="eos-logo-img" />
         </a>
         <div className="eos-nav-actions">
           <a href="/" className="eos-btn eos-btn-ghost eos-nav-link">Home</a>

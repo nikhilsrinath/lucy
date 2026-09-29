@@ -6,7 +6,7 @@ import { PERSONAS, cleanPersona } from './personas.js';
  * version that proposed it, so a change in behaviour can be traced to a
  * change here. Bump it whenever the wording changes.
  */
-export const AGENT_PROMPT_VERSION = 'agent-2026-09-29.1-startupbuddy';
+export const AGENT_PROMPT_VERSION = 'agent-2026-09-29.2-startupbuddy';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 

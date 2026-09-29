@@ -7,7 +7,7 @@ const SubPageFooter = () => (
       <div className="eos-footer-grid">
         <div className="eos-footer-brand">
           <a href="/" className="eos-nav-logo" style={{ marginBottom: '0.5rem', textDecoration: 'none' }}>
-            <img src="/edgeos-logo.png" alt="EdgeOS" className="eos-logo-img" />
+            <img src="/startupbuddy-wordmark.png" alt="StartupBuddy" className="eos-logo-img" />
           </a>
           <p>
             The all-in-one operating system for business documents, financial operations, and team management.
