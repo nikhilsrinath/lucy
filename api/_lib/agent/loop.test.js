@@ -234,9 +234,10 @@ describe('chips and typed answers', () => {
     const { events, emit } = collect();
     const model = scripted(call('create_cash_entry', { direction: 'out', description: 'Chairs', category: 'furniture', payment_method: 'upi', amount: '4500', source_text: 'log an expense for chairs' }));
     await runChat(ctx, { message: 'it was about four and a half thousand', chatId: 'c1', messageId: 'm' }, emit, { callModelImpl: model });
-    const system = model.seen[0].messages[0].content;
-    expect(system).toMatch(/YOUR OPEN QUESTION: you asked "How much went out\?"/);
-    expect(system).toMatch(/"description":"Chairs"/);
+    const turn = model.seen[0].messages.at(-2).content;
+    expect(turn).toMatch(/YOUR OPEN QUESTION: you asked "How much went out\?"/);
+    expect(turn).toMatch(/"description":"Chairs"/);
+    expect(model.seen[0].messages[0].content).not.toMatch(/How much went out/);
     expect(events.find((e) => e.event === 'card').card.confirmLabel).toBe('Record ₹4,500.00 expense');
   });
 
@@ -248,6 +249,49 @@ describe('chips and typed answers', () => {
     const { events, emit } = collect();
     await runResume(ctx, { tool: 'create_task', args: { title: 'One too many' } }, emit, { chatId: 'c9' });
     expect(events[0]).toMatchObject({ event: 'notice', text: expect.stringMatching(/5 changes waiting/) });
+  });
+});
+
+describe('prompt caching and token accounting', () => {
+  const history = [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'Hello!' }];
+
+  it('the system prompt does not change with the per-message state, which goes just before the message', async () => {
+    const a = world();
+    const b = world();
+    b.ctx.today = '2026-10-14';
+    b.ctx.page = { route: '/invoices', recordType: 'invoice', recordId: 'inv-9' };
+    b.ctx.recentEntities = [{ type: 'client', id: 'c-7', label: 'Kite', turn: 'm4' }];
+    b.ctx.pending = { tool: 'create_task', param: 'title', question: 'What should it be called?', args: {} };
+    b.ctx.openCards = [{ action_id: 'act-1', title: 'Update task deadline', risk: 'low' }];
+
+    const ma = scripted({ role: 'assistant', content: 'ok' });
+    const mb = scripted({ role: 'assistant', content: 'ok' });
+    await runChat(a.ctx, { message: 'first', history, chatId: 'c1', messageId: 'm1' }, () => {}, { callModelImpl: ma });
+    await runChat(b.ctx, { message: 'second', history, chatId: 'c1', messageId: 'm2' }, () => {}, { callModelImpl: mb });
+
+    const [sa, sb] = [ma.seen[0].messages, mb.seen[0].messages];
+    expect(sb[0]).toEqual(sa[0]);
+    expect(sb.slice(1, 3)).toEqual(history);
+    expect(sb.at(-1)).toEqual({ role: 'user', content: 'second' });
+    const turn = sb.at(-2).content;
+    expect(turn).toMatch(/^<data source="turn">/);
+    expect(turn).toMatch(/2026-10-14/);
+    expect(turn).toMatch(/\/invoices — open invoice inv-9/);
+    expect(turn).toMatch(/client "Kite" \(id c-7\)/);
+    expect(turn).toMatch(/act-1: Update task deadline/);
+  });
+
+  it('adds up tokens over every step, counting thinking as output', async () => {
+    const { ctx } = world();
+    const { newUsage, describeUsage } = await import('./model.js');
+    const replies = [
+      { message: call('list_tasks', { status: 'overdue' }), usage: { prompt_tokens: 7000, completion_tokens: 20, total_tokens: 7120 } },
+      { message: { role: 'assistant', content: 'One overdue task.' }, usage: { prompt_tokens: 7300, completion_tokens: 15, total_tokens: 7315, cost: 0.0012, prompt_tokens_details: { cached_tokens: 6000 } } },
+    ];
+    const usage = newUsage();
+    await runChat(ctx, { message: 'what is overdue?', chatId: 'c1', messageId: 'm1' }, () => {}, { callModelImpl: async () => replies.shift(), usage });
+    expect(usage).toMatchObject({ calls: 2, prompt: 14300, output: 135, cached: 6000, cost: 0.0012, perCall: [7000, 7300] });
+    expect(describeUsage(usage)).toBe('in 14,300 (cached 6,000) · out 135 · $0.00120 · 2 calls [7,000, 7,300]');
   });
 });
 

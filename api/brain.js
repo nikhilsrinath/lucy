@@ -5,7 +5,7 @@
  *
  * Everything privileged lives here: building and resynchronising the brain
  * (which reads every tenant table through the service role) and answering a
- * question (which spends money on Gemini). Plain reads — search, the graph, a
+ * question (which spends money on the AI provider). Plain reads — search, the graph, a
  * node's neighbourhood — are also offered here as generic capabilities, but the
  * browser can equally read brain_nodes / brain_edges / brain_metrics directly,
  * because their RLS policies enforce exactly the same permission check this
@@ -23,9 +23,8 @@ import {
   allowedResources, requireBrainPermission, searchNodes, getNode,
   neighbors, getMetrics, buildContext, libraryContext,
 } from './_lib/brainRetrieval.js';
+import { AI_URL, AI_MODEL as MODEL, aiKey, aiHeaders, reasoningEffort } from './_lib/aiProvider.js';
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-const MODEL = 'gemini-3.6-flash';
 // Mirrors AI_MESSAGE_LIMITS in api/nvidia.js and limits.aiMessages in
 // planConfig.js. A brain question costs the same upstream as a co-founder
 // message, so it is metered against the same counter.
@@ -316,9 +315,9 @@ async function ask(res, { orgId, user, perms, allowed, body }) {
 
   const history = conversationHistory(body.history);
 
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = aiKey();
   if (!apiKey) {
-    console.error('[brain] Missing GEMINI_API_KEY');
+    console.error('[brain] Missing OPENROUTER_API_KEY');
     throw new HttpError(500, 'Server configuration error');
   }
 
@@ -352,9 +351,9 @@ async function ask(res, { orgId, user, perms, allowed, body }) {
     syncedAt: state.last_sync_at,
   });
 
-  const response = await fetch(GEMINI_URL, {
+  const response = await fetch(AI_URL, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers: aiHeaders(apiKey),
     body: JSON.stringify({
       model: MODEL,
       messages: [
@@ -382,7 +381,7 @@ async function ask(res, { orgId, user, perms, allowed, body }) {
       stream: false,
       // Same reasoning as api/nvidia.js: with thinking billed against
       // max_tokens, a 3.x model can spend the whole budget before writing a word.
-      reasoning_effort: 'none',
+      reasoning_effort: reasoningEffort('none'),
     }),
   });
 

@@ -1,23 +1,23 @@
 /**
- * One model turn: Gemini's OpenAI-compatible chat completions, with tools.
+ * One model turn: OpenRouter's chat completions (see ../aiProvider.js), with tools.
  *
  * Deliberately non-streaming. The agent's steps are tool calls, and Gemini 3
- * attaches a thought signature to each tool call (extra_content.google) that
+ * attaches its reasoning to each tool call (OpenRouter: reasoning_details) that
  * must be sent back verbatim on the next request or the call is rejected.
  * Echoing a whole message object back is trivially correct; reassembling one
- * from stream deltas is where signatures get lost. The endpoint still streams
- * to the browser (SSE events per step), so nothing is lost for the user.
+ * from stream deltas is where it gets lost. The endpoint still streams to the
+ * browser (SSE events per step), so nothing is lost for the user.
  */
+import { AI_URL, AI_MODEL, aiKey, aiHeaders, reasoningEffort } from '../aiProvider.js';
 
-const GEMINI_URL = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-export const AGENT_MODEL = process.env.AGENT_MODEL || 'gemini-3.6-flash';
+export const AGENT_MODEL = process.env.AGENT_MODEL || AI_MODEL;
 
 export async function callModel({ messages, tools, fetchImpl = fetch, signal } = {}) {
-  const apiKey = process.env.GEMINI_API_KEY;
-  if (!apiKey) throw new Error('Server is missing GEMINI_API_KEY');
-  const res = await fetchImpl(GEMINI_URL, {
+  const apiKey = aiKey();
+  if (!apiKey) throw new Error('Server is missing OPENROUTER_API_KEY');
+  const res = await fetchImpl(AI_URL, {
     method: 'POST',
-    headers: { Authorization: `Bearer ${apiKey}`, 'Content-Type': 'application/json' },
+    headers: aiHeaders(apiKey),
     body: JSON.stringify({
       model: AGENT_MODEL,
       messages,
@@ -26,7 +26,7 @@ export async function callModel({ messages, tools, fetchImpl = fetch, signal } =
       temperature: 0.1,
       // Thinking is billed against max_tokens; 'low' buys better tool choice
       // for a small latency cost, and 4096 leaves room for the answer.
-      reasoning_effort: process.env.AGENT_REASONING_EFFORT || 'low',
+      reasoning_effort: reasoningEffort(process.env.AGENT_REASONING_EFFORT, 'low'),
       max_tokens: 4096,
       stream: false,
     }),
@@ -42,4 +42,37 @@ export async function callModel({ messages, tools, fetchImpl = fetch, signal } =
   const json = await res.json();
   const choice = json.choices?.[0] || {};
   return { message: choice.message || { role: 'assistant', content: '' }, finish: choice.finish_reason, usage: json.usage || null };
+}
+
+/**
+ * Token accounting across every model call of one chat message.
+ *
+ * Output is total - prompt when total is present, so thinking (billed as
+ * output) is counted whether or not the provider folds it into
+ * completion_tokens. Cached input and cost (USD) are read where reported;
+ * OpenRouter reports both.
+ */
+export function newUsage() {
+  return { calls: 0, prompt: 0, output: 0, cached: 0, cost: 0, perCall: [] };
+}
+
+export function addUsage(acc, usage) {
+  if (!acc || !usage) return acc;
+  const n = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const prompt = n(usage.prompt_tokens);
+  const output = usage.total_tokens != null ? Math.max(0, n(usage.total_tokens) - prompt) : n(usage.completion_tokens);
+  const cached = n(usage.prompt_tokens_details?.cached_tokens ?? usage.cached_tokens);
+  acc.calls += 1;
+  acc.prompt += prompt;
+  acc.output += output;
+  acc.cached += cached;
+  acc.cost += n(usage.cost);
+  acc.perCall.push(prompt);
+  return acc;
+}
+
+export function describeUsage(acc) {
+  const f = (v) => v.toLocaleString('en-US');
+  const cost = acc.cost ? ` · $${acc.cost.toFixed(5)}` : '';
+  return `in ${f(acc.prompt)}${acc.cached ? ` (cached ${f(acc.cached)})` : ''} · out ${f(acc.output)}${cost} · ${acc.calls} call${acc.calls === 1 ? '' : 's'} [${acc.perCall.map(f).join(', ')}]`;
 }

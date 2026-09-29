@@ -10,7 +10,7 @@
  * only — so what the assistant quotes is always what the file said, never
  * something a client posted.
  *
- * Deterministic parsing for anything with text in it; Gemini only for images
+ * Deterministic parsing for anything with text in it; the AI only for images
  * and scanned PDFs, metered against the same AI message counter as a chat.
  */
 import { requireUser, requireOrgRole, HttpError, sendError, methodIs, readJsonBody } from './_lib/auth.js';
@@ -18,13 +18,13 @@ import { supabaseAdmin } from './_lib/supabaseAdmin.js';
 import { logAiUsage } from './_lib/aiUsage.js';
 import { allowedResources } from './_lib/brainRetrieval.js';
 import { extractDocument, chunkMarkdown, leadSummary } from './_lib/libraryExtract.js';
+import { AI_URL, AI_MODEL, aiKey, aiHeaders, reasoningEffort } from './_lib/aiProvider.js';
 
 export const config = { maxDuration: 60 };
 
 const BUCKET = 'library';
-const MODEL = 'gemini-3.6-flash';
-const GEMINI_NATIVE = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent`;
-// Inline data is capped by the API at ~20 MB per request, base64 included.
+const MODEL = AI_MODEL;
+// Inline data is capped upstream at ~20 MB per request, base64 included.
 const OCR_MAX_BYTES = 14 * 1024 * 1024;
 // Mirrors api/nvidia.js and api/brain.js.
 const AI_MESSAGE_LIMITS = { free: 10, pro: 50, max: Infinity };
@@ -68,7 +68,7 @@ async function processDocument(orgId, docId, user) {
 
     outcome = await extractDocument(
       { buffer, fileName: doc.file_name, mimeType: doc.mime_type, title: doc.title },
-      { ocr: process.env.GEMINI_API_KEY ? (bytes, mime, hint) => ocr(orgId, bytes, mime, hint, user) : null },
+      { ocr: aiKey() ? (bytes, mime, hint) => ocr(orgId, bytes, mime, hint, user) : null },
     );
   } catch (err) {
     outcome = { status: 'failed', method: null, markdown: '', pages: null, error: err?.message || String(err) };
@@ -123,6 +123,12 @@ async function ocr(orgId, bytes, mimeType, hint, user) {
     throw new Error(`Files over ${OCR_MAX_BYTES / 1048576} MB cannot be read by AI; upload a smaller scan or a PDF with a text layer.`);
   }
 
+  // The default model (Qwen 3.7 Flash) reads images but not PDFs. Say so before
+  // metering, rather than spend a message on a request that cannot succeed.
+  if (mimeType === 'application/pdf' && !MODEL.startsWith('google/')) {
+    throw new Error('Scanned PDFs cannot be read by the current AI model. Upload the pages as images, or a PDF with a text layer.');
+  }
+
   // Metered before the call, as every other AI path is.
   const { data: used, error: meterErr } = await supabaseAdmin().rpc('bump_ai_usage', { p_org: orgId });
   if (meterErr) console.warn('[library] AI usage not counted:', meterErr.message);
@@ -143,18 +149,25 @@ async function ocr(orgId, bytes, mimeType, hint, user) {
     '- If something is illegible write [illegible]. Never guess a number or a name.\n' +
     '- Output only the Markdown, with no preamble and no code fences around it.';
 
-  const response = await fetch(GEMINI_NATIVE, {
+  // The file travels inline as a data URL: a PDF as a `file` part (the model
+  // reads it natively, pages and all), an image as an `image_url` part.
+  const dataUrl = `data:${mimeType};base64,${Buffer.from(bytes).toString('base64')}`;
+  const filePart = mimeType === 'application/pdf'
+    ? { type: 'file', file: { filename: 'document.pdf', file_data: dataUrl } }
+    : { type: 'image_url', image_url: { url: dataUrl } };
+
+  const response = await fetch(AI_URL, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': process.env.GEMINI_API_KEY },
+    headers: aiHeaders(aiKey()),
     body: JSON.stringify({
-      contents: [{
-        role: 'user',
-        parts: [
-          { text: prompt },
-          { inline_data: { mime_type: mimeType, data: Buffer.from(bytes).toString('base64') } },
-        ],
-      }],
-      generationConfig: { temperature: 0, maxOutputTokens: 16384 },
+      model: MODEL,
+      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }, filePart] }],
+      temperature: 0,
+      max_tokens: 16384,
+      // Transcription gains nothing from thinking, and every thinking token
+      // is billed as output.
+      reasoning_effort: reasoningEffort('none'),
+      stream: false,
     }),
   });
   if (!response.ok) {
@@ -166,11 +179,10 @@ async function ocr(orgId, bytes, mimeType, hint, user) {
   const json = await response.json();
   await logAiUsage({
     orgId, user, surface: 'library', model: MODEL,
-    promptTokens: json?.usageMetadata?.promptTokenCount,
-    completionTokens: json?.usageMetadata?.candidatesTokenCount,
+    promptTokens: json?.usage?.prompt_tokens,
+    completionTokens: json?.usage?.completion_tokens,
   });
-  const text = (json?.candidates?.[0]?.content?.parts || [])
-    .filter((p) => !p.thought).map((p) => p.text || '').join('').trim()
+  const text = String(json?.choices?.[0]?.message?.content || '').trim()
     .replace(/^```(?:markdown|md)?\n([\s\S]*?)\n```$/, '$1');
   if (!text) throw new Error('The AI returned no text for this file.');
   return text;

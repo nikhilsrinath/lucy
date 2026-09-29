@@ -57,7 +57,7 @@ Plans are tiered **Free / Pro / Max** (`src/services/planConfig.js`), with quota
 | Backend | Supabase (Postgres + RLS, Auth, Storage, Realtime) | `supabase/`, `src/lib/supabase.js` |
 | Serverless | Vercel functions (Node) | `api/*.js` |
 | Email | Nodemailer over each org's own Gmail SMTP (encrypted app password) | `api/email.js` |
-| AI | Google Gemini `gemini-3.6-flash` via its OpenAI-compatible endpoint | `api/nvidia.js`, `api/brain.js` |
+| AI | OpenRouter (`qwen/qwen3.7-flash` by default, `AI_MODEL` to change), OpenAI-compatible chat completions | `api/_lib/aiProvider.js`, `api/nvidia.js`, `api/brain.js`, `api/library.js`, `api/_lib/agent/model.js` |
 | Tests | Vitest (unit), plain-Postgres SQL tests (RLS) | `vitest.config.js`, `supabase/tests/` |
 | Map build | `d3-geo`, `topojson-client`, `world-atlas`, `i18n-iso-countries` (dev only) | `scripts/generate-world-map.js` |
 
@@ -574,7 +574,7 @@ All handlers are Vercel functions. In dev, the `dev-api-routes` plugin in `vite.
 | `/api/org-secrets` | GET / POST | admin of org | Read whether Gmail is configured, or set `gmail_user` / `gmail_app_password` (AES-256-GCM, `_lib/crypto.js`). Never returns the password. |
 | `/api/portal-token` | POST | member | Mint a `portal_tokens` row and return a signed URL (`<jti>.<exp>.<hmac>`, `_lib/portalToken.js`). |
 | `/api/portal` | GET / POST | portal token | The recipient portal's only door. Loads the document + company. Applies actions (§6.5) under the service role, scoped to the one document. |
-| `/api/nvidia` | POST | member | Gemini chat proxy (OpenAI-compatible SSE; model `gemini-3.6-flash`). Meters `bump_ai_usage` against the plan limit (429 when exceeded). The name is historical. |
+| `/api/nvidia` | POST | member | AI chat proxy to OpenRouter (OpenAI-compatible SSE; the server's model, never the request's). Meters `bump_ai_usage` against the plan limit (429 when exceeded). The name is historical. |
 | `/api/agent` | POST | member (acts as the caller) | EdgeAI agent. `mode:'chat'` streams SSE events (`text`, `card`, `choice`, `input`, `notice`, `navigate`, `entities`, `status`); `confirm` / `cancel` / `undo` / `status` act on `ai_actions`. Writes run through the caller's JWT with header `x-edgeos-agent-action`; the service role only writes `ai_actions` and meters. See `docs/edgeai-agent.md`. |
 | `/api/brain` | POST | member + `edgebrain` permission | EdgeBrain `status`, `build`, `sync`, `search`, `entity`, `neighbors`, `metrics`, `context`, `ask`. |
 | `/api/export` | GET | owner/admin | Full tenant JSON export (every org table except secrets, plus bucket listings). |
@@ -593,7 +593,7 @@ All handlers are Vercel functions. In dev, the `dev-api-routes` plugin in `vite.
 **Environment variables** (`.env.example`):
 
 - Client: `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`.
-- Server: `SUPABASE_SERVICE_ROLE_KEY`, `SECRETS_ENCRYPTION_KEY`, `PORTAL_TOKEN_SECRET`, `GEMINI_API_KEY`, `PORTAL_ALLOWED_ORIGINS`, `PLATFORM_ADMIN_EMAIL`, `PLATFORM_SMTP_USER`, `PLATFORM_SMTP_PASSWORD`, `PLATFORM_MAIL_FROM`.
+- Server: `SUPABASE_SERVICE_ROLE_KEY`, `SECRETS_ENCRYPTION_KEY`, `PORTAL_TOKEN_SECRET`, `OPENROUTER_API_KEY` (optional `AI_MODEL`), `PORTAL_ALLOWED_ORIGINS`, `PLATFORM_ADMIN_EMAIL`, `PLATFORM_SMTP_USER`, `PLATFORM_SMTP_PASSWORD`, `PLATFORM_MAIL_FROM`.
 - **Never** prefix server secrets with `VITE_`, because Vite inlines those into the bundle.
 
 ---

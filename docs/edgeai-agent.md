@@ -130,7 +130,7 @@ Finance notes:
 ## Evals
 
 ```
-node scripts/eval-agent.js            # all cases (needs GEMINI_API_KEY; uses .env)
+node scripts/eval-agent.js            # all cases (needs OPENROUTER_API_KEY; uses .env)
 node scripts/eval-agent.js task- crm-  # by id prefix
 ```
 

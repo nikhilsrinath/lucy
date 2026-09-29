@@ -1,6 +1,6 @@
 import { toolsFor, toModelTools, getTool, allowed } from './registry.js';
-import { buildSystemPrompt } from './prompt.js';
-import { callModel } from './model.js';
+import { buildSystemPrompt, buildTurnContext } from './prompt.js';
+import { callModel, addUsage } from './model.js';
 import { propose, modelView, confirm, cancel } from './pipeline.js';
 import { buildContext as brainContext } from '../brainRetrieval.js';
 
@@ -108,26 +108,43 @@ async function runControl(name, args, ctx, emit) {
   return { status: res.status, summary: res.card?.summary || res.message || null };
 }
 
-export async function runChat(ctx, { message, history, chatId, messageId }, emit, { callModelImpl = callModel } = {}) {
+/**
+ * `usage` (optional, from newUsage()) collects token counts from every model
+ * call, including calls made before a failure, so the caller can log them.
+ *
+ * Message order is chosen for Gemini's implicit prompt cache, which discounts
+ * a request's leading tokens when they match a recent request:
+ *
+ *   system prompt (fixed) · history · turn context + EdgeBrain · user message
+ *
+ * Everything that changes per message sits after the history, so the prompt,
+ * the tools and the earlier conversation form a prefix the next message and
+ * every later step of this one reuse.
+ */
+export async function runChat(ctx, { message, history, chatId, messageId }, emit, { callModelImpl = callModel, usage = null } = {}) {
   const userMessage = String(message || '').trim().slice(0, 4000);
   const tools = toolsFor(ctx);
   // Tools that read reference data into their own schema (the cash tool's
   // category list) do it before the model sees them.
   await Promise.all(tools.filter((t) => t.prepare).map((t) => t.prepare(ctx).catch(() => null)));
-  const messages = [{ role: 'system', content: buildSystemPrompt(ctx, tools) }];
 
   // EdgeBrain's facts for this question, as data. Best effort and bounded:
   // a slow or missing brain narrows the answer, it never blocks it.
+  let brain = '';
   if (ctx.can('edgebrain', 'view')) {
     const pkg = await Promise.race([
       brainContext(ctx.orgId, ctx.allowed, userMessage, { maxEntities: 8 }).catch(() => null),
       new Promise((r) => setTimeout(() => r(null), 4000)),
     ]);
-    if (pkg?.context) {
-      messages.push({ role: 'system', content: `<data source="edgebrain">\n${pkg.context}\n</data>` });
-    }
+    if (pkg?.context) brain = `\n<data source="edgebrain">\n${pkg.context}\n</data>`;
   }
-  messages.push(...cleanHistory(history), { role: 'user', content: userMessage });
+
+  const messages = [
+    { role: 'system', content: buildSystemPrompt(ctx, tools) },
+    ...cleanHistory(history),
+    { role: 'user', content: buildTurnContext(ctx) + brain },
+    { role: 'user', content: userMessage },
+  ];
 
   const controls = controlsFor(ctx);
   const modelTools = [
@@ -137,7 +154,8 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
   const ids = { chatId, messageId };
 
   for (let step = 0; step < MAX_STEPS; step++) {
-    const { message: reply } = await callModelImpl({ messages, tools: modelTools });
+    const { message: reply, usage: stepUsage } = await callModelImpl({ messages, tools: modelTools });
+    addUsage(usage, stepUsage);
     messages.push(reply);
     const calls = reply.tool_calls || [];
     if (!calls.length) {

@@ -40,15 +40,15 @@ EdgeOS is a multi-tenant business operating system for small Indian companies. I
 │ matrix), triggers, RPCs, Storage │   │ portal · portal-token · org-secrets · export ·   │
 │ Realtime, pg_cron (brain_drain)  │   │ admin                                            │
 └──────────────────────────────────┘   └───────────────┬──────────────────────────────────┘
-                                                       │ HTTPS, server-held GEMINI_API_KEY
+                                                       │ HTTPS, server-held OPENROUTER_API_KEY
                                                        ▼
-                                   Google Gemini `gemini-3.6-flash`
-                         (OpenAI-compatible /chat/completions; native generateContent for OCR)
+                        OpenRouter → `qwen/qwen3.7-flash` (AI_MODEL)
+                         (OpenAI-compatible /chat/completions, OCR included)
 ```
 
 **Stack:** React 19, react-router 7, supabase-js 2, jsPDF, html-capture PDFs, recharts, @xyflow/react (org chart), xlsx, unpdf, fflate, nodemailer (server). Deployed on Vercel (`vercel.json` rewrites `/api/*`). On localhost, `vite.config.js` loads each `api/<route>.js` in-process through a small response shim.
 
-**Environment (server-only):** `SUPABASE_SERVICE_ROLE_KEY`, `SECRETS_ENCRYPTION_KEY` (AES-256-GCM for Gmail app passwords), `PORTAL_TOKEN_SECRET` (HMAC for portal links), `GEMINI_API_KEY`, optional `AGENT_MODEL` / `AGENT_REASONING_EFFORT`, and `PLATFORM_ADMIN_EMAIL` / `PLATFORM_SMTP_*` for the operator console.
+**Environment (server-only):** `SUPABASE_SERVICE_ROLE_KEY`, `SECRETS_ENCRYPTION_KEY` (AES-256-GCM for Gmail app passwords), `PORTAL_TOKEN_SECRET` (HMAC for portal links), `OPENROUTER_API_KEY`, optional `AI_MODEL` / `AGENT_MODEL` / `AGENT_REASONING_EFFORT`, and `PLATFORM_ADMIN_EMAIL` / `PLATFORM_SMTP_*` for the operator console.
 
 ---
 
@@ -289,9 +289,9 @@ All AI calls are server-side. The Gemini key never reaches the browser.
 
 ### 7.2 Provider, models and metering (shared by A, B, C and D)
 
-- **Provider:** Google Gemini through its OpenAI-compatible endpoint `https://generativelanguage.googleapis.com/v1beta/openai/chat/completions`. OCR uses the native `…/models/gemini-3.6-flash:generateContent`.
-- **Model:** `gemini-3.6-flash` everywhere. The agent can be overridden with `AGENT_MODEL`.
-- **Reasoning effort:** the agent uses `low` (overridable with `AGENT_REASONING_EFFORT`), max_tokens 4096 and temperature 0.1. Brain Ask uses `none`, max_tokens 900 and temperature 0.1. The legacy proxy uses `none`, max_tokens ≤ 2048 and temperature 0.2. The comments explain why: Gemini 3.x bills thinking against max_tokens, so a small budget can return an empty answer.
+- **Provider:** OpenRouter, `https://openrouter.ai/api/v1/chat/completions`, configured once in `api/_lib/aiProvider.js`. OCR sends the file inline as a `file` (PDF) or `image_url` (image) content part.
+- **Model:** `qwen/qwen3.7-flash` everywhere (chosen for price: ~25x cheaper than Gemini 3.6 Flash, ~97% on the agent eval; it cannot read PDFs, so scanned-PDF OCR is refused with a clear message) (`AI_MODEL` to change; `AGENT_MODEL` for the agent only). A model named in a request body is ignored: an OpenRouter key reaches every model, some far more expensive.
+- **Reasoning effort:** the agent uses `low` (overridable with `AGENT_REASONING_EFFORT`), max_tokens 4096 and temperature 0.1. Brain Ask uses `none`, max_tokens 900 and temperature 0.1. The legacy proxy uses `none`, max_tokens ≤ 2048 and temperature 0.2. The comments explain why: Gemini 3.x bills thinking against max_tokens, so a small budget can return an empty answer. `reasoningEffort()` in `aiProvider.js` maps `none` to `minimal` for Gemini 3 only, which refuses `none`; Qwen at `minimal` still thinks and can return an empty answer. OCR uses `none`.
 - **Metering:** every AI message calls `rpc('bump_ai_usage', {p_org})` (0010). It atomically increments `usage_counters.ai_messages` **before** the model call, then compares against the plan limit.
   - Over the limit → refused (a 429, or an SSE `notice` for the agent).
   - The counter has **no reset**, so the limit is lifetime per org, not monthly.
@@ -354,17 +354,23 @@ else     → bump_ai_usage; over limit → SSE notice
          → runChat (loop.js):
             1. tools = toolsFor(ctx)   (filtered by permission + plan feature)
                tools with prepare() load reference data (cash categories) first
-            2. messages = [system prompt (prompt.js, AGENT_PROMPT_VERSION)]
-            3. if edgebrain.view: brainContext(org, allowed, message, maxEntities 8)
-               raced against a 4s timeout → appended as system <data source="edgebrain">
-            4. + last 12 history turns (≤2000 chars each) + user message (≤4000)
-            5. loop ≤ 8 steps: callModel(messages, tools + control tools)
+            2. if edgebrain.view: brainContext(org, allowed, message, maxEntities 8)
+               raced against a 4s timeout → <data source="edgebrain">
+            3. messages, ordered for Gemini's implicit prompt cache (fixed prefix first):
+                 system prompt (buildSystemPrompt, AGENT_PROMPT_VERSION; fixed per user/persona/tools)
+                 + last 12 history turns (≤2000 chars each)
+                 + user <data source="turn"> (buildTurnContext: today, page, recent entities,
+                   open question, open cards) + the edgebrain block
+                 + user message (≤4000)
+            4. loop ≤ 8 steps: callModel(messages, tools + control tools); usage summed per step
                  no tool_calls           → emit text, end
                  control tool            → cancel_proposal / confirm_proposal (voice, low risk only)
                  read / navigate tool    → run now; result back to model as <data tool=…>
                  write tool              → pipeline.propose() → card/choice/input/notice; turn ENDS
                8 steps exhausted → "ask in smaller pieces"
-         → logAiUsage(surface 'copilot')
+         → logAiUsage(surface 'copilot', prompt/completion tokens summed over all steps;
+           completion = total − prompt, so Gemini's thinking tokens count as output)
+           + console "[agent] tokens: in … (cached …) · out … · N calls [per-call input]"
 ```
 
 **What the system prompt contains** (`prompt.js`):

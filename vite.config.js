@@ -3,6 +3,11 @@ import react from '@vitejs/plugin-react'
 
 // https://vite.dev/config/
 export default defineConfig(({ mode }) => {
+  // Vite re-runs this config in the same process when .env changes. Drop what
+  // we injected last time first: loadEnv(..., '') lets process.env override the
+  // files, so a stale value would otherwise survive (a rotated API key never
+  // took effect until a full restart).
+  for (const key of globalThis.__dotenvInjected ?? []) delete process.env[key]
   const env = loadEnv(mode, process.cwd(), '')
 
   // loadEnv() returns the values; it does NOT populate process.env, and Vite
@@ -11,11 +16,15 @@ export default defineConfig(({ mode }) => {
   // so without this every /api/* route on localhost fails with a bare
   // "Server is missing SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY". In production
   // Vercel injects these itself. A real shell variable still wins.
+  globalThis.__dotenvInjected = []
   for (const [key, value] of Object.entries(env)) {
-    if (process.env[key] === undefined) process.env[key] = value
+    if (process.env[key] === undefined) {
+      process.env[key] = value
+      globalThis.__dotenvInjected.push(key)
+    }
   }
 
-  const SERVER_ONLY = ['SUPABASE_SERVICE_ROLE_KEY', 'SECRETS_ENCRYPTION_KEY', 'PORTAL_TOKEN_SECRET', 'GEMINI_API_KEY']
+  const SERVER_ONLY = ['SUPABASE_SERVICE_ROLE_KEY', 'SECRETS_ENCRYPTION_KEY', 'PORTAL_TOKEN_SECRET', 'OPENROUTER_API_KEY']
   const missing = SERVER_ONLY.filter((k) => !process.env[k])
   if (missing.length) {
     console.warn(`[vite] missing server-only env: ${missing.join(', ')} — /api routes will fail on localhost`)

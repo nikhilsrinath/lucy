@@ -24,7 +24,7 @@ import { buildAgentContext } from './_lib/agent/context.js';
 import { runChat, runResume } from './_lib/agent/loop.js';
 import { confirm, cancel, undo } from './_lib/agent/pipeline.js';
 import { loadMany, toCard } from './_lib/agent/actions.js';
-import { AGENT_MODEL } from './_lib/agent/model.js';
+import { AGENT_MODEL, newUsage, describeUsage } from './_lib/agent/model.js';
 
 export default async function handler(req, res) {
   if (!methodIs(req, res, 'POST')) return undefined;
@@ -80,12 +80,18 @@ export default async function handler(req, res) {
       return res.end();
     }
 
+    // Tokens across every model call of this message, logged even when it
+    // fails part-way (the calls before the failure were still billed).
+    const usage = newUsage();
+    const tokens = () => (usage.calls ? { promptTokens: usage.prompt, completionTokens: usage.output } : {});
     try {
-      await runChat(ctx, { message, history: body.history, chatId: body.chat_id, messageId: body.message_id }, emit);
-      await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', model: AGENT_MODEL });
+      await runChat(ctx, { message, history: body.history, chatId: body.chat_id, messageId: body.message_id }, emit, { usage });
+      console.info(`[agent] tokens: ${describeUsage(usage)}`);
+      await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
     } catch (err) {
       console.error('[agent] chat', err?.message || err, err?.detail || '');
-      await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', outcome: 'failed', model: AGENT_MODEL });
+      if (usage.calls) console.info(`[agent] tokens (failed): ${describeUsage(usage)}`);
+      await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', outcome: 'failed', model: AGENT_MODEL, ...tokens() });
       emit('error', { message: err?.status ? 'The AI service is unavailable right now. Try again in a moment.' : 'Something went wrong on my side.' });
     }
     emit('done', {});

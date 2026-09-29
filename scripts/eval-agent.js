@@ -17,7 +17,7 @@
  * EVAL_PERSONA=<id> runs every case as that cofounder (default mira) — the
  * persona changes tone only, and the targets are the same for all of them.
  *
- * Needs GEMINI_API_KEY (read from .env if not in the environment). Costs one
+ * Needs OPENROUTER_API_KEY (read from .env if not in the environment). Costs one
  * to three model calls per case; it does not touch Supabase or the AI meter.
  */
 import { readFileSync, existsSync } from 'node:fs';
@@ -27,14 +27,14 @@ import { fakeDb, fakeCtx } from '../api/_lib/agent/testing/fakeDb.js';
 import { CASES } from './eval-agent.cases.js';
 import { worldSeed, OWNER_PERMS, TODAY } from './eval-agent.world.js';
 
-if (!process.env.GEMINI_API_KEY && existsSync('.env')) {
+if (!process.env.OPENROUTER_API_KEY && existsSync('.env')) {
   for (const line of readFileSync('.env', 'utf8').split(/\r?\n/)) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
     if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
   }
 }
-if (!process.env.GEMINI_API_KEY) {
-  console.error('GEMINI_API_KEY is not set.');
+if (!process.env.OPENROUTER_API_KEY) {
+  console.error('OPENROUTER_API_KEY is not set.');
   process.exit(2);
 }
 
