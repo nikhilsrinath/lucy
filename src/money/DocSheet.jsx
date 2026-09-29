@@ -117,6 +117,9 @@ export default function DocSheet({ doc, activeOrg, onClose, notify }) {
     if (doc.type === 'quotation' && ['draft', 'sent', 'viewed', 'revision_requested', 'declined'].includes(doc.status) && canEdit) {
         add('edit', doc.status === 'draft' ? 'Edit quote' : 'Revise quote', () => navigate(`/money/invoices/${doc.id}/edit`), !A.length);
     }
+    if (doc.type === 'proforma' && doc.status === 'draft' && canEdit) {
+        add('edit', 'Continue editing', () => navigate(`/money/invoices/${doc.id}/edit?type=proforma`), !A.length);
+    }
     if (doc.type === 'quotation' && doc.status === 'accepted' && canCreateProjects()) {
         add('project', 'Start project', () => navigate(`/work?newProject=1&fromQuotation=${doc.id}`));
     }

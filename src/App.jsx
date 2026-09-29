@@ -55,6 +55,8 @@ import TeamScreen from './team/TeamScreen';
 import SettingsScreen from './settings/SettingsScreen';
 import ShellProvider from './shell/ShellProvider';
 import { useCofounder } from './design/useCofounder';
+import { IconChevronLeft } from './design/icons';
+import './design/docEditor.css';
 import Onboarding, { Welcome, SignIn } from './onboarding/Onboarding';
 import { onboardingStep } from './onboarding/onboardingState';
 import EdgeBrain from './components/brain/EdgeBrain';
@@ -467,19 +469,25 @@ function ShellFrame({ on, children, ...props }) {
 }
 
 // Invoice, quotation and proforma editors: their existing form-beside-preview
-// pages, full screen in their old frame (the A4 preview is the document).
+// pages, full screen, restyled onto the StartupBuddy tokens (docEditor.css)
+// under a StartupBuddy top bar (the A4 preview is the document).
 function DocEditor() {
   const { docId } = useParams();
   const [params] = useSearchParams();
-  const type = docId ? 'quotation' : (params.get('type') || 'invoice');
-  const title = docId ? 'Edit quotation' : { invoice: 'New invoice', quotation: 'New quotation', proforma: 'New proforma invoice' }[type] || 'New document';
-  const form = docId ? <QuotationForm editDocId={docId} />
-    : type === 'quotation' ? <QuotationForm editDocId={null} />
-      : type === 'proforma' ? <ProformaInvoiceForm /> : <InvoiceForm />;
+  // Editing: quotations (drafts and revisions) and proforma drafts, which say
+  // so with ?type=proforma. Invoices are never edited: a draft invoice lives on
+  // the device until it is created (InvoiceForm).
+  const type = params.get('type') || (docId ? 'quotation' : 'invoice');
+  const title = docId
+    ? (type === 'proforma' ? 'Edit proforma' : 'Edit quotation')
+    : { invoice: 'New invoice', quotation: 'New quotation', proforma: 'New proforma invoice' }[type] || 'New document';
+  const form = type === 'proforma' ? <ProformaInvoiceForm key={docId || 'new'} editDocId={docId || null} />
+    : type === 'quotation' ? <QuotationForm key={docId || 'new'} editDocId={docId || null} />
+      : <InvoiceForm />;
   return (
-    <div className="sb-legacy">
-      <ModuleShell embedded theme="light" title={title} subtitle="Back to Money when you save" items={[]} flush>{form}</ModuleShell>
-    </div>
+    <EditorFrame title={title} sub="Saved documents appear in Money" back={`/money/invoices${docId ? '' : `?type=${type}`}`} backLabel="Money">
+      {form}
+    </EditorFrame>
   );
 }
 
@@ -488,8 +496,25 @@ function LetterEditor() {
   const { kind } = useParams();
   const form = kind === 'nda' ? <NdaForm /> : <OfferForm />;
   return (
-    <div className="sb-legacy">
-      <ModuleShell embedded theme="light" title={kind === 'nda' ? 'New NDA' : 'New offer letter'} subtitle="Saved letters appear on Team" items={[]} flush>{form}</ModuleShell>
+    <EditorFrame title={kind === 'nda' ? 'New NDA' : 'New offer letter'} sub="Saved letters appear on Team" back="/team" backLabel="Team">
+      {form}
+    </EditorFrame>
+  );
+}
+
+// The old frame keeps the forms' plumbing (their CSS variables, the bridge);
+// the bar above it is the new one.
+function EditorFrame({ title, sub, back, backLabel, children }) {
+  const navigate = useNavigate();
+  return (
+    <div className="sb-legacy sb-doced">
+      <header className="sb-top sb-doced-top">
+        <button type="button" className="sb-btn ghost icon" onClick={() => navigate(back)} aria-label={`Back to ${backLabel}`}>
+          <IconChevronLeft />
+        </button>
+        <div className="tt"><b>{title}</b><small>{sub}</small></div>
+      </header>
+      <ModuleShell embedded bare theme="light" title={title} items={[]} flush>{children}</ModuleShell>
     </div>
   );
 }

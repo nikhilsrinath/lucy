@@ -55,12 +55,13 @@ function PopRow({ t, icon, label, note, onClick, danger, dot }) {
 
 export default function ModuleShell({
     theme, user, module: mod, items, title, subtitle, actions,
-    onToggleTheme, onLogout, flush = false, railSlot = false, embedded = false, children,
+    onToggleTheme, onLogout, flush = false, railSlot = false, embedded = false, bare = false, children,
 }) {
     // `embedded`: inside the StartupBuddy frame, which owns navigation and the
     // account. This keeps only what the older pages need from it — their
     // styling (.edge-shell and the bridge), the page title, notifications and
     // a strip of the section's pages — until each page moves to its new home.
+    // `bare`: no top bar either — the caller draws its own (the doc editors).
     const isDark = theme === 'dark';
     const t = makeTokens(isDark);
     const { activeOrg } = useOrg();
@@ -248,7 +249,7 @@ export default function ModuleShell({
 
             <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
                 {/* ── top bar ─────────────────────────────────────────────── */}
-                <header ref={barRef} style={{
+                {!bare && <header ref={barRef} style={{
                     display: 'flex', alignItems: 'center', gap: isMobile ? 8 : 14,
                     padding: isMobile ? '9px 12px' : '0 20px', height: 53, flexShrink: 0,
                     borderBottom: '1px solid ' + t.line, background: t.panel, zIndex: 40,
@@ -416,7 +417,7 @@ export default function ModuleShell({
                             </Pop>
                         )}
                     </div>}
-                </header>
+                </header>}
 
                 {(isMobile || embedded) && (items || []).length > 1 && (
                     <nav aria-label={(mod?.label || 'Module') + ' pages'} className="edge-scroll edge-mobnav" style={{

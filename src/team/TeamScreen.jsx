@@ -54,6 +54,12 @@ export default function TeamScreen() {
     const letters = useMemo(() => records
         .filter((r) => KIND[r.type])
         .sort((a, b) => String(b.created_at).localeCompare(String(a.created_at))), [records]);
+    const letterId = params.get('letter');
+    const shownLetter = letter || (letterId ? records.find((r) => r.id === letterId) || null : null);
+    const closeLetter = () => {
+        setLetter(null);
+        if (letterId) { const n = new URLSearchParams(params); n.delete('letter'); setParams(n, { replace: true }); }
+    };
     const personId = params.get('person');
     const person = personId ? (people.find((p) => p.id === personId) || past.find((p) => p.id === personId)) : null;
     const openAdd = adding || params.get('addPerson') === '1';
@@ -112,7 +118,7 @@ export default function TeamScreen() {
 
             {person && <PersonSheet key={person.id} person={person} letters={letters.filter((r) => r.employee_id === person.id || (person.email && r.recipient_email === person.email))}
                 onClose={() => setParams({})} onLetter={setLetter} notify={notify} />}
-            {letter && <LetterSheet letter={letter} onClose={() => setLetter(null)} notify={notify} />}
+            {shownLetter && <LetterSheet key={shownLetter.id} letter={shownLetter} onClose={closeLetter} notify={notify} />}
             {openAdd && <PersonForm onClose={closeAdd} notify={notify} />}
             {note && <div className="sb sb-toast" role="status">{note}</div>}
         </div>
@@ -188,6 +194,8 @@ function PersonSheet({ person, letters, onClose, onLetter, notify }) {
 
 function LetterSheet({ letter, onClose, notify }) {
     const { activeOrg } = useOrg();
+    const navigate = useNavigate();
+    const isDraft = letter.status === 'draft' && (letter.type === 'offer' || letter.type === 'nda');
     const [busy, setBusy] = useState('');
     const [tone, label] = letterStatus(letter);
     const readOnlyKind = letter.type === 'certificate' || letter.type === 'mou';
@@ -231,7 +239,8 @@ function LetterSheet({ letter, onClose, notify }) {
             </Card>
             {readOnlyKind && <div className="sb-note b">New {KIND[letter.type].toLowerCase()}s aren't made here any more. This one stays available to download.</div>}
             <div className="sb-dacts">
-                <Button variant="primary" onClick={download} disabled={!!busy}>{busy === 'pdf' ? 'Preparing…' : 'Download PDF'}</Button>
+                {isDraft && <Button variant="primary" onClick={() => navigate(`/team/letters/${letter.type}/new?draft=${letter.id}`)}>Continue editing</Button>}
+                <Button variant={isDraft ? undefined : 'primary'} onClick={download} disabled={!!busy}>{busy === 'pdf' ? 'Preparing…' : 'Download PDF'}</Button>
                 {!readOnlyKind && <Button onClick={() => run('copy', async () => { await navigator.clipboard.writeText(await link()); return 'Link copied. It opens only this letter.'; })} disabled={!!busy}>Copy signing link</Button>}
                 {letter.type === 'offer' && letter.recipient_email && <Button onClick={email} disabled={!!busy}>{busy === 'email' ? 'Sending…' : 'Email the link'}</Button>}
                 {!readOnlyKind && <Button onClick={() => run('view', async () => { window.open(await link(), '_blank', 'noopener'); return ''; })} disabled={!!busy}>Their view</Button>}

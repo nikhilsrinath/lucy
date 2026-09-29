@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
-import { Plus, Trash2, ChevronRight, Eye, Lock, UserPlus } from 'lucide-react';
+import { Plus, Trash2, Eye, Lock, UserPlus } from 'lucide-react';
 import { pdfService } from '../services/pdfService';
 import { customerService } from '../services/customerService';
 import { documentStore } from '../services/documentStore';
@@ -16,6 +16,10 @@ import A4Stage from './shared/A4Stage';
 import ProjectPicker from './shared/ProjectPicker';
 import { pickerFor, saveSplitFromPicker } from '../services/projectService';
 import { orgStore } from '../services/orgStore';
+import { useAuth } from '../context/AuthContext';
+import { useToast } from './shared/Toast';
+import DocSteps, { Step } from './shared/DocSteps';
+import { draftKey, readDraft, writeDraft, clearDraft, savedAtLabel } from '../services/localDraft';
 
 
 
@@ -37,6 +41,8 @@ export default function InvoiceForm() {
   // and the database links it and allocates the invoice on insert (0054).
   const fromMilestone = location.state?.milestoneId ? location.state : null;
   const { activeOrg } = useOrg();
+  const { user } = useAuth();
+  const toast = useToast();
   const { currentPlan, planConfig, usage, canCreate, getRemainingCount, getUsagePercent, isAtLimit, refreshUsage } = usePlanStatus();
   const [loading, setLoading] = useState(false);
   const [customers, setCustomers] = useState([]);
@@ -114,6 +120,20 @@ export default function InvoiceForm() {
   // doc_number, and unique(org_id, doc_number) rejects a repeat. The previous
   // version used a random 3-digit suffix, which collides roughly once in a
   // few hundred invoices and, being random, was never actually sequential.
+  const takenNumbers = () => new Set(documentStore.getByType('invoice').map((d) => d.doc_number || d.invoiceNumber));
+  const nextInvoiceNumber = () => {
+    const today = new Date();
+    const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+    const taken = takenNumbers();
+    let seq = documentStore.getByType('invoice').length + 1;
+    let candidate = `INV-${dateStr}-${String(seq).padStart(3, '0')}`;
+    while (taken.has(candidate)) {
+      seq += 1;
+      candidate = `INV-${dateStr}-${String(seq).padStart(3, '0')}`;
+    }
+    return candidate;
+  };
+
   useEffect(() => {
     if (formData.invoiceNumber) return;
     let cancelled = false;
@@ -124,19 +144,7 @@ export default function InvoiceForm() {
         await documentStore.init();
       }
       if (cancelled) return;
-
-      const today = new Date();
-      const dateStr = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-      const taken = new Set(
-        documentStore.getByType('invoice').map((d) => d.doc_number || d.invoiceNumber)
-      );
-
-      let seq = documentStore.getByType('invoice').length + 1;
-      let candidate = `INV-${dateStr}-${String(seq).padStart(3, '0')}`;
-      while (taken.has(candidate)) {
-        seq += 1;
-        candidate = `INV-${dateStr}-${String(seq).padStart(3, '0')}`;
-      }
+      const candidate = nextInvoiceNumber();
       setFormData(prev => (prev.invoiceNumber ? prev : { ...prev, invoiceNumber: candidate }));
     })();
 
@@ -283,21 +291,51 @@ export default function InvoiceForm() {
     await pdfService.generateInvoice({ ...resolved, totals, isInterState, orgName: resolved.orgName || activeOrg?.company_name || activeOrg?.name }, true);
   };
 
+  // ── Draft: kept on this device, so no invoice number is spent (localDraft.js).
+  // Arriving with something to bill (a slash command, a milestone, timesheets)
+  // starts fresh; otherwise an unfinished invoice is offered back.
+  const localKey = draftKey('invoice', activeOrg?.id, user?.id);
+  const arrivedWithData = !!(slashPrefill || location.state?.lines || location.state?.line || fromMilestone || location.state?.timesheetIds);
+  const [resumable, setResumable] = useState(null);
+  useEffect(() => {
+    if (!arrivedWithData) setResumable(readDraft(localKey));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localKey]);
+
+  const resumeDraft = () => {
+    const { form, extra = {} } = resumable;
+    // The number was only reserved in the form; if another invoice has taken
+    // it since, this one gets the next free one.
+    const number = form.invoiceNumber && !takenNumbers().has(form.invoiceNumber) ? form.invoiceNumber : nextInvoiceNumber();
+    setFormData((prev) => ({ ...prev, ...form, invoiceNumber: number }));
+    setSelectedCustomerId(extra.customerId || null);
+    if (extra.projectPicker) setProjectPicker(extra.projectPicker);
+    setResumable(null);
+  };
+  const discardDraft = () => { clearDraft(localKey); setResumable(null); };
+
+  const handleSaveDraft = () => {
+    const ok = writeDraft(localKey, formData, { customerId: selectedCustomerId, projectPicker });
+    if (!ok) { toast('Could not save the draft on this device.', 'error'); return; }
+    toast('Draft saved on this device. Open New invoice to carry on.', 'success');
+    navigate('/money/invoices?type=invoice');
+  };
+
+  const itemsProblem = () => {
+    const filled = formData.items.filter((i) => String(i.description || '').trim());
+    if (!filled.length) return 'Add at least one item with a description.';
+    if (!(totals.grandTotal > 0)) return 'The invoice total is zero. Add a price to at least one item.';
+    return '';
+  };
+
   const handleSubmit = async (e) => {
-    e.preventDefault();
+    e?.preventDefault?.();
     if (!canCreate('invoices')) {
-      alert(`You've reached your ${planConfig.name} plan limit of ${planConfig.limits.invoices} invoices. Please upgrade to continue.`);
+      toast(`You've reached your ${planConfig.name} plan limit of ${planConfig.limits.invoices} invoices. Upgrade to continue.`, 'error');
       return;
     }
     setLoading(true);
     try {
-      const resolved = await resolveFormImages(formData, ['companyLogo', 'stampUrl']);
-      if (resolved.stampType === 'generated') {
-        resolved.stampPng = await generateStampPng(resolved.companyName, resolved.stampCity);
-      }
-      const dataToSave = { ...resolved, totals, isInterState, makingCharges: totalMakingCost, orgName: formData.orgName || activeOrg?.company_name || activeOrg?.name };
-      await pdfService.generateInvoice(dataToSave);
-
       // Save to documentStore (fin_docs) — single source of truth for invoices
       if (activeOrg?.id) documentStore.setContext(activeOrg.id);
       await documentStore.init();
@@ -407,12 +445,15 @@ export default function InvoiceForm() {
       try {
         await saveSplitFromPicker('invoice', saved?.id, projectPicker);
       } catch (allocErr) {
-        alert(`Invoice saved, but the project split was not: ${allocErr.message}`);
+        toast(`Invoice saved, but the project split was not: ${allocErr.message}`, 'error');
       }
       await refreshUsage();
-      navigate('/invoices');
+      clearDraft(localKey);
+      toast(`Invoice ${saved?.doc_number || formData.invoiceNumber} created`, 'success');
+      // Its sheet in Money has the PDF, the client link and payments.
+      navigate(saved?.id ? `/money/invoices?doc=${saved.id}` : '/money/invoices?type=invoice');
     } catch (err) {
-      alert("Error saving invoice: " + err.message);
+      toast("Error saving invoice: " + err.message, 'error');
     } finally {
       setLoading(false);
     }
@@ -430,7 +471,7 @@ export default function InvoiceForm() {
 
       {/* LEFT: Form */}
       <div className="mou-form-pane">
-        <form onSubmit={handleSubmit} className="easy-form animate-in" style={{ maxWidth: '100%' }}>
+        <form onSubmit={(e) => e.preventDefault()} className="easy-form animate-in" style={{ maxWidth: '100%' }}>
 
           {/* Plan Usage */}
           {currentPlan !== 'max' && (
@@ -482,16 +523,31 @@ export default function InvoiceForm() {
             </div>
           )}
 
-          {/* 1. Invoice Info */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">1</div>
-              <span className="easy-section-title">Invoice info</span>
+          {resumable && (
+            <div className="sb-resume" role="status">
+              <p><b>You have an unfinished invoice{resumable.form.clientName ? ` for ${resumable.form.clientName}` : ''}.</b> Saved {savedAtLabel(resumable.savedAt)}.</p>
+              <div>
+                <button type="button" className="easy-submit-outline" onClick={discardDraft}>Start fresh</button>
+                <button type="button" className="easy-submit" onClick={resumeDraft}>Continue it</button>
+              </div>
             </div>
+          )}
+
+          <DocSteps
+            onDraft={handleSaveDraft}
+            onCreate={handleSubmit}
+            createLabel={loading ? 'Creating…' : isAtLimit('invoices') ? 'Limit reached' : 'Create invoice'}
+            busy={loading}
+            createDisabled={isAtLimit('invoices')}
+            onPreview={handlePreview}
+            finalNote={formData.isPaid ? 'It will be created as paid.' : 'It opens in Money, where you can download the PDF or share a link with the client.'}
+          >
+          {/* 1. Invoice Info */}
+          <Step title="Invoice details">
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Invoice number</label>
-                <input aria-label="Invoice number" type="text" value={formData.invoiceNumber}
+                <input aria-label="Invoice number" type="text" required value={formData.invoiceNumber}
                   onChange={(e) => setFormData({ ...formData, invoiceNumber: e.target.value })}
                   className="easy-inp" style={{ fontWeight: 700 }} />
               </div>
@@ -518,18 +574,9 @@ export default function InvoiceForm() {
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* 2. Client */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">2</div>
-              <span className="easy-section-title">Client & Shipping</span>
-            </div>
-
-            <div className="easy-row" style={{ marginBottom: '1.5rem' }}>
+            <div className="easy-row">
               <div className="easy-field full">
-                <label className="easy-lbl">Invoice Template</label>
+                <label className="easy-lbl">Template</label>
                 <div className="easy-chips">
                   <button type="button" onClick={() => setFormData({ ...formData, templateId: 'standard' })}
                     aria-pressed={formData.templateId === 'standard'} className={`easy-chip ${formData.templateId === 'standard' ? 'active' : ''}`}>
@@ -541,7 +588,22 @@ export default function InvoiceForm() {
                   </button>
                 </div>
               </div>
+              <div className="easy-field full">
+                <button
+                  type="button" role="switch" aria-checked={!!formData.showStamp}
+                  className={`easy-switch-row ${formData.showStamp ? 'active' : ''}`}
+                  onClick={() => setFormData({ ...formData, showStamp: !formData.showStamp })}
+                >
+                  <span className="easy-switch-label">Add the company stamp</span>
+                  <span className="easy-switch-dot" aria-hidden="true" />
+                </button>
+              </div>
             </div>
+
+          </Step>
+
+          {/* 2. Client */}
+          <Step title="Client">
 
             <div className="easy-row">
               <div className="easy-field" ref={customerDropdownRef} style={{ position: 'relative' }}>
@@ -581,14 +643,10 @@ export default function InvoiceForm() {
                 <UserPlus size={13} /> Save as Customer
               </button>
             )}
-          </div>
+          </Step>
 
           {/* 3. GST */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">3</div>
-              <span className="easy-section-title">GST information</span>
-            </div>
+          <Step title="GST">
             {formData.sellerState && formData.buyerState && (
               <p style={{ fontSize: '0.8125rem', marginBottom: '1rem', color: isInterState ? '#f59e0b' : '#10b981', fontWeight: 500 }}>
                 {isInterState ? 'Inter-state supply (IGST)' : 'Intra-state supply (CGST + SGST)'}
@@ -640,26 +698,11 @@ export default function InvoiceForm() {
                   ))}
                 </div>
               </div>
-              <div className="easy-field full">
-                <button
-                  type="button" role="switch" aria-checked={!!formData.showStamp}
-                  className={`easy-switch-row ${formData.showStamp ? 'active' : ''}`}
-                  onClick={() => setFormData({ ...formData, showStamp: !formData.showStamp })}
-                  style={{ marginTop: '0.5rem' }}
-                >
-                  <span className="easy-switch-label">Include company stamp</span>
-                  <span className="easy-switch-dot" aria-hidden="true" />
-                </button>
-              </div>
             </div>
-          </div>
+          </Step>
 
           {/* 4. Line Items */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">4</div>
-              <span className="easy-section-title">Line items</span>
-            </div>
+          <Step title="Items" validate={itemsProblem}>
 
             {formData.items.map((item, index) => (
               <div key={item.id} className="easy-line-item">
@@ -715,14 +758,10 @@ export default function InvoiceForm() {
               <Lock size={11} style={{ display: 'inline', verticalAlign: '-1px', marginRight: '0.25rem' }} />
               Making cost is internal — it won't appear on the invoice PDF. Used for profit tracking only.
             </p>
-          </div>
+          </Step>
 
           {/* 5. Summary */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">5</div>
-              <span className="easy-section-title">Summary</span>
-            </div>
+          <Step title="Notes">
 
             <ProjectPicker
               value={projectPicker}
@@ -732,14 +771,23 @@ export default function InvoiceForm() {
               label="Project (optional)"
             />
 
-            <div className="easy-summary-grid">
-              <div className="easy-field">
-                <label className="easy-lbl">Notes / payment terms</label>
-                <textarea aria-label="Notes / payment terms" placeholder="Bank details, payment terms, or thank you note..."
-                  rows={7} value={formData.notes}
-                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="easy-inp" style={{ resize: 'none' }} />
-              </div>
+            <div className="easy-field" style={{ marginTop: 16 }}>
+              <label className="easy-lbl">Notes / payment terms</label>
+              <textarea aria-label="Notes / payment terms" placeholder="Bank details, payment terms, or a thank-you note…"
+                rows={4} value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })} className="easy-inp" style={{ resize: 'none' }} />
+              <span className="sb-hint">Printed at the foot of the invoice.</span>
+            </div>
+          </Step>
 
+          <Step title="Review">
+            <div className="sb-review">
+              <div><small>Bill to</small><b>{formData.clientName || '—'}</b></div>
+              <div><small>Number</small><b className="sb-num">{formData.invoiceNumber}</b></div>
+              <div><small>Due</small><b>{formData.dueDate ? new Date(`${formData.dueDate}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—'}</b></div>
+              <div><small>Items</small><b>{formData.items.filter((i) => String(i.description || '').trim()).length}</b></div>
+            </div>
+            <div>
               <div className="easy-totals">
                 <div className="easy-total-row">
                   <span>Subtotal</span>
@@ -810,18 +858,9 @@ export default function InvoiceForm() {
                 )}
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* Actions */}
-          <button type="submit" disabled={loading || isAtLimit('invoices')} className="easy-submit">
-            {loading ? 'Processing...' : isAtLimit('invoices') ? 'Limit Reached' : 'Save & Issue'}
-            {!loading && !isAtLimit('invoices') && <ChevronRight size={18} />}
-          </button>
-
-          {/* Mobile preview */}
-          <button type="button" onClick={handlePreview} className="easy-submit-outline mou-mobile-preview-btn" style={{ marginTop: '0.75rem' }}>
-            <Eye size={16} /> Preview as PDF
-          </button>
+          </DocSteps>
 
         </form >
       </div >

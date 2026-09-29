@@ -1,8 +1,10 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Upload, CheckCircle, Eye, ChevronRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { Upload, CheckCircle, Eye } from 'lucide-react';
 import { pdfService } from '../services/pdfService';
-import { storageService } from '../services/storageService';
+import { saveLetter, loadLetterDraft } from '../services/letterSave';
+import { useToast } from './shared/Toast';
+import DocSteps, { Step } from './shared/DocSteps';
 import { useAuth } from '../context/AuthContext';
 import { useOrg } from '../context/OrgContext';
 import { usePlanStatus } from '../hooks/usePlanStatus';
@@ -69,30 +71,54 @@ export default function NdaForm() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!canCreate('nda')) {
-      alert(`You've reached your ${planConfig.name} plan limit of ${planConfig.limits.nda} NDAs. Please upgrade to continue.`);
-      return;
+  const toast = useToast();
+  // ?draft=<id>: carrying on from a draft NDA saved on Team.
+  const [params] = useSearchParams();
+  const draftId = params.get('draft');
+  useEffect(() => {
+    if (!draftId || !activeOrg?.id) return undefined;
+    let cancelled = false;
+    loadLetterDraft(draftId, 'nda', activeOrg.id).then((form) => {
+      if (cancelled) return;
+      if (form) setFormData((prev) => ({ ...prev, ...form }));
+      else toast('That draft could not be found, so this is a new NDA.', 'error');
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId, activeOrg?.id]);
+
+  const saveAs = async (status) => {
+    if (!draftId && !canCreate('nda')) {
+      toast(`You've reached your ${planConfig.name} plan limit of ${planConfig.limits.nda} NDAs. Upgrade to continue.`, 'error');
+      return null;
     }
     setIsSubmitting(true);
     try {
-      const resolved = await resolveFormImages(formData, ['disclosingSignature', 'receivingSignature', 'companyLogo', 'stampUrl']);
-      if (resolved.stampType === 'generated') {
-        resolved.stampPng = await generateStampPng(resolved.disclosingPartyName, resolved.stampCity);
-      }
-      await storageService.save(formData, 'nda', activeOrg?.id, user?.id);
-      await pdfService.generateNda(resolved);
+      const id = await saveLetter({ kind: 'nda', form: formData, status, draftId, orgId: activeOrg?.id, userId: user?.id });
       await refreshUsage();
-      setTimeout(() => {
-        setIsSubmitting(false);
-        navigate('/records');
-      }, 800);
+      return id;
     } catch (err) {
       console.error(err);
-      alert("Error saving NDA: " + err.message);
+      toast('Could not save the NDA: ' + err.message, 'error');
+      return null;
+    } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // Create: saved once, then opened on Team, where it is sent, linked and downloaded.
+  const handleSubmit = async () => {
+    const id = await saveAs('pending');
+    if (!id) return;
+    toast('NDA created', 'success');
+    navigate(`/team?letter=${id}`);
+  };
+
+  const handleSaveDraft = async () => {
+    const id = await saveAs('draft');
+    if (!id) return;
+    toast('NDA saved as a draft. Open it on Team to carry on.', 'success');
+    navigate('/team');
   };
 
   const handlePreview = async () => {
@@ -108,7 +134,7 @@ export default function NdaForm() {
 
       {/* LEFT: Form */}
       <div className="mou-form-pane">
-        <form onSubmit={handleSubmit} className="easy-form animate-in" style={{ maxWidth: '100%' }}>
+        <form onSubmit={(e) => e.preventDefault()} className="easy-form animate-in" style={{ maxWidth: '100%' }}>
 
           {/* Plan Usage */}
           {currentPlan !== 'max' && (
@@ -160,12 +186,16 @@ export default function NdaForm() {
             </div>
           )}
 
-          {/* 1. Agreement Details */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">1</div>
-              <span className="easy-section-title">Agreement details</span>
-            </div>
+          <DocSteps
+            onDraft={handleSaveDraft}
+            onCreate={handleSubmit}
+            createLabel={isSubmitting ? 'Saving…' : isAtLimit('nda') && !draftId ? 'Limit reached' : 'Create NDA'}
+            busy={isSubmitting}
+            createDisabled={isAtLimit('nda') && !draftId}
+            onPreview={handlePreview}
+            finalNote="It opens on Team, where you can email it, copy its signing link or download the PDF."
+          >
+          <Step title="Agreement">
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Effective date</label>
@@ -180,14 +210,9 @@ export default function NdaForm() {
                 <input aria-label="State" name="executionState" value={formData.executionState} onChange={handleChange} placeholder="e.g. Tamil Nadu" className="easy-inp" required />
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* 2. Disclosing Party */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">2</div>
-              <span className="easy-section-title">Disclosing party</span>
-            </div>
+          <Step title="Disclosing party">
             <div className="easy-row">
               <div className="easy-field full">
                 <label className="easy-lbl">Company / entity name</label>
@@ -202,14 +227,9 @@ export default function NdaForm() {
                 <textarea aria-label="Registered office address" name="disclosingPartyAddress" value={formData.disclosingPartyAddress} onChange={handleChange} placeholder="Full address with PIN code" rows={2} className="easy-inp" style={{ resize: 'none' }} required />
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* 3. Receiving Party */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">3</div>
-              <span className="easy-section-title">Receiving party</span>
-            </div>
+          <Step title="Receiving party">
             <div className="easy-row">
               <div className="easy-field full">
                 <label className="easy-lbl">Company / entity name</label>
@@ -224,14 +244,9 @@ export default function NdaForm() {
                 <textarea aria-label="Registered office address" name="receivingPartyAddress" value={formData.receivingPartyAddress} onChange={handleChange} placeholder="Full address with PIN code" rows={2} className="easy-inp" style={{ resize: 'none' }} required />
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* 4. Transaction & Purpose */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">4</div>
-              <span className="easy-section-title">Transaction & purpose</span>
-            </div>
+          <Step title="Purpose">
             <div className="easy-row">
               <div className="easy-field full">
                 <label className="easy-lbl">Proposed transaction</label>
@@ -246,28 +261,18 @@ export default function NdaForm() {
                   rows={3} className="easy-inp" style={{ resize: 'none' }} required />
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* 5. Confidential Items */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">5</div>
-              <span className="easy-section-title">Confidential items</span>
-            </div>
+          <Step title="What stays confidential">
             <div className="easy-field">
               <label className="easy-lbl">Enter each item on a new line</label>
               <textarea aria-label="Enter each item on a new line" name="specificConfidentialItems" value={formData.specificConfidentialItems} onChange={handleChange}
                 placeholder={"e.g.\nThe physical product sample provided for evaluation\nProprietary hardware architecture and board design\nInternal circuit design concepts\nFirmware behavior and system functionality\nTechnical documentation and user guides\nCommercial pricing and business discussions"}
                 rows={6} className="easy-inp" style={{ resize: 'vertical', lineHeight: '1.6' }} required />
             </div>
-          </div>
+          </Step>
 
-          {/* 6. Terms */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">6</div>
-              <span className="easy-section-title">Terms & duration</span>
-            </div>
+          <Step title="Terms">
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Confidentiality obligation (years)</label>
@@ -282,14 +287,7 @@ export default function NdaForm() {
                 </select>
               </div>
             </div>
-          </div>
-
-          {/* 7. Dispute Resolution */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">7</div>
-              <span className="easy-section-title">Dispute resolution</span>
-            </div>
+            <div className="easy-party-label sb-sub">If there is a dispute</div>
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Arbitration city</label>
@@ -300,17 +298,10 @@ export default function NdaForm() {
                 <input aria-label="Arbitration state" name="arbitrationState" value={formData.arbitrationState} onChange={handleChange} placeholder="e.g. Tamil Nadu" className="easy-inp" required />
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* 8. Signatories */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">8</div>
-              <span className="easy-section-title">Signatories</span>
-            </div>
+          <Step title="Disclosing party signs">
 
-            {/* Disclosing Party */}
-            <div className="easy-party-label">Disclosing Party</div>
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Name</label>
@@ -332,14 +323,15 @@ export default function NdaForm() {
                     {formData.disclosingSignature ? <><CheckCircle size={16} /> Uploaded</> : <><Upload size={16} /> Upload signature</>}
                   </div>
                 </div>
-                {formData.disclosingSignature && <img src={formData.disclosingSignature} alt="Signature" style={{ height: '28px', marginTop: '0.25rem' }} />}
+                {formData.disclosingSignature && <img src={formData.disclosingSignature} alt="Signature" className="sb-sig" />}
               </div>
             </div>
 
-            <div className="easy-divider" />
+          </Step>
 
-            {/* Receiving Party */}
-            <div className="easy-party-label purple">Receiving Party</div>
+          <Step title="Receiving party signs">
+
+
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Name</label>
@@ -361,33 +353,21 @@ export default function NdaForm() {
                     {formData.receivingSignature ? <><CheckCircle size={16} /> Uploaded</> : <><Upload size={16} /> Upload signature</>}
                   </div>
                 </div>
-                {formData.receivingSignature && <img src={formData.receivingSignature} alt="Signature" style={{ height: '28px', marginTop: '0.25rem' }} />}
+                {formData.receivingSignature && <img src={formData.receivingSignature} alt="Signature" className="sb-sig" />}
               </div>
               <div className="easy-field full">
                 <button
                   type="button" role="switch" aria-checked={!!formData.showStamp}
                   className={`easy-switch-row ${formData.showStamp ? 'active' : ''}`}
                   onClick={() => handleChange({ target: { name: 'showStamp', checked: !formData.showStamp, type: 'checkbox' } })}
-                  style={{ marginTop: '0.5rem' }}
                 >
                   <span className="easy-switch-label">Include company stamp</span>
                   <span className="easy-switch-dot" aria-hidden="true" />
                 </button>
               </div>
             </div>
-          </div>
-
-          {/* Submit */}
-          <button type="submit" disabled={isSubmitting || isAtLimit('nda')} className="easy-submit">
-            {isSubmitting ? 'Generating...' : isAtLimit('nda') ? 'Limit Reached' : 'Save & Download NDA'}
-            {!isSubmitting && !isAtLimit('nda') && <ChevronRight size={18} />}
-          </button>
-
-          {/* Mobile preview */}
-          <button type="button" onClick={handlePreview} className="easy-submit-outline mou-mobile-preview-btn" style={{ marginTop: '0.75rem' }}>
-            <Eye size={16} /> Preview as PDF
-          </button>
-
+          </Step>
+          </DocSteps>
         </form>
       </div>
 

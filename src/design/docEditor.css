@@ -1,0 +1,510 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Document editors on the StartupBuddy theme.
+
+   Invoice, quotation, proforma, offer letter and NDA editors are the older
+   form-beside-preview pages. They still render inside ModuleShell (for its
+   CSS variables and edgeBridge.css), but App.jsx's EditorFrame wraps them in
+   `.sb-doced` and draws a StartupBuddy top bar instead of the old one.
+
+   This file does two things, both scoped to `.sb-doced`:
+   1. Points every variable those pages paint with — the --edge-* palette and
+      index.css's legacy names — at the `.sb` tokens. That alone re-themes
+      the many inline styles in the forms.
+   2. Restyles the shared .easy-* / .mou-* markup to the kit's primitives:
+      cards for sections, 44px fields, pill chips, the kit's switch, ink
+      primary buttons, mono figures.
+
+   Specificity: edgeBridge's rules are `.edge-shell main …` (up to 0,3,1, and
+   some colours are !important). Every rule here starts with
+   `.sb-doced .edge-shell main` so it wins without depending on import order.
+
+   The A4 preview is paper, not UI: .a4-sheet and the templates are untouched.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/* ── frame ─────────────────────────────────────────────────────────────── */
+
+.sb-doced-top { background: var(--surface); }
+.sb-doced-top .sb-btn.icon { margin-left: -8px; }
+
+/* A document is a focused task: on a phone its own bar (with Back) replaces
+   the app's company bar. */
+@media (max-width: 1180px) {
+  .sb-shell:has(.sb-doced) .sb-mtop { display: none; }
+}
+@media (max-width: 760px) {
+  .sb-doced-top { padding-top: var(--sat); height: calc(56px + var(--sat)); }
+}
+
+/* ── 1. the palette ────────────────────────────────────────────────────── */
+
+.sb-doced .edge-shell {
+  --edge-shell: var(--bg); --edge-panel: #fff; --edge-panel-alt: var(--soft);
+  --edge-raised: #fff; --edge-line: var(--line); --edge-line-soft: var(--line2);
+  --edge-line-strong: #D9D7D1; --edge-text: var(--ink); --edge-dim: var(--muted);
+  --edge-faint: var(--faint); --edge-ghost: #C9C7C1; --edge-up: var(--g-tx); --edge-down: var(--r-tx);
+  --edge-sel-bg: var(--ink); --edge-sel-text: #fff; --edge-shadow: var(--sh-m);
+  --edge-mono: var(--font);
+
+  --font-main: var(--font); --font-display: var(--font);
+  --background: var(--bg); --surface-hover: var(--soft);
+  --accent: var(--ink); --accent-muted: var(--muted);
+  --border: var(--line);
+  --bg-base: #fff; --bg-elevated: #fff; --bg-raised: var(--soft);
+  --bg-overlay: #fff; --bg-sunken: var(--soft);
+  --border-subtle: var(--line2); --border-default: var(--line); --border-strong: #D9D7D1;
+  --text-primary: var(--ink); --text-secondary: var(--ink2); --text-tertiary: var(--muted); --text-muted: var(--muted);
+  --shadow-xs: var(--sh); --shadow-sm: var(--sh); --shadow-md: var(--sh-m); --shadow-lg: var(--sh-m); --shadow-xl: var(--sh-l);
+  --focus-ring: 0 0 0 3px rgba(17,17,19,.08);
+  --btn-accent-bg: var(--ink); --btn-accent-text: #fff;
+  --num-badge-bg: var(--soft); --toggle-active-dot: #fff;
+  --blue: var(--ink); --blue-hover: var(--ink); --blue-muted: var(--soft); --blue-border: var(--line);
+  --success: var(--g-tx); --success-muted: var(--g-bg);
+  --error: var(--r-tx); --error-muted: var(--r-bg);
+
+  /* ModuleShell sets these inline. */
+  font-family: var(--font) !important;
+  color: var(--ink) !important;
+  background: var(--bg) !important;
+  letter-spacing: -.005em;
+}
+.sb-doced .edge-shell main { background: var(--bg) !important; }
+.sb-doced .edge-shell :focus-visible { outline: 2px solid #3B6CFF; outline-offset: 2px; }
+.sb-doced .edge-shell ::selection { background: var(--ink); color: #fff; }
+
+/* ── 2. layout ─────────────────────────────────────────────────────────── */
+
+.sb-doced .edge-shell main .mou-form-pane {
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+  padding: 20px 20px 0;
+}
+.sb-doced .edge-shell main .mou-form-pane .easy-form { gap: 14px; }
+
+.sb-doced .edge-shell main .mou-preview-pane { background: var(--hover); }
+.sb-doced .edge-shell main .mou-preview-toolbar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--line2);
+  min-height: 52px;
+  padding: 0 16px;
+}
+.sb-doced .edge-shell main .mou-preview-toolbar-label {
+  font-size: 13px; font-weight: 550; letter-spacing: 0; text-transform: none; color: var(--muted);
+}
+.sb-doced .edge-shell main .a4-stage-zoom {
+  border: 1px solid var(--line); border-radius: 10px; background: var(--surface); box-shadow: var(--sh-m);
+}
+.sb-doced .edge-shell main .a4-stage-zoom button { border-radius: 7px; font-size: 12px; color: var(--muted); min-height: 28px; }
+.sb-doced .edge-shell main .a4-stage-zoom button:hover:not(:disabled),
+.sb-doced .edge-shell main .a4-stage-fit.active { background: var(--soft); color: var(--ink); }
+.sb-doced .edge-shell main :where(.a4-stage-zoom-value, .a4-stage-pages) { font-size: 12px; font-family: var(--mono); color: var(--muted); }
+
+/* ── sections: cards ───────────────────────────────────────────────────── */
+
+.sb-doced .edge-shell main .mou-form-pane .easy-section,
+.sb-doced .edge-shell main .mou-form-pane .easy-section:last-of-type {
+  margin: 0;
+  padding: 18px 18px 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  box-shadow: var(--sh);
+}
+.sb-doced .edge-shell main .mou-form-pane .easy-section-head {
+  gap: 10px;
+  margin: 0 0 16px;
+  padding: 0;
+  border-bottom: 0;
+}
+.sb-doced .edge-shell main .mou-form-pane .easy-num {
+  width: 24px; height: 24px; border-radius: 8px;
+  border: 1px solid var(--line2); background: var(--soft);
+  color: var(--ink2); font-family: var(--mono); font-size: 12px; font-weight: 600;
+}
+.sb-doced .edge-shell main .mou-form-pane .easy-section-title {
+  font-family: var(--font); font-size: 15px; font-weight: 600; letter-spacing: -.01em; color: var(--ink);
+}
+
+/* ── fields ────────────────────────────────────────────────────────────── */
+
+.sb-doced .edge-shell main .mou-form-pane .easy-row { gap: 16px 14px; }
+.sb-doced .edge-shell main .mou-form-pane .easy-row + .easy-row,
+.sb-doced .edge-shell main .mou-form-pane .easy-row + .easy-field,
+.sb-doced .edge-shell main .mou-form-pane .easy-field + .easy-row { margin-top: 16px; }
+.sb-doced .edge-shell main .mou-form-pane .easy-field { gap: 7px; }
+
+.sb-doced .edge-shell main :is(.easy-lbl, .prod-field > span, .payment-conf-field > label) {
+  font-size: 13px; font-weight: 550; letter-spacing: 0; text-transform: none; color: var(--ink2); margin: 0;
+}
+.sb-doced .edge-shell main .easy-lbl-sm {
+  display: block; font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--muted); margin: 0 0 5px;
+}
+.sb-doced .edge-shell main .mou-form-pane :is(.easy-party-label, .easy-party-label.purple) {
+  font-size: 12px; font-weight: 600; letter-spacing: 0; text-transform: none; color: var(--muted);
+}
+
+.sb-doced .edge-shell main :is(.easy-inp, .pro-input, .prod-select) {
+  min-height: 44px;
+  padding: 0 14px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--ink);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.4;
+  box-shadow: var(--sh);
+  transition: border-color .12s, box-shadow .12s;
+}
+.sb-doced .edge-shell main :is(.easy-inp, .pro-input, .prod-select):hover:not(:disabled):not(:focus) { border-color: #D9D7D1; }
+.sb-doced .edge-shell main :is(.easy-inp, .pro-input, .prod-select):focus {
+  outline: none; border-color: var(--ink); background: var(--surface); box-shadow: 0 0 0 3px rgba(17,17,19,.08);
+}
+.sb-doced .edge-shell main :is(.easy-inp, .pro-input)::placeholder { color: var(--faint); }
+.sb-doced .edge-shell main textarea.easy-inp { padding: 12px 14px; min-height: 96px; line-height: 1.5; }
+.sb-doced .edge-shell main select.easy-inp,
+.sb-doced .edge-shell main select.prod-select {
+  appearance: none; -webkit-appearance: none; padding-right: 38px;
+  background: var(--surface) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M3 4.5l3 3 3-3' fill='none' stroke='%236E6D73' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 14px center;
+}
+.sb-doced .edge-shell main input[type="date"].easy-inp { font-family: var(--mono); font-size: 14px; letter-spacing: -.02em; }
+
+/* ── chips: pills, the chosen one in ink ───────────────────────────────── */
+
+.sb-doced .edge-shell main .easy-chips { gap: 8px; }
+.sb-doced .edge-shell main .easy-chip {
+  min-height: 36px; padding: 0 14px;
+  border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink2);
+  font-family: var(--font); font-size: 13px; font-weight: 550;
+  box-shadow: var(--sh);
+}
+.sb-doced .edge-shell main .easy-chip:hover { border-color: #D9D7D1; background: var(--soft); color: var(--ink); }
+.sb-doced .edge-shell main .easy-chip.active { background: var(--ink); border-color: var(--ink); color: #fff; }
+
+/* ── switch rows: the kit's switch ─────────────────────────────────────── */
+
+.sb-doced .edge-shell main .easy-switch-row,
+.sb-doced .edge-shell main .easy-switch-row.active {
+  width: 100%; min-height: 44px; padding: 0 12px 0 14px;
+  border: 1px solid var(--line); border-radius: 11px;
+  background: var(--surface); box-shadow: var(--sh);
+}
+.sb-doced .edge-shell main .easy-switch-row:hover { border-color: #D9D7D1; }
+.sb-doced .edge-shell main .easy-switch-label,
+.sb-doced .edge-shell main .easy-switch-row.active .easy-switch-label {
+  font-family: var(--font); font-size: 14px; font-weight: 550; letter-spacing: 0; text-transform: none; color: var(--ink);
+}
+.sb-doced .edge-shell main .easy-switch-dot {
+  width: 40px; height: 24px; border: 0; border-radius: 999px; background: #D9D7D1; box-shadow: none;
+}
+.sb-doced .edge-shell main .easy-switch-dot::after {
+  top: 3px; left: 3px; width: 18px; height: 18px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2);
+}
+.sb-doced .edge-shell main .easy-switch-row.active .easy-switch-dot { background: var(--ink); border: 0; }
+.sb-doced .edge-shell main .easy-switch-row.active .easy-switch-dot::after { left: 19px; background: #fff; }
+
+/* ── line items ────────────────────────────────────────────────────────── */
+
+.sb-doced .edge-shell main .mou-form-pane .easy-line-item {
+  gap: 12px; padding: 14px; margin-bottom: 10px;
+  background: var(--bg); border: 1px solid var(--line2); border-radius: 12px;
+}
+.sb-doced .edge-shell main .easy-line-num {
+  width: 24px; height: 24px; margin-top: 10px; border-radius: 8px;
+  background: var(--surface); border: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11.5px; font-weight: 600; color: var(--muted);
+}
+.sb-doced .edge-shell main .easy-line-amount {
+  height: 44px; font-family: var(--mono); font-size: 15px; font-weight: 600; letter-spacing: -.02em; color: var(--ink);
+}
+.sb-doced .edge-shell main .easy-delete-btn {
+  width: 36px; height: 36px; margin-top: 4px; border-radius: 10px; color: var(--faint);
+}
+.sb-doced .edge-shell main .easy-delete-btn:hover { background: var(--r-bg); color: var(--r-tx); }
+
+.sb-doced .edge-shell main .easy-add-btn,
+.sb-doced .edge-shell main .mou-form-pane .easy-add-btn {
+  min-height: 44px; border-radius: 11px;
+  border: 1px dashed #D9D7D1; background: var(--surface); color: var(--ink2);
+  font-family: var(--font); font-size: 14px; font-weight: 550;
+}
+.sb-doced .edge-shell main .easy-add-btn:hover { border-color: var(--ink); background: var(--soft); color: var(--ink); }
+
+/* ── totals ────────────────────────────────────────────────────────────── */
+
+.sb-doced .edge-shell main .easy-summary-grid { gap: 16px; }
+.sb-doced .edge-shell main .easy-totals {
+  padding: 6px 16px; background: var(--bg); border: 1px solid var(--line2); border-radius: 12px;
+}
+.sb-doced .edge-shell main .easy-total-row { padding: 10px 0; font-size: 14px; color: var(--muted); }
+.sb-doced .edge-shell main .easy-total-row > :last-child { font-family: var(--mono); letter-spacing: -.02em; }
+.sb-doced .edge-shell main .easy-total-row strong { font-weight: 550; color: var(--ink); }
+.sb-doced .edge-shell main .easy-total-row .easy-inp { min-height: 36px; font-size: 14px; box-shadow: none; border-radius: 9px; }
+.sb-doced .edge-shell main .easy-total-divider { background: var(--line); margin: 2px 0; }
+.sb-doced .edge-shell main .easy-total-grand { padding: 14px 0 12px; }
+.sb-doced .edge-shell main .easy-total-grand span:last-child { font-size: 22px; font-weight: 650; color: var(--ink); }
+
+/* ── buttons ───────────────────────────────────────────────────────────── */
+
+.sb-doced .edge-shell main :is(.easy-submit, .btn-cinematic:not(.btn-secondary), .prod-btn-primary, .portal-link-gen-btn.primary) {
+  min-height: 48px;
+  padding: 0 20px;
+  gap: 8px;
+  border-radius: 12px;
+  background: var(--ink) !important;
+  border: 1px solid var(--ink) !important;
+  color: #fff !important;
+  box-shadow: none !important;
+  font-family: var(--font);
+  font-size: 15px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+  transition: background .12s, transform .06s;
+}
+.sb-doced .edge-shell main :is(.easy-submit, .btn-cinematic:not(.btn-secondary), .prod-btn-primary):hover:not(:disabled) {
+  opacity: 1; background: #2a2a2e !important;
+}
+.sb-doced .edge-shell main :is(.easy-submit, .btn-cinematic):active:not(:disabled) { transform: translateY(1px) !important; }
+.sb-doced .edge-shell main :is(.easy-submit, .btn-cinematic):disabled { opacity: .5; cursor: not-allowed; }
+
+.sb-doced .edge-shell main :is(.easy-submit-outline, .offer-notify-btn, .prod-btn-ghost, .portal-link-gen-btn:not(.primary), .btn-secondary) {
+  min-height: 44px;
+  padding: 0 16px;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--sh);
+  font-family: var(--font);
+  font-size: 14px;
+  font-weight: 550;
+  letter-spacing: 0;
+  text-transform: none;
+}
+.sb-doced .edge-shell main :is(.easy-submit-outline, .offer-notify-btn, .prod-btn-ghost, .portal-link-gen-btn:not(.primary), .btn-secondary):hover:not(:disabled) {
+  background: var(--soft); border-color: var(--line); color: var(--ink);
+}
+/* The small "Open PDF" in the preview bar. */
+.sb-doced .edge-shell main .mou-preview-toolbar .easy-submit-outline { min-height: 32px; padding: 0 12px !important; font-size: 13px !important; border-radius: 8px; }
+
+.sb-doced .edge-shell main .form-actions { gap: 10px; }
+.sb-doced .edge-shell main .form-actions > :is(.easy-submit, .easy-submit-outline) {
+  height: 48px; min-height: 48px; border-radius: 12px; font-size: 15px;
+}
+
+/* The primary action sticks to the pane's foot on wide screens. */
+.sb-doced .edge-shell main .mou-form-pane .easy-form > .easy-submit {
+  box-shadow: 0 0 0 20px var(--bg) !important;
+}
+
+/* ── pickers, dropdowns, uploads ───────────────────────────────────────── */
+
+.sb-doced .edge-shell main .customer-dropdown {
+  margin-top: 6px; padding: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--sh-m);
+}
+.sb-doced .edge-shell main .customer-dropdown-item { border-radius: 8px; padding: 10px 12px; }
+.sb-doced .edge-shell main .customer-dropdown-item:hover { background: var(--soft); }
+
+.sb-doced .edge-shell main .prodpick-btn {
+  min-height: 36px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
+  color: var(--ink2); font-family: var(--font); font-size: 13px; font-weight: 550; box-shadow: var(--sh);
+}
+.sb-doced .edge-shell main .prodpick-btn:hover { background: var(--soft); }
+.sb-doced .edge-shell main .prodpick-panel {
+  background: var(--surface); border: 1px solid var(--line); border-radius: 12px; box-shadow: var(--sh-m);
+}
+.sb-doced .edge-shell main .prodpick-item:hover { background: var(--soft); }
+.sb-doced .edge-shell main .prodpick-item-price { font-family: var(--mono); }
+
+.sb-doced .edge-shell main .easy-upload {
+  border: 1px dashed #D9D7D1; border-radius: 12px; background: var(--surface); box-shadow: none;
+}
+.sb-doced .edge-shell main .easy-upload:hover { border-color: var(--ink); background: var(--soft); }
+.sb-doced .edge-shell main .easy-upload.done { border-style: solid; border-color: var(--g-tx); background: var(--g-bg); }
+
+.sb-doced .edge-shell main .portal-link-gen {
+  background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); box-shadow: var(--sh);
+}
+
+/* ── phones ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 1024px) {
+  .sb-doced .edge-shell main .mou-form-pane { padding: 16px 16px 28px; border-right: 0; }
+  .sb-doced .edge-shell main .mou-form-pane .easy-form > .easy-submit { box-shadow: none !important; }
+}
+@media (max-width: 760px) {
+  /* 16px stops iOS zooming into a field on focus. */
+  .sb-doced .edge-shell main :is(.easy-inp, .pro-input, .prod-select) { font-size: 16px; min-height: 46px; }
+  .sb-doced .edge-shell main .mou-form-pane .easy-section,
+  .sb-doced .edge-shell main .mou-form-pane .easy-section:last-of-type { padding: 16px 16px 18px; }
+  .sb-doced .edge-shell main .mou-form-pane .easy-line-item { padding: 12px; }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Steps (DocSteps.jsx): one section per screen, progress on top, the actions
+   pinned to the foot of the pane.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.sb-doced .edge-shell main .sb-step[hidden] { display: none !important; }
+
+.sb-doced .edge-shell main .sb-steps { display: flex; flex-direction: column; gap: 14px; min-height: 100%; }
+.sb-doced .edge-shell main .mou-form-pane .easy-form:has(.sb-steps) { min-height: 100%; }
+.sb-doced .edge-shell main .mou-form-pane .easy-form:has(.sb-steps)::after { display: none; }
+
+.sb-doced .edge-shell main .sb-steps-top { display: flex; flex-direction: column; gap: 10px; padding: 2px 2px 0; }
+.sb-doced .edge-shell main .sb-steps-meta { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 28px; }
+.sb-doced .edge-shell main .sb-steps-meta .n { font-size: 13px; font-weight: 550; color: var(--muted); }
+.sb-doced .edge-shell main .sb-steps-prev {
+  display: none; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border-radius: 8px;
+  font-size: 13px; font-weight: 550; color: var(--ink2); background: transparent; border: 0;
+}
+.sb-doced .edge-shell main .sb-steps-prev:hover { background: var(--hover); }
+
+.sb-doced .edge-shell main .sb-steps-bar { display: flex; gap: 6px; list-style: none; margin: 0; padding: 0; }
+.sb-doced .edge-shell main .sb-steps-bar li { flex: 1; }
+.sb-doced .edge-shell main .sb-steps-bar button {
+  display: block; width: 100%; min-height: 20px; padding: 8px 0; border: 0; background: transparent; cursor: pointer;
+}
+.sb-doced .edge-shell main .sb-steps-bar button:disabled { cursor: default; }
+.sb-doced .edge-shell main .sb-steps-bar button span { display: block; height: 4px; border-radius: 999px; background: var(--line); transition: background .2s; }
+.sb-doced .edge-shell main .sb-steps-bar button.done span { background: var(--ink2); }
+.sb-doced .edge-shell main .sb-steps-bar button.on span { background: var(--ink); }
+.sb-doced .edge-shell main .sb-steps-bar button:not(:disabled):not(.on):hover span { background: var(--muted); }
+
+.sb-doced .edge-shell main .sb-step .easy-section-title { margin: 0; outline: none; }
+.sb-doced .edge-shell main .sb-step { animation: sbStepIn .22s ease both; }
+@keyframes sbStepIn { from { opacity: 0; transform: translateY(6px); } }
+
+.sb-doced .edge-shell main .sb-steps-err {
+  margin: 0; padding: 12px 14px; border-radius: 11px; background: var(--r-bg); color: var(--r-tx); font-size: 14px; line-height: 1.45;
+}
+.sb-doced .edge-shell main .sb-steps-note { margin: 0; padding: 0 4px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+
+/* The foot: Back and Next, or Back, Save draft and Create. */
+.sb-doced .edge-shell main .sb-steps-foot {
+  position: sticky; bottom: 0; z-index: 3; margin-top: auto;
+  display: flex; gap: 10px; align-items: stretch;
+  padding: 12px 0 calc(16px + var(--sab));
+  background: linear-gradient(to bottom, transparent, var(--bg) 14px);
+}
+.sb-doced .edge-shell main .sb-steps-foot > button { margin: 0 !important; width: auto; }
+.sb-doced .edge-shell main .sb-steps-back {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 48px; min-height: 48px; padding: 0 16px 0 12px; border-radius: 12px;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); box-shadow: var(--sh);
+  font-family: var(--font); font-size: 15px; font-weight: 550; cursor: pointer;
+}
+.sb-doced .edge-shell main .sb-steps-back:not(:has(span)) { padding: 0; }
+.sb-doced .edge-shell main .sb-steps-back:hover:not(:disabled) { background: var(--soft); }
+.sb-doced .edge-shell main .sb-steps-back:disabled { opacity: .5; }
+.sb-doced .edge-shell main .sb-steps-foot .sb-steps-next { flex: 1; min-width: 0; position: static; box-shadow: none !important; }
+.sb-doced .edge-shell main .sb-steps-foot .sb-steps-next {
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: flex; justify-content: center;
+}
+.sb-doced .edge-shell main .sb-steps-foot .sb-steps-draft { flex: 1; min-height: 48px; border-radius: 12px; font-size: 15px; }
+.sb-doced .edge-shell main .sb-steps-foot .sb-steps-create { flex: 1.4; position: static; box-shadow: none !important; }
+
+/* Below 1024px the preview pane is hidden, so Preview lives in the step bar. */
+@media (max-width: 1024px) {
+  .sb-doced .edge-shell main .sb-steps-prev { display: inline-flex; }
+  .sb-doced .edge-shell main .mou-split-layout:has(.sb-steps) .mou-mobile-preview-btn { display: none !important; }
+  .sb-doced .edge-shell main .sb-steps-foot { padding-bottom: 12px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sb-doced .edge-shell main .sb-step { animation: none; }
+}
+
+/* "You have an unfinished …" — offered back before the steps. */
+.sb-doced .edge-shell main .sb-resume {
+  display: flex; flex-direction: column; gap: 12px; padding: 14px 16px;
+  background: var(--b-bg); border: 1px solid #d3e1fb; border-radius: var(--r); color: #1f3a7a;
+}
+.sb-doced .edge-shell main .sb-resume p { margin: 0; font-size: 14px; line-height: 1.5; }
+.sb-doced .edge-shell main .sb-resume > div { display: flex; gap: 8px; }
+.sb-doced .edge-shell main .sb-resume > div > button { flex: 1; min-height: 40px !important; height: 40px; margin: 0 !important; font-size: 14px !important; border-radius: 10px !important; width: auto; }
+
+/* The offer letter's kind (internship / full-time / collaboration): the kit's segmented control. */
+.sb-doced .edge-shell main .easy-toggle-bar {
+  display: flex; flex-direction: row; gap: 2px; margin: 0 0 18px; padding: 3px;
+  background: var(--soft); border: 1px solid var(--line); border-radius: 11px;
+}
+.sb-doced .edge-shell main .easy-toggle-btn {
+  flex: 1; min-height: 38px; padding: 0 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--muted); box-shadow: none;
+  font-family: var(--font); font-size: 14px; font-weight: 550; letter-spacing: 0; text-transform: none;
+}
+.sb-doced .edge-shell main .easy-toggle-btn:hover { color: var(--ink); }
+.sb-doced .edge-shell main .easy-toggle-btn.active { background: var(--surface); color: var(--ink); box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+
+/* ── keeping every step short ──────────────────────────────────────────── */
+
+/* The plan meter, banners and notices above the steps belong to the start:
+   from step 2 on the step has the pane to itself. */
+.sb-doced .edge-shell main .easy-form:has(> .sb-steps:not([data-at="0"])) > :not(.sb-steps) { display: none !important; }
+/* The plan meter, compact. */
+.sb-doced .edge-shell main .easy-form > div[style*="border-radius: 10px"] { margin-bottom: 0 !important; padding: 10px 14px !important; }
+
+.sb-doced .edge-shell main .sb-step .easy-row { grid-template-columns: 1fr 1fr; gap: 14px 12px; }
+.sb-doced .edge-shell main .sb-step .easy-field:has(textarea) { grid-column: 1 / -1; }
+.sb-doced .edge-shell main .sb-step .easy-field.full { grid-column: 1 / -1; }
+.sb-doced .edge-shell main .sb-step textarea.easy-inp { min-height: 84px; }
+.sb-doced .edge-shell main .sb-step textarea.sb-short { min-height: 76px; resize: none; }
+
+.sb-doced .edge-shell main .sb-hint { display: block; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
+.sb-doced .edge-shell main .sb-sig { height: 28px; width: auto; margin-top: 6px; object-fit: contain; }
+.sb-doced .edge-shell main .mou-form-pane .easy-party-label.sb-sub {
+  margin: 18px 0 10px; padding-top: 14px; border-top: 1px solid var(--line2);
+}
+.sb-doced .edge-shell main .mou-form-pane .easy-party-label.sb-sub:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
+
+/* ── choice cards (the kind of offer) ──────────────────────────────────── */
+
+.sb-doced .edge-shell main .sb-choices { display: flex; flex-direction: column; gap: 10px; }
+.sb-doced .edge-shell main .sb-choice {
+  display: flex; align-items: center; gap: 14px; width: 100%; min-height: 72px; padding: 14px 16px;
+  text-align: left; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--sh);
+  font-family: var(--font); color: var(--ink);
+  transition: border-color .15s, box-shadow .15s, transform .08s;
+}
+.sb-doced .edge-shell main .sb-choice:hover { border-color: #D9D7D1; }
+.sb-doced .edge-shell main .sb-choice:active { transform: scale(.99); }
+.sb-doced .edge-shell main .sb-choice .ic {
+  width: 42px; height: 42px; flex: none; display: grid; place-items: center; border-radius: 12px;
+  background: var(--soft); color: var(--ink2); transition: background .15s, color .15s;
+}
+.sb-doced .edge-shell main .sb-choice .tx { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sb-doced .edge-shell main .sb-choice .tx b { font-size: 15px; font-weight: 600; letter-spacing: -.01em; }
+.sb-doced .edge-shell main .sb-choice .tx small { font-size: 13px; line-height: 1.35; color: var(--muted); }
+.sb-doced .edge-shell main .sb-choice .rd {
+  width: 22px; height: 22px; flex: none; border-radius: 50%; border: 1.5px solid #D9D7D1; background: var(--surface);
+  transition: border-color .15s, box-shadow .15s;
+}
+.sb-doced .edge-shell main .sb-choice.on { border-color: var(--ink); box-shadow: 0 0 0 1px var(--ink), var(--sh-m); }
+/* The cofounder's colour marks the pick. */
+.sb-doced .edge-shell main .sb-choice.on .ic { background: var(--acc); color: var(--ink); }
+.sb-doced .edge-shell main .sb-choice.on .rd { border-color: var(--ink); box-shadow: inset 0 0 0 5px var(--ink); }
+
+/* Phones: the pane has less height, so the rhythm tightens. */
+@media (max-width: 760px) {
+  .sb-doced .edge-shell main .sb-step .easy-row { gap: 12px 10px; }
+  .sb-doced .edge-shell main .mou-form-pane .easy-section-head { margin-bottom: 14px; }
+  .sb-doced .edge-shell main .mou-form-pane .easy-form { gap: 12px; }
+  .sb-doced .edge-shell main input[type="date"].easy-inp { font-size: 15px; padding: 0 10px; }
+  .sb-doced .edge-shell main .sb-choice { min-height: 68px; padding: 12px 14px; }
+}
+@media (max-width: 340px) {
+  .sb-doced .edge-shell main .sb-step .easy-row { grid-template-columns: 1fr; }
+}
+
+/* The last step's at-a-glance: who, which, when, how many — then the totals. */
+.sb-doced .edge-shell main .sb-review {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1px; margin-bottom: 14px;
+  background: var(--line2); border: 1px solid var(--line2); border-radius: 12px; overflow: hidden;
+}
+.sb-doced .edge-shell main .sb-review > div { display: flex; flex-direction: column; gap: 3px; padding: 12px 14px; background: var(--surface); min-width: 0; }
+.sb-doced .edge-shell main .sb-review small { font-size: 12px; color: var(--muted); }
+.sb-doced .edge-shell main .sb-review b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

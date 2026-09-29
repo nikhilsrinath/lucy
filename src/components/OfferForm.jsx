@@ -1,15 +1,15 @@
 import { useState, useEffect, useRef } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Upload, CheckCircle, ChevronRight, Eye, Send, Loader, ExternalLink, Copy, X } from 'lucide-react';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { Upload, CheckCircle, Eye, GraduationCap, Briefcase, Handshake } from 'lucide-react';
 import { pdfService } from '../services/pdfService';
 import { storageService } from '../services/storageService';
-import { documentStore } from '../services/documentStore';
-import { emailService } from '../services/emailService';
 import { useAuth } from '../context/AuthContext';
 import { useOrg } from '../context/OrgContext';
 import { usePlanStatus } from '../hooks/usePlanStatus';
 import { resolveFormImages, generateStampPng } from '../utils/imageUtils';
-import { createPortalLink } from '../services/portalService';
+import { saveLetter, loadLetterDraft } from '../services/letterSave';
+import { useToast } from './shared/Toast';
+import DocSteps, { Step } from './shared/DocSteps';
 import OfferPreview from './OfferPreview';
 import A4Stage from './shared/A4Stage';
 
@@ -19,6 +19,12 @@ function getDisplayName(emp) {
   const l = (emp.last_name || '').trim();
   return `${f} ${l}`.trim() || emp.email || '';
 }
+
+const OFFER_TYPES = [
+  { id: 'internship', label: 'Internship', sub: 'A fixed period, with or without a stipend', Icon: GraduationCap },
+  { id: 'fulltime', label: 'Full-time', sub: 'A permanent role with a salary', Icon: Briefcase },
+  { id: 'collaboration', label: 'Collaboration', sub: 'A project partnership, paid by fee or milestone', Icon: Handshake },
+];
 
 export default function OfferForm() {
   const navigate = useNavigate();
@@ -81,12 +87,21 @@ export default function OfferForm() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isSendingEmail, setIsSendingEmail] = useState(false);
-  const [emailResult, setEmailResult] = useState(null);
-  const [showPortalModal, setShowPortalModal] = useState(false);
-  const [portalUrl, setPortalUrl] = useState('');
-  const [portalLinkLoading, setPortalLinkLoading] = useState(false);
-  const [portalCopied, setPortalCopied] = useState(false);
+  const toast = useToast();
+  // ?draft=<id>: carrying on from a draft letter saved on Team.
+  const [params] = useSearchParams();
+  const draftId = params.get('draft');
+  useEffect(() => {
+    if (!draftId || !activeOrg?.id) return undefined;
+    let cancelled = false;
+    loadLetterDraft(draftId, 'offer', activeOrg.id).then((form) => {
+      if (cancelled) return;
+      if (form) setFormData((prev) => ({ ...prev, ...form }));
+      else toast('That draft could not be found, so this is a new offer letter.', 'error');
+    });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftId, activeOrg?.id]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -97,6 +112,8 @@ export default function OfferForm() {
   };
 
   const setOfferType = (type) => setFormData(prev => ({ ...prev, offerType: type }));
+  const who = formData.offerType === 'internship' ? 'Intern' : formData.offerType === 'collaboration' ? 'Collaborator' : 'Employee';
+  const payLabel = formData.offerType === 'internship' ? 'Stipend' : formData.offerType === 'collaboration' ? 'Fee' : 'Salary';
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
@@ -116,30 +133,44 @@ export default function OfferForm() {
     }
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!canCreate('offerLetters')) {
-      alert(`You've reached your ${planConfig.name} plan limit of ${planConfig.limits.offerLetters} offer letters. Please upgrade to continue.`);
-      return;
-    }
+  const saveAs = async (status) => {
     setIsSubmitting(true);
     try {
-      const resolved = await resolveFormImages(formData, ['companyLogo', 'signature', 'stampUrl']);
-      if (resolved.stampType === 'generated') {
-        resolved.stampPng = await generateStampPng(resolved.companyName, resolved.stampCity);
-      }
-      await storageService.save(formData, 'offer', activeOrg?.id, user?.id);
-      await pdfService.generateOfferLetter(resolved);
-      await refreshUsage();
-      setTimeout(() => {
-        setIsSubmitting(false);
-        navigate('/records');
-      }, 800);
+      const id = await saveLetter({ kind: 'offer', form: formData, status, draftId, orgId: activeOrg?.id, userId: user?.id });
+      return id;
     } catch (err) {
       console.error(err);
-      alert("Error saving offer: " + err.message);
+      toast('Could not save the offer letter: ' + err.message, 'error');
+      return null;
+    } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleSubmit = async (e) => {
+    e?.preventDefault?.();
+    if (!draftId && !canCreate('offerLetters')) {
+      toast(`You've reached your ${planConfig.name} plan limit of ${planConfig.limits.offerLetters} offer letters. Upgrade to continue.`, 'error');
+      return;
+    }
+    const id = await saveAs('pending');
+    if (!id) return;
+    await refreshUsage();
+    toast(`Offer letter for ${formData.studentName} created`, 'success');
+    // Its sheet on Team has the signing link, the email and the PDF.
+    navigate(`/team?letter=${id}`);
+  };
+
+  const handleSaveDraft = async () => {
+    if (!draftId && !canCreate('offerLetters')) {
+      toast(`You've reached your ${planConfig.name} plan limit of ${planConfig.limits.offerLetters} offer letters.`, 'error');
+      return;
+    }
+    const id = await saveAs('draft');
+    if (!id) return;
+    await refreshUsage();
+    toast('Offer letter saved as a draft. Open it on Team to carry on.', 'success');
+    navigate('/team');
   };
 
   useEffect(() => {
@@ -157,114 +188,12 @@ export default function OfferForm() {
     await pdfService.generateOfferLetter(resolved, true);
   };
 
-  const handleCreatePortalLink = async () => {
-    if (!formData.studentName || !formData.role) {
-      alert('Please fill in at least the candidate name and role before creating a portal link.');
-      return;
-    }
-    setPortalLinkLoading(true);
-    try {
-      documentStore.setContext(activeOrg?.id);
-      await documentStore.init();
-      const today = new Date().toISOString().split('T')[0];
-      // The document number is allocated by the database on save.
-      const doc = {
-        type: 'offer_letter',
-        status: 'pending',
-        issued_to: formData.studentName,
-        recipient_email: formData.email || '',
-        role: formData.role,
-        department: formData.department || '',
-        offer_type: formData.offerType,
-        start_date: formData.startDate || '',
-        end_date: formData.endDate || '',
-        salary: formData.isPaid ? formData.stipend : null,
-        currency: formData.currency || 'INR',
-        payment_frequency: formData.paymentFrequency || 'Monthly',
-        is_paid: formData.isPaid,
-        responsibilities: formData.responsibilities || '',
-        supervisor: formData.supervisorName || '',
-        valid_until: formData.acceptanceDeadline || '',
-        issue_date: today,
-        created_at: new Date().toISOString(),
-        company_profile: {
-          company_name: activeOrg?.company_name || formData.companyName || '',
-          address: activeOrg?.company_address || formData.companyAddress || '',
-          email: activeOrg?.company_email || formData.contactEmail || '',
-          phone: activeOrg?.company_phone || formData.contactPhone || '',
-          logo_url: activeOrg?.logo_url || formData.companyLogo || '',
-          signature_url: activeOrg?.signature_url || formData.signature || '',
-          company_tagline: activeOrg?.company_tagline || formData.companyTagline || '',
-          authorized_person: formData.authorizedPersonName || '',
-          authorized_designation: formData.authorizedPersonDesignation || '',
-        },
-      };
-      const saved = await documentStore.save(doc);
-      const { url } = await createPortalLink({
-        orgId: activeOrg?.id,
-        documentId: saved.id,
-        recipientEmail: formData.email,
-      });
-      setPortalUrl(url);
-      setShowPortalModal(true);
-    } catch (err) {
-      console.error('Portal link error:', err);
-      alert('Failed to create portal link: ' + err.message);
-    } finally {
-      setPortalLinkLoading(false);
-    }
-  };
-
-  const handleCopyPortalLink = async () => {
-    await navigator.clipboard.writeText(portalUrl);
-    setPortalCopied(true);
-    setTimeout(() => setPortalCopied(false), 2000);
-  };
-
-  const handleNotifyEmployee = async () => {
-    if (!formData.email) {
-      setEmailResult({ success: false, message: 'Please enter the employee\'s email address first.' });
-      setTimeout(() => setEmailResult(null), 4000);
-      return;
-    }
-    setIsSendingEmail(true);
-    setEmailResult(null);
-    try {
-      const resolved = await resolveFormImages(formData, ['companyLogo', 'signature', 'stampUrl']);
-      if (resolved.stampType === 'generated') {
-        resolved.stampPng = await generateStampPng(resolved.companyName, resolved.stampCity);
-      }
-      const result = await emailService.sendOfferNotification({
-        recordData: resolved,
-        orgProfile: activeOrg,
-        companyName: activeOrg?.company_name || formData.companyName || 'Company',
-      });
-      setEmailResult(result);
-      setTimeout(() => setEmailResult(null), 5000);
-    } catch {
-      setEmailResult({ success: false, message: 'Failed to send email.' });
-      setTimeout(() => setEmailResult(null), 5000);
-    } finally {
-      setIsSendingEmail(false);
-    }
-  };
-
   return (
     <div className="mou-split-layout">
 
       {/* LEFT: Form */}
       <div className="mou-form-pane">
-        <form onSubmit={handleSubmit} className="easy-form animate-in" style={{ maxWidth: '100%' }}>
-
-          {/* Type Toggle */}
-          <div className="easy-toggle-bar">
-            {['internship', 'fulltime', 'collaboration'].map((type) => (
-              <button key={type} type="button" onClick={() => setOfferType(type)}
-                className={`easy-toggle-btn ${formData.offerType === type ? 'active' : ''}`}>
-                {type === 'internship' ? 'Internship' : type === 'fulltime' ? 'Full-Time' : 'Collaboration'}
-              </button>
-            ))}
-          </div>
+        <form onSubmit={(e) => e.preventDefault()} className="easy-form animate-in" style={{ maxWidth: '100%' }}>
 
           {/* Plan Usage */}
           {currentPlan !== 'max' && (
@@ -316,126 +245,70 @@ export default function OfferForm() {
             </div>
           )}
 
-          {/* 1. Company */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">1</div>
-              <span className="easy-section-title">Company details</span>
-            </div>
-            <div className="easy-row">
-              <div className="easy-field full">
-                <label className="easy-lbl">Company name</label>
-                <input aria-label="Company name" name="companyName" value={formData.companyName} onChange={handleChange} required placeholder="Acme International Ltd." className="easy-inp" />
-              </div>
-              <div className="easy-field full">
-                <label className="easy-lbl">Company address</label>
-                <textarea aria-label="Company address" name="companyAddress" value={formData.companyAddress} onChange={handleChange} required placeholder="Full registered address" rows="2" className="easy-inp" style={{ resize: 'none' }} />
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Authorized person</label>
-                <input aria-label="Authorized person" name="authorizedPersonName" value={formData.authorizedPersonName} onChange={handleChange} required placeholder="John Doe" className="easy-inp" />
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Their title</label>
-                <input aria-label="Their title" name="authorizedPersonDesignation" value={formData.authorizedPersonDesignation} onChange={handleChange} required placeholder="CEO / Manager" className="easy-inp" />
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Company logo</label>
-                <div className="easy-upload-wrap">
-                  <input aria-label="Company logo" type="file" onChange={handleLogoUpload} accept="image/*" />
-                  <div className={`easy-upload ${formData.companyLogo ? 'done' : ''}`}>
-                    {formData.companyLogo ? <><CheckCircle size={16} /> Logo uploaded</> : <><Upload size={16} /> Choose file</>}
-                  </div>
-                </div>
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Digital signature</label>
-                <div className="easy-upload-wrap">
-                  <input aria-label="Digital signature" type="file" onChange={handleSignatureUpload} accept="image/*" />
-                  <div className={`easy-upload ${formData.signature ? 'done' : ''}`}>
-                    {formData.signature ? <><CheckCircle size={16} /> Signature uploaded</> : <><Upload size={16} /> Choose file</>}
-                  </div>
-                </div>
-                {formData.signature && <img src={formData.signature} alt="Signature" style={{ height: '28px', marginTop: '0.25rem' }} />}
-              </div>
-              <div className="easy-field full">
-                <button
-                  type="button" role="switch" aria-checked={!!formData.showStamp}
-                  className={`easy-switch-row ${formData.showStamp ? 'active' : ''}`}
-                  onClick={() => handleChange({ target: { name: 'showStamp', checked: !formData.showStamp, type: 'checkbox' } })}
-                  style={{ marginTop: '0.5rem' }}
-                >
-                  <span className="easy-switch-label">Include company stamp</span>
-                  <span className="easy-switch-dot" aria-hidden="true" />
+          <DocSteps
+            onDraft={handleSaveDraft}
+            onCreate={handleSubmit}
+            createLabel={isSubmitting ? 'Saving…' : isAtLimit('offerLetters') && !draftId ? 'Limit reached' : 'Create offer letter'}
+            busy={isSubmitting}
+            createDisabled={isAtLimit('offerLetters') && !draftId}
+            onPreview={handlePreview}
+            finalNote="It opens on Team, where you can email it, copy its signing link or download the PDF."
+          >
+          <Step title="Type of offer">
+            <div className="sb-choices" role="radiogroup" aria-label="Type of offer">
+              {OFFER_TYPES.map((t) => (
+                <button key={t.id} type="button" role="radio" aria-checked={formData.offerType === t.id}
+                  className={`sb-choice${formData.offerType === t.id ? ' on' : ''}`} onClick={() => setOfferType(t.id)}>
+                  <span className="ic" aria-hidden="true"><t.Icon size={20} /></span>
+                  <span className="tx"><b>{t.label}</b><small>{t.sub}</small></span>
+                  <span className="rd" aria-hidden="true" />
                 </button>
-              </div>
+              ))}
             </div>
-          </div>
+          </Step>
 
-          {/* 2. Candidate */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">2</div>
-              <span className="easy-section-title">{formData.offerType === 'internship' ? 'Intern' : formData.offerType === 'collaboration' ? 'Collaborator' : 'Employee'} details</span>
-            </div>
+          <Step title={`${who} details`}>
             <div className="easy-row">
-              <div className="easy-field">
+              <div className="easy-field full">
                 <label className="easy-lbl">Full name</label>
-                <input aria-label="Full name" name="studentName" value={formData.studentName} onChange={handleChange} required placeholder="Full Name" className="easy-inp" />
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Address</label>
-                <input aria-label="Address" name="studentAddress" value={formData.studentAddress} onChange={handleChange} required placeholder="Street / City" className="easy-inp" />
+                <input aria-label="Full name" name="studentName" value={formData.studentName} onChange={handleChange} required placeholder="Full name" className="easy-inp" autoComplete="off" />
               </div>
               <div className="easy-field">
                 <label className="easy-lbl">Email</label>
-                <input aria-label="Email" type="email" name="email" value={formData.email} onChange={handleChange} placeholder="example@gmail.com" className="easy-inp" />
+                <input aria-label="Email" type="email" name="email" value={formData.email} onChange={handleChange} placeholder="name@example.com" className="easy-inp" />
               </div>
               <div className="easy-field">
                 <label className="easy-lbl">Phone</label>
-                <input aria-label="Phone" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 ..." className="easy-inp" />
+                <input aria-label="Phone" type="tel" name="phone" value={formData.phone} onChange={handleChange} placeholder="+91 …" className="easy-inp" />
+              </div>
+              <div className="easy-field full">
+                <label className="easy-lbl">Address</label>
+                <input aria-label="Address" name="studentAddress" value={formData.studentAddress} onChange={handleChange} required placeholder="Street, city" className="easy-inp" />
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* 3. Role & Dates */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">3</div>
-              <span className="easy-section-title">Role & timeline</span>
-            </div>
+          <Step title="Role">
             <div className="easy-row">
               <div className="easy-field">
-                <label className="easy-lbl">Job title / role</label>
-                <input aria-label="Job title / role" name="role" value={formData.role} onChange={handleChange} required placeholder="e.g. Finance Manager" className="easy-inp" />
+                <label className="easy-lbl">Job title</label>
+                <input aria-label="Job title" name="role" value={formData.role} onChange={handleChange} required placeholder="e.g. Finance Manager" className="easy-inp" />
               </div>
               <div className="easy-field">
                 <label className="easy-lbl">Department</label>
                 {deptOptions.length > 0 ? (
                   <select aria-label="Department" name="department" value={formData.department} onChange={handleChange} required className="easy-inp">
                     <option value="">Select department…</option>
-                    {deptOptions.map(name => (
-                      <option key={name} value={name}>{name}</option>
-                    ))}
+                    {deptOptions.map(name => <option key={name} value={name}>{name}</option>)}
                   </select>
                 ) : (
                   <input aria-label="Department" name="department" value={formData.department} onChange={handleChange} required placeholder="e.g. Operations" className="easy-inp" />
                 )}
               </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Start date</label>
-                <input aria-label="Start date" type="date" name="startDate" value={formData.startDate} onChange={handleChange} required className="easy-inp" />
-              </div>
-              {(formData.offerType === 'internship' || formData.offerType === 'collaboration') && (
-                <div className="easy-field">
-                  <label className="easy-lbl">End date</label>
-                  <input aria-label="End date" type="date" name="endDate" value={formData.endDate} onChange={handleChange} required className="easy-inp" />
-                </div>
-              )}
-              <div className="easy-field">
-                <label className="easy-lbl">Reporting supervisor</label>
+              <div className="easy-field full">
+                <label className="easy-lbl">Reports to</label>
                 {employees.length > 0 ? (
-                  <select aria-label="Reporting supervisor" name="supervisorName" value={formData.supervisorName} onChange={handleChange} required className="easy-inp">
+                  <select aria-label="Reports to" name="supervisorName" value={formData.supervisorName} onChange={handleChange} required className="easy-inp">
                     <option value="">Select supervisor…</option>
                     {employees.map(e => {
                       const name = getDisplayName(e);
@@ -443,27 +316,37 @@ export default function OfferForm() {
                     })}
                   </select>
                 ) : (
-                  <input aria-label="Reporting supervisor" name="supervisorName" value={formData.supervisorName} onChange={handleChange} required placeholder="Reports to..." className="easy-inp" />
+                  <input aria-label="Reports to" name="supervisorName" value={formData.supervisorName} onChange={handleChange} required placeholder="Their manager's name" className="easy-inp" />
                 )}
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Reply deadline</label>
-                <input aria-label="Reply deadline" type="date" name="acceptanceDeadline" value={formData.acceptanceDeadline} onChange={handleChange} required className="easy-inp" />
               </div>
               <div className="easy-field full">
                 <label className="easy-lbl">Responsibilities</label>
-                <textarea aria-label="Responsibilities" name="responsibilities" value={formData.responsibilities} onChange={handleChange} required placeholder="Key responsibilities and goals..." rows="3" className="easy-inp" style={{ resize: 'none' }} />
+                <textarea aria-label="Responsibilities" name="responsibilities" value={formData.responsibilities} onChange={handleChange} required placeholder="Key responsibilities and goals…" rows="3" className="easy-inp sb-short" />
               </div>
             </div>
-          </div>
+          </Step>
 
-          {/* 4. Compensation */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">4</div>
-              <span className="easy-section-title">Compensation</span>
+          <Step title="Dates">
+            <div className="easy-row">
+              <div className="easy-field">
+                <label className="easy-lbl">Start date</label>
+                <input aria-label="Start date" type="date" name="startDate" value={formData.startDate} onChange={handleChange} required className="easy-inp" />
+              </div>
+              {(formData.offerType === 'internship' || formData.offerType === 'collaboration') && (
+                <div className="easy-field">
+                  <label className="easy-lbl">End date</label>
+                  <input aria-label="End date" type="date" name="endDate" value={formData.endDate} onChange={handleChange} required min={formData.startDate || undefined} className="easy-inp" />
+                </div>
+              )}
+              <div className="easy-field">
+                <label className="easy-lbl">Reply by</label>
+                <input aria-label="Reply by" type="date" name="acceptanceDeadline" value={formData.acceptanceDeadline} onChange={handleChange} required className="easy-inp" />
+                <span className="sb-hint">The last day they can accept the offer.</span>
+              </div>
             </div>
+          </Step>
 
+          <Step title="Pay">
             <button
               type="button" role="switch" aria-checked={!!formData.isPaid}
               className={`easy-switch-row ${formData.isPaid ? 'active' : ''}`}
@@ -475,107 +358,99 @@ export default function OfferForm() {
               <span className="easy-switch-dot" aria-hidden="true" />
             </button>
 
-            {formData.isPaid && (
-              <div className="easy-row animate-in" style={{ marginTop: '1.25rem' }}>
-                <div className="easy-field">
-                  <label className="easy-lbl">{formData.offerType === 'internship' ? 'Stipend amount' : formData.offerType === 'collaboration' ? 'Collaboration fee' : 'Salary amount'}</label>
-                  <input aria-label={formData.offerType === 'internship' ? 'Stipend amount' : formData.offerType === 'collaboration' ? 'Collaboration fee' : 'Salary amount'} type="number" name="stipend" value={formData.stipend} onChange={handleChange} required placeholder="0.00" className="easy-inp" />
+            {formData.isPaid ? (
+              <div className="easy-row" style={{ marginTop: 16 }}>
+                <div className="easy-field full">
+                  <label className="easy-lbl">{payLabel}</label>
+                  <input aria-label={payLabel} type="number" inputMode="decimal" min="0" name="stipend" value={formData.stipend} onChange={handleChange} required placeholder="0" className="easy-inp" />
                 </div>
                 <div className="easy-field">
-                  <label className="easy-lbl">Currency & frequency</label>
-                  <div style={{ display: 'flex', gap: '0.5rem' }}>
-                    <select name="currency" value={formData.currency} onChange={handleChange} className="easy-inp" style={{ flex: 1 }}>
-                      <option value="INR">INR</option>
-                      <option value="USD">USD</option>
-                      <option value="EUR">EUR</option>
-                    </select>
-                    <select name="paymentFrequency" value={formData.paymentFrequency} onChange={handleChange} className="easy-inp" style={{ flex: 1.5 }}>
-                      <option value="Monthly">Monthly</option>
-                      {formData.offerType === 'fulltime' ? (
-                        <option value="Annual">Annual (CTC)</option>
-                      ) : formData.offerType === 'collaboration' ? (
-                        <>
-                          <option value="Once">One-time</option>
-                          <option value="Milestone">Milestone</option>
-                        </>
-                      ) : (
+                  <label className="easy-lbl">Currency</label>
+                  <select aria-label="Currency" name="currency" value={formData.currency} onChange={handleChange} className="easy-inp">
+                    <option value="INR">INR</option>
+                    <option value="USD">USD</option>
+                    <option value="EUR">EUR</option>
+                  </select>
+                </div>
+                <div className="easy-field">
+                  <label className="easy-lbl">Paid</label>
+                  <select aria-label="Paid" name="paymentFrequency" value={formData.paymentFrequency} onChange={handleChange} className="easy-inp">
+                    <option value="Monthly">Monthly</option>
+                    {formData.offerType === 'fulltime' ? (
+                      <option value="Annual">Annual (CTC)</option>
+                    ) : formData.offerType === 'collaboration' ? (
+                      <>
                         <option value="Once">One-time</option>
-                      )}
-                    </select>
+                        <option value="Milestone">By milestone</option>
+                      </>
+                    ) : (
+                      <option value="Once">One-time</option>
+                    )}
+                  </select>
+                </div>
+              </div>
+            ) : (
+              <p className="sb-hint" style={{ marginTop: 12 }}>Turn this on to add a {payLabel.toLowerCase()}.</p>
+            )}
+          </Step>
+
+          <Step title="Company">
+            <div className="easy-row">
+              <div className="easy-field full">
+                <label className="easy-lbl">Company name</label>
+                <input aria-label="Company name" name="companyName" value={formData.companyName} onChange={handleChange} required placeholder="Acme International Ltd." className="easy-inp" />
+              </div>
+              <div className="easy-field full">
+                <label className="easy-lbl">Registered address</label>
+                <input aria-label="Registered address" name="companyAddress" value={formData.companyAddress} onChange={handleChange} required placeholder="Full registered address" className="easy-inp" />
+              </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Signed by</label>
+                <input aria-label="Signed by" name="authorizedPersonName" value={formData.authorizedPersonName} onChange={handleChange} required placeholder="John Doe" className="easy-inp" />
+              </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Their title</label>
+                <input aria-label="Their title" name="authorizedPersonDesignation" value={formData.authorizedPersonDesignation} onChange={handleChange} required placeholder="CEO / Manager" className="easy-inp" />
+              </div>
+            </div>
+          </Step>
+
+          <Step title="Logo & signature">
+            <div className="easy-row">
+              <div className="easy-field">
+                <label className="easy-lbl">Company logo</label>
+                <div className="easy-upload-wrap">
+                  <input aria-label="Company logo" type="file" onChange={handleLogoUpload} accept="image/*" />
+                  <div className={`easy-upload ${formData.companyLogo ? 'done' : ''}`}>
+                    {formData.companyLogo ? <><CheckCircle size={16} /> Logo added</> : <><Upload size={16} /> Choose a file</>}
                   </div>
                 </div>
               </div>
-            )}
-          </div>
-
-          {/* Submit */}
-          <button type="submit" className="easy-submit" disabled={isSubmitting || isAtLimit('offerLetters')}>
-            {isSubmitting ? 'Generating...' : isAtLimit('offerLetters') ? 'Limit Reached' : 'Finalize & Download'}
-            {!isSubmitting && !isAtLimit('offerLetters') && <ChevronRight size={18} />}
-          </button>
-
-          {/* Notify Employee */}
-          <button
-            type="button"
-            onClick={handleNotifyEmployee}
-            disabled={isSendingEmail || isAtLimit('offerLetters')}
-            className="offer-notify-btn"
-            style={{ marginTop: '0.75rem' }}
-          >
-            {isSendingEmail ? <><Loader size={16} className="spin-icon" /> Sending Email...</>
-              : emailResult?.success ? <><CheckCircle size={16} /> Sent to {formData.email}</>
-                : <><Send size={16} /> Send Offer to Employee</>}
-          </button>
-
-          {emailResult && !emailResult.success && (
-            <div className="offer-notify-error">
-              {emailResult.message}
+              <div className="easy-field">
+                <label className="easy-lbl">Signature</label>
+                <div className="easy-upload-wrap">
+                  <input aria-label="Signature" type="file" onChange={handleSignatureUpload} accept="image/*" />
+                  <div className={`easy-upload ${formData.signature ? 'done' : ''}`}>
+                    {formData.signature ? <><CheckCircle size={16} /> Signature added</> : <><Upload size={16} /> Choose a file</>}
+                  </div>
+                </div>
+                {formData.signature && <img src={formData.signature} alt="Signature" className="sb-sig" />}
+              </div>
+              <div className="easy-field full">
+                <button
+                  type="button" role="switch" aria-checked={!!formData.showStamp}
+                  className={`easy-switch-row ${formData.showStamp ? 'active' : ''}`}
+                  onClick={() => handleChange({ target: { name: 'showStamp', checked: !formData.showStamp, type: 'checkbox' } })}
+                >
+                  <span className="easy-switch-label">Add the company stamp</span>
+                  <span className="easy-switch-dot" aria-hidden="true" />
+                </button>
+              </div>
             </div>
-          )}
-
-          {/* Portal Link */}
-          <button
-            type="button"
-            onClick={handleCreatePortalLink}
-            disabled={portalLinkLoading}
-            className="offer-notify-btn"
-            style={{ marginTop: '0.75rem' }}
-          >
-            {portalLinkLoading
-              ? <><Loader size={16} className="spin-icon" /> Creating Link...</>
-              : <><ExternalLink size={16} /> Create Recipient Portal Link</>}
-          </button>
-
-          {/* Mobile preview */}
-          <button type="button" onClick={handlePreview} className="easy-submit-outline mou-mobile-preview-btn" style={{ marginTop: '0.75rem' }}>
-            <Eye size={16} /> Preview as PDF
-          </button>
-
+          </Step>
+          </DocSteps>
         </form>
       </div>
-
-      {/* Portal Link Modal */}
-      {showPortalModal && (
-        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '1rem' }}>
-          <div style={{ background: 'var(--surface)', border: '1px solid var(--border-default)', borderRadius: '1rem', padding: '2rem', maxWidth: '480px', width: '100%' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-              <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--text-primary)' }}>Recipient Portal Link</h3>
-              <button type="button" aria-label="Close" title="Close" onClick={() => setShowPortalModal(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text-secondary)', padding: '0.25rem' }}>
-                <X size={18} />
-              </button>
-            </div>
-            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: 1.6 }}>
-              Share this link with <strong style={{ color: 'var(--text-primary)' }}>{formData.studentName}</strong> so they can view and e-sign the offer letter online.
-            </p>
-            <div style={{ background: 'var(--background)', border: '1px solid var(--border-default)', borderRadius: '0.5rem', padding: '0.75rem 1rem', fontFamily: 'monospace', fontSize: '0.72rem', color: 'var(--text-primary)', wordBreak: 'break-all', marginBottom: '1.25rem', lineHeight: 1.5 }}>
-              {portalUrl}
-            </div>
-            <button onClick={handleCopyPortalLink} className="easy-submit" style={{ margin: 0 }}>
-              {portalCopied ? <><CheckCircle size={16} /> Copied!</> : <><Copy size={16} /> Copy Link</>}
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* RIGHT: Live Preview */}
       <div className="mou-preview-pane">

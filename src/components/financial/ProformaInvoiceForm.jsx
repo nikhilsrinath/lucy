@@ -1,22 +1,52 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Trash2, Eye, Send, Save, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2 } from 'lucide-react';
 import { documentStore } from '../../services/documentStore';
 import { createPortalLink } from '../../services/portalService';
 import { customerService } from '../../services/customerService';
 import { useOrg } from '../../context/OrgContext';
-import PortalLinkGenerator from '../shared/PortalLinkGenerator';
 import ProductPicker from '../shared/ProductPicker';
 import { productToLineItem } from '../../services/catalogService';
 import CountrySelect from '../shared/CountrySelect';
 import { useToast } from '../shared/Toast';
 import A4Stage from '../shared/A4Stage';
+import DocSteps, { Step } from '../shared/DocSteps';
 
 const GST_RATES = [0, 5, 12, 18, 28];
 const ADVANCE_PRESETS = [25, 50, 75, 100];
 const UNIT_OPTIONS = ['Nos', 'Hrs', 'Days', 'Months', 'Units', 'Pcs', 'Lots', 'Kg', 'Ltr'];
 
-export default function ProformaInvoiceForm() {
+/** A saved proforma back into the form's shape. Drafts saved from this form
+ *  carry the form itself (`editor_form`); older ones are rebuilt from the row. */
+function formFromDoc(doc) {
+  if (doc.editor_form && typeof doc.editor_form === 'object') return doc.editor_form;
+  const c = doc.client || {};
+  const pct = Number(doc.advance_percent);
+  const preset = [25, 50, 75, 100].includes(pct);
+  return {
+    clientName: c.name || doc.bill_to_name || doc.issued_to || '',
+    clientCompany: c.company || '',
+    clientAddress: c.address || doc.bill_to_address || '',
+    clientGSTIN: c.gstin || doc.bill_to_gstin || '',
+    clientCountry: doc.country_code || '',
+    clientEmail: c.email || doc.bill_to_email || '',
+    clientPhone: '',
+    proformaNumber: doc.doc_number || '',
+    date: String(doc.date || doc.issue_date || '').slice(0, 10) || new Date().toISOString().split('T')[0],
+    dueDate: String(doc.due_date || '').slice(0, 10),
+    advancePercent: preset ? pct : 50,
+    customAdvancePercent: preset || Number.isNaN(pct) ? '' : pct,
+    isCustomAdvance: !preset && !Number.isNaN(pct),
+    items: (doc.items || []).length ? doc.items.map((it, i) => ({
+      id: Date.now() + i, description: it.description || '', hsnSac: it.hsn || it.hsn_sac || '',
+      quantity: Number(it.quantity) || 1, unit: it.unit || 'Nos', rate: Number(it.rate) || 0,
+      gstRate: Number(it.gst_rate ?? doc.gst_rate ?? 18), catalog_item_id: it.catalog_item_id || null,
+    })) : [{ id: Date.now(), description: '', hsnSac: '', quantity: 1, unit: 'Nos', rate: 0, gstRate: 18 }],
+    notes: doc.notes || '',
+  };
+}
+
+export default function ProformaInvoiceForm({ editDocId = null }) {
   const navigate = useNavigate();
   const toast = useToast();
   const { activeOrg } = useOrg();
@@ -45,9 +75,8 @@ export default function ProformaInvoiceForm() {
   const [clientSearch, setClientSearch] = useState('');
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const clientDropdownRef = useRef(null);
-  const [showPortalLink, setShowPortalLink] = useState(false);
-  const [savedDocId, setSavedDocId] = useState(null);
-  const [portalLink, setPortalLink] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
 
   const [formData, setFormData] = useState(() => ({
     clientName: '',
@@ -71,13 +100,19 @@ export default function ProformaInvoiceForm() {
     notes: 'This is a proforma invoice and is not valid for GST input tax credit. GST amounts shown are indicative and subject to actuals at the time of invoicing.',
   }));
 
-  // Set Firebase context for cloud sync
+  // Set Firebase context for cloud sync — and, editing a draft, load it.
   useEffect(() => {
-    if (activeOrg?.id) {
-      documentStore.setContext(activeOrg.id);
-      documentStore.init().catch(() => { });
-    }
-  }, [activeOrg]);
+    if (!activeOrg?.id) return undefined;
+    let cancelled = false;
+    documentStore.setContext(activeOrg.id);
+    documentStore.init().catch(() => { }).then(() => {
+      if (cancelled || !editDocId) return;
+      const doc = documentStore.getById(editDocId);
+      if (!doc || doc.type !== 'proforma') { setLoadError('This proforma could not be found.'); return; }
+      setFormData(formFromDoc(doc));
+    });
+    return () => { cancelled = true; };
+  }, [activeOrg?.id, editDocId]);
 
   // Close client dropdown on outside click
   useEffect(() => {
@@ -272,6 +307,7 @@ export default function ProformaInvoiceForm() {
       total_sgst: totals.totalSGST,
       grand_total: totals.grandTotal,
       notes: formData.notes,
+      ...(status === 'draft' ? { editor_form: formData } : {}),
       created_at: new Date().toISOString(),
     };
   };
@@ -299,52 +335,61 @@ export default function ProformaInvoiceForm() {
     }
   };
 
+  // Editing a draft saves into it; a new one is inserted.
+  const persist = (status, customerId) => (editDocId
+    ? documentStore.saveEdit(editDocId, buildDocument(status, customerId), { send: status === 'sent' }).then((r) => r.doc)
+    : documentStore.save(buildDocument(status, customerId)));
+
   const handleSaveDraft = async () => {
-    const customerId = await syncCustomer();
-    await documentStore.save(buildDocument('draft', customerId));
-    toast('Proforma invoice saved as draft', 'success');
-    navigate('/proforma');
+    if (saving) return;
+    setSaving(true);
+    try {
+      const customerId = await syncCustomer();
+      await persist('draft', customerId);
+      toast('Proforma saved as a draft. Open it in Money to carry on.', 'success');
+      navigate('/money/invoices?type=proforma');
+    } catch (err) {
+      toast(err.message || 'Could not save the proforma', 'error');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleSendToClient = async () => {
-    if (!formData.clientName && !formData.clientCompany) {
-      toast('Please fill in client details before sending', 'warning');
-      return;
-    }
+    if (saving) return;
+    setSaving(true);
     // The row id and the document number are assigned by the database, so the
     // save has to complete before there is anything to link to.
-    const customerId = await syncCustomer();
-    const doc = await documentStore.save(buildDocument('sent', customerId));
+    let doc;
+    try {
+      const customerId = await syncCustomer();
+      doc = await persist('sent', customerId);
+    } catch (err) {
+      toast(err.message || 'Could not create the proforma', 'error');
+      setSaving(false);
+      return;
+    }
     documentStore.addNotification({
       type: 'proforma_sent',
       title: 'Proforma Invoice Sent',
       message: `${doc.doc_number || formData.proformaNumber} sent to ${formData.clientCompany || formData.clientName}`,
     });
 
-    let issued;
-    try {
-      issued = await createPortalLink({
-        orgId: activeOrg?.id,
-        documentId: doc.id,
-        recipientEmail: formData.clientEmail,
-      });
-    } catch (err) {
-      toast('Saved, but the portal link could not be created: ' + err.message, 'error');
-      return;
+    // With a phone number, WhatsApp opens with the message and the link ready.
+    const phone = (formData.clientPhone || '').replace(/[^0-9]/g, '');
+    if (phone) {
+      try {
+        const issued = await createPortalLink({ orgId: activeOrg?.id, documentId: doc.id, recipientEmail: formData.clientEmail });
+        const message = `Hi ${formData.clientName},\n\nPlease find your proforma invoice *${doc.doc_number || ''}* from *${company.company_name}*.\n\nTotal: ₹${totals.grandTotal.toLocaleString('en-IN')}\nAdvance (${activeAdvancePercent}%): ₹${totals.advanceAmount.toLocaleString('en-IN')}\nDue: ${formData.dueDate}\n\nView & respond here:\n${issued.url}\n\nThank you!`;
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank', 'noopener');
+      } catch (err) {
+        toast('Created, but the client link could not be made: ' + err.message, 'error');
+      }
     }
-    const portalUrl = issued.url;
-
-    // Open WhatsApp with pre-filled message
-    const phone = (formData.clientPhone || '').replace(/[^0-9+]/g, '');
-    const message = `Hi ${formData.clientName},\n\nPlease find your proforma invoice *${doc.id}* from *${company.company_name}*.\n\nTotal: ₹${totals.grandTotal.toLocaleString('en-IN')}\nAdvance (${activeAdvancePercent}%): ₹${totals.advanceAmount.toLocaleString('en-IN')}\nDue: ${formData.dueDate}\n\nView & respond here:\n${portalUrl}\n\nThank you!`;
-    const waUrl = `https://wa.me/${phone.replace('+', '')}?text=${encodeURIComponent(message)}`;
-    window.open(waUrl, '_blank');
-
-    setSavedDocId(doc.id);
-    setPortalLink(issued);
-    setShowPortalLink(true);
-    toast('Proforma sent — WhatsApp opened', 'success');
-    setTimeout(() => navigate('/proforma'), 2000);
+    setSaving(false);
+    toast(doc.doc_number ? `Proforma ${doc.doc_number} created` : 'Proforma created', 'success');
+    // Its sheet in Money has the PDF, the client link and conversion.
+    navigate(`/money/invoices?doc=${doc.id}`);
   };
 
   return (
@@ -352,28 +397,19 @@ export default function ProformaInvoiceForm() {
       {/* LEFT: Form */}
       <div className="mou-form-pane">
         <form onSubmit={(e) => e.preventDefault()} className="easy-form animate-in" style={{ maxWidth: '100%' }}>
-          {/* Header with Back button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-            <button
-              type="button"
-              onClick={() => navigate('/proforma')}
-              style={{
-                background: 'none', border: '1px solid var(--border-default)', borderRadius: '8px',
-                padding: '0.5rem 0.75rem', cursor: 'pointer', color: 'var(--text-secondary)',
-                fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem'
-              }}
-            >
-              <ArrowLeft size={16} /> Back
-            </button>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>New Proforma Invoice</h2>
-          </div>
+          {loadError && <p className="sb-steps-err" role="alert">{loadError}</p>}
 
+          <DocSteps
+            onDraft={handleSaveDraft}
+            onCreate={handleSendToClient}
+            createLabel={saving ? 'Creating…' : 'Create proforma'}
+            busy={saving}
+            finalNote={(formData.clientPhone || '').replace(/[^0-9]/g, '')
+              ? 'WhatsApp opens with the proforma and its link, ready to send.'
+              : 'It opens in Money, where you can download the PDF or share a link with the client.'}
+          >
           {/* 1. Client Details */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">1</div>
-              <span className="easy-section-title">Client details</span>
-            </div>
+          <Step title="Client" validate={() => (String(formData.clientName || formData.clientCompany || '').trim() ? '' : "Enter the client's name.")}>
             <div className="easy-row">
               <div className="easy-field" ref={clientDropdownRef} style={{ position: 'relative' }}>
                 <label className="easy-lbl">Client name</label>
@@ -409,8 +445,33 @@ export default function ProformaInvoiceForm() {
                   className="easy-inp"
                 />
               </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Client email</label>
+                <input aria-label="Client email"
+                  type="email"
+                  placeholder="billing@client.com"
+                  value={formData.clientEmail}
+                  onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                  className="easy-inp"
+                />
+              </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Client phone (WhatsApp)</label>
+                <input aria-label="Client phone (WhatsApp)"
+                  type="tel"
+                  placeholder="+91 98765 43210"
+                  value={formData.clientPhone}
+                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                  className="easy-inp"
+                />
+              </div>
+            </div>
+          </Step>
+
+          <Step title="Billing">
+            <div className="easy-row">
               <div className="easy-field full">
-                <label className="easy-lbl">Client address</label>
+                <label className="easy-lbl">Billing address</label>
                 <input aria-label="Client address"
                   type="text"
                   placeholder="Full billing address"
@@ -439,35 +500,12 @@ export default function ProformaInvoiceForm() {
                   onChange={(code) => setFormData({ ...formData, clientCountry: code || '' })}
                 />
               </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Client email</label>
-                <input aria-label="Client email"
-                  type="email"
-                  placeholder="billing@client.com"
-                  value={formData.clientEmail}
-                  onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-                  className="easy-inp"
-                />
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Client phone (WhatsApp)</label>
-                <input aria-label="Client phone (WhatsApp)"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={formData.clientPhone}
-                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                  className="easy-inp"
-                />
-              </div>
             </div>
-          </div>
+            <span className="sb-hint" style={{ marginTop: 12 }}>All optional. The GSTIN and country decide how GST is shown.</span>
+          </Step>
 
           {/* 2. Proforma Details */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">2</div>
-              <span className="easy-section-title">Proforma details</span>
-            </div>
+          <Step title="Proforma details">
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Proforma number</label>
@@ -497,66 +535,11 @@ export default function ProformaInvoiceForm() {
                   className="easy-inp"
                 />
               </div>
-              <div className="easy-field full">
-                <label className="easy-lbl">Advance required</label>
-                <div className="easy-chips">
-                  {ADVANCE_PRESETS.map((pct) => (
-                    <button
-                      key={pct}
-                      type="button"
-                      onClick={() => handleAdvancePreset(pct)}
-                      aria-pressed={!!(!formData.isCustomAdvance && formData.advancePercent === pct)} className={`easy-chip ${!formData.isCustomAdvance && formData.advancePercent === pct ? 'active' : ''}`}
-                    >
-                      {pct}%
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={handleCustomAdvance}
-                    aria-pressed={!!formData.isCustomAdvance} className={`easy-chip ${formData.isCustomAdvance ? 'active' : ''}`}
-                  >
-                    Custom
-                  </button>
-                </div>
-                {formData.isCustomAdvance && (
-                  <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      placeholder="Enter %"
-                      value={formData.customAdvancePercent}
-                      onChange={(e) =>
-                        setFormData({ ...formData, customAdvancePercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })
-                      }
-                      className="easy-inp"
-                      style={{ width: '90px', textAlign: 'center' }}
-                    />
-                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>%</span>
-                  </div>
-                )}
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Advance amount</label>
-                <div style={{ padding: '0.625rem 0', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9375rem' }}>
-                  {fmt(totals.advanceAmount)}
-                </div>
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Balance due</label>
-                <div style={{ padding: '0.625rem 0', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9375rem' }}>
-                  {fmt(totals.balanceDue)}
-                </div>
-              </div>
             </div>
-          </div>
+          </Step>
 
           {/* 3. Line Items */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">3</div>
-              <span className="easy-section-title">Line items</span>
-            </div>
+          <Step title="Items" validate={() => (formData.items.some((i) => String(i.description || '').trim()) ? '' : 'Add at least one item with a description.')}>
 
             {formData.items.map((item, index) => {
               const calc = itemCalcs[index];
@@ -663,13 +646,62 @@ export default function ProformaInvoiceForm() {
             <button type="button" onClick={handleAddItem} className="easy-add-btn">
               <Plus size={16} /> Add item
             </button>
-          </div>
+          </Step>
 
           {/* 4. Totals */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">4</div>
-              <span className="easy-section-title">Totals</span>
+          <Step title="Advance & totals">
+            <div className="easy-row" style={{ marginBottom: 14 }}>
+              <div className="easy-field full">
+                <label className="easy-lbl">Advance required</label>
+                <div className="easy-chips">
+                  {ADVANCE_PRESETS.map((pct) => (
+                    <button
+                      key={pct}
+                      type="button"
+                      onClick={() => handleAdvancePreset(pct)}
+                      aria-pressed={!!(!formData.isCustomAdvance && formData.advancePercent === pct)} className={`easy-chip ${!formData.isCustomAdvance && formData.advancePercent === pct ? 'active' : ''}`}
+                    >
+                      {pct}%
+                    </button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={handleCustomAdvance}
+                    aria-pressed={!!formData.isCustomAdvance} className={`easy-chip ${formData.isCustomAdvance ? 'active' : ''}`}
+                  >
+                    Custom
+                  </button>
+                </div>
+                {formData.isCustomAdvance && (
+                  <div style={{ marginTop: '0.75rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <input
+                      type="number"
+                      min="0"
+                      max="100"
+                      placeholder="Enter %"
+                      value={formData.customAdvancePercent}
+                      onChange={(e) =>
+                        setFormData({ ...formData, customAdvancePercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)) })
+                      }
+                      className="easy-inp"
+                      style={{ width: '90px', textAlign: 'center' }}
+                    />
+                    <span style={{ color: 'var(--text-muted)', fontSize: '0.8125rem' }}>%</span>
+                  </div>
+                )}
+              </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Advance amount</label>
+                <div style={{ padding: '0.625rem 0', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9375rem' }}>
+                  {fmt(totals.advanceAmount)}
+                </div>
+              </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Balance due</label>
+                <div style={{ padding: '0.625rem 0', fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.9375rem' }}>
+                  {fmt(totals.balanceDue)}
+                </div>
+              </div>
             </div>
 
             <div className="easy-totals">
@@ -709,14 +741,10 @@ export default function ProformaInvoiceForm() {
                 <span>{fmt(totals.balanceDue)}</span>
               </div>
             </div>
-          </div>
+          </Step>
 
           {/* 5. Notes */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">5</div>
-              <span className="easy-section-title">Notes</span>
-            </div>
+          <Step title="Notes">
             <div className="easy-field">
               <label className="easy-lbl">Notes / terms</label>
               <textarea aria-label="Notes / terms"
@@ -731,29 +759,9 @@ export default function ProformaInvoiceForm() {
             <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.5rem', lineHeight: 1.5 }}>
               Note is pre-filled with GST disclaimer. Edit as needed.
             </p>
-          </div>
+          </Step>
 
-          {/* 6. Actions */}
-          <div className="form-actions">
-            <button type="button" onClick={handleSaveDraft} className="easy-submit-outline">
-              <Save size={16} /> Save Draft
-            </button>
-            <button
-              type="button"
-              onClick={handleSendToClient}
-              className="easy-submit"
-            >
-              <Send size={16} /> Send to client
-            </button>
-          </div>
-
-          {/* Portal Link Generator */}
-          {showPortalLink && savedDocId && (
-            <div style={{ marginTop: '1.5rem' }}>
-              <PortalLinkGenerator documentId={savedDocId} documentType="proforma" link={portalLink} />
-            </div>
-          )}
-
+          </DocSteps>
         </form>
       </div>
 
@@ -761,9 +769,6 @@ export default function ProformaInvoiceForm() {
       <div className="mou-preview-pane">
         <div className="mou-preview-toolbar">
           <span className="mou-preview-toolbar-label">Live Preview</span>
-          <button type="button" className="easy-submit-outline" style={{ padding: '0.375rem 0.875rem', fontSize: '0.75rem', width: 'auto' }}>
-            <Eye size={14} /> Preview
-          </button>
         </div>
         <A4Stage>
           <ProformaPreview formData={formData} totals={totals} itemCalcs={itemCalcs} company={company} activeAdvancePercent={activeAdvancePercent} />

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { Plus, Trash2, Eye, Send, Save, ArrowLeft } from 'lucide-react';
+import { Plus, Trash2, Eye } from 'lucide-react';
 import { documentStore, docNumber } from '../../services/documentStore';
 import { createPortalLink } from '../../services/portalService';
 import { customerService } from '../../services/customerService';
@@ -11,6 +11,7 @@ import { productToLineItem } from '../../services/catalogService';
 import CountrySelect from '../shared/CountrySelect';
 import { useToast } from '../shared/Toast';
 import A4Stage from '../shared/A4Stage';
+import DocSteps, { Step } from '../shared/DocSteps';
 
 const UNIT_OPTIONS = ['Hrs', 'Units', 'Nos', 'Kg', 'Ltr'];
 const GST_RATES = [0, 5, 12, 18, 28];
@@ -438,8 +439,8 @@ export default function QuotationForm({ editDocId }) {
       } else {
         await documentStore.save(buildDocument('draft', customerId));
       }
-      toast('Quotation saved as draft', 'success');
-      navigate('/quotations');
+      toast('Quotation saved as a draft. Open it in Money to carry on.', 'success');
+      navigate('/money/invoices?type=quotation');
     } catch (err) {
       toast(err.message || 'Could not save the quotation', 'error');
     } finally {
@@ -511,14 +512,14 @@ export default function QuotationForm({ editDocId }) {
       });
     } catch (err) {
       toast(`Quotation saved, but the link could not be created: ${err.message}`, 'error');
-      navigate('/quotations');
+      navigate(`/money/invoices?doc=${doc.id}`);
       return;
     }
 
     const email = (formData.clientEmail || '').trim();
     if (!email) {
-      toast(`${label} sent — link created. Copy it from the Quotations list to share.`, 'success');
-      navigate('/quotations');
+      toast(`${label} created. Copy its link here to share it with the client.`, 'success');
+      navigate(`/money/invoices?doc=${doc.id}`);
       return;
     }
 
@@ -543,7 +544,7 @@ export default function QuotationForm({ editDocId }) {
       // can still be copied from the list.
       toast(`${label} saved and link created, but the email failed: ${mail.message}`, 'error');
     }
-    navigate('/quotations');
+    navigate(`/money/invoices?doc=${doc.id}`);
   };
 
   return (
@@ -555,30 +556,21 @@ export default function QuotationForm({ editDocId }) {
           style={{ maxWidth: '100%' }}
           onSubmit={(e) => e.preventDefault()}
         >
-          {/* Header with Back button */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.25rem' }}>
-            <button
-              type="button"
-              onClick={() => navigate('/quotations')}
-              style={{
-                background: 'none', border: '1px solid var(--border-default)', borderRadius: '8px',
-                padding: '0.5rem 0.75rem', cursor: 'pointer', color: 'var(--text-secondary)',
-                fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.4rem'
-              }}
-            >
-              <ArrowLeft size={16} /> Back
-            </button>
-            <h2 style={{ fontSize: '1rem', fontWeight: 700, margin: 0 }}>{isRevision ? `Revise ${formData.quotationNumber}` : isEditing ? 'Edit Quotation' : 'New Quotation'}</h2>
-          </div>
-
           {isRevision && <RevisionBanner version={version} />}
 
+          <DocSteps
+            // A sent quotation has no draft state to save into: the client
+            // already holds a version, and the next one exists once it is sent.
+            onDraft={isRevision ? undefined : handleSaveDraft}
+            onCreate={handleSendToClient}
+            createLabel={saving ? 'Creating…' : isRevision ? `Send ${version.next}` : 'Create quote'}
+            busy={saving}
+            finalNote={(formData.clientEmail || '').trim()
+              ? `${(formData.clientEmail || '').trim()} gets an email with a link to view and accept it.`
+              : "Add the client's email to send it to them, or share its link from Money."}
+          >
           {/* 1. Client Details */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">1</div>
-              <span className="easy-section-title">Client details</span>
-            </div>
+          <Step title="Client" validate={() => (String(formData.clientName || '').trim() ? '' : "Enter the client's name.")}>
             <div className="easy-row">
               <div className="easy-field" ref={clientDropdownRef} style={{ position: 'relative' }}>
                 <label className="easy-lbl">Client name</label>
@@ -618,8 +610,33 @@ export default function QuotationForm({ editDocId }) {
                   className="easy-inp"
                 />
               </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Client email</label>
+                <input aria-label="Client email"
+                  type="email"
+                  placeholder="client@company.com"
+                  value={formData.clientEmail}
+                  onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
+                  className="easy-inp"
+                />
+              </div>
+              <div className="easy-field">
+                <label className="easy-lbl">Client phone</label>
+                <input aria-label="Client phone"
+                  type="tel"
+                  placeholder="+91 98765 43210"
+                  value={formData.clientPhone}
+                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
+                  className="easy-inp"
+                />
+              </div>
+            </div>
+          </Step>
+
+          <Step title="Billing">
+            <div className="easy-row">
               <div className="easy-field full">
-                <label className="easy-lbl">Client address</label>
+                <label className="easy-lbl">Billing address</label>
                 <input aria-label="Client address"
                   type="text"
                   placeholder="Full billing address"
@@ -649,35 +666,12 @@ export default function QuotationForm({ editDocId }) {
                   onChange={(code) => setFormData({ ...formData, clientCountry: code || '' })}
                 />
               </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Client email</label>
-                <input aria-label="Client email"
-                  type="email"
-                  placeholder="client@company.com"
-                  value={formData.clientEmail}
-                  onChange={(e) => setFormData({ ...formData, clientEmail: e.target.value })}
-                  className="easy-inp"
-                />
-              </div>
-              <div className="easy-field">
-                <label className="easy-lbl">Client phone</label>
-                <input aria-label="Client phone"
-                  type="tel"
-                  placeholder="+91 98765 43210"
-                  value={formData.clientPhone}
-                  onChange={(e) => setFormData({ ...formData, clientPhone: e.target.value })}
-                  className="easy-inp"
-                />
-              </div>
             </div>
-          </div>
+            <span className="sb-hint" style={{ marginTop: 12 }}>All optional. The GSTIN and country decide how GST is shown.</span>
+          </Step>
 
           {/* 2. Quotation Details */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">2</div>
-              <span className="easy-section-title">Quotation details</span>
-            </div>
+          <Step title="Quote details">
             <div className="easy-row">
               <div className="easy-field">
                 <label className="easy-lbl">Quotation number</label>
@@ -752,14 +746,10 @@ export default function QuotationForm({ editDocId }) {
                 </div>
               </div>
             </div>
-          </div>
+          </Step>
 
           {/* 3. Line Items */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">3</div>
-              <span className="easy-section-title">Line items</span>
-            </div>
+          <Step title="Items" validate={() => (formData.items.some((i) => String(i.description || '').trim()) ? '' : 'Add at least one item with a description.')}>
 
             {formData.items.map((item, index) => (
               <div key={item.id} className="easy-line-item">
@@ -852,8 +842,12 @@ export default function QuotationForm({ editDocId }) {
               <Plus size={16} /> Add item
             </button>
 
+          </Step>
+
+          {/* 4. Totals */}
+          <Step title="Tax & totals">
             {/* GST Toggle */}
-            <div style={{ marginTop: '1rem' }}>
+            <div style={{ marginBottom: 14 }}>
               <button
                 type="button" role="switch" aria-checked={!!formData.enableGst}
                 className={`easy-switch-row ${formData.enableGst ? 'active' : ''}`}
@@ -879,14 +873,6 @@ export default function QuotationForm({ editDocId }) {
                   </div>
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* 4. Totals */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">4</div>
-              <span className="easy-section-title">Totals</span>
             </div>
 
             <div className="easy-totals">
@@ -955,14 +941,10 @@ export default function QuotationForm({ editDocId }) {
                 {totals.amountInWords}
               </p>
             )}
-          </div>
+          </Step>
 
           {/* 5. Notes */}
-          <div className="easy-section">
-            <div className="easy-section-head">
-              <div className="easy-num">5</div>
-              <span className="easy-section-title">Notes & terms</span>
-            </div>
+          <Step title="Notes & terms">
             <div className="easy-row">
               <div className="easy-field full">
                 <label className="easy-lbl">Payment instructions</label>
@@ -997,26 +979,9 @@ export default function QuotationForm({ editDocId }) {
             >
               Note: This is not a tax invoice. This document is a quotation/estimate only.
             </p>
-          </div>
+          </Step>
 
-          {/* 6. Actions */}
-          <div className="form-actions">
-            {/* A sent quotation has no draft state to save into: the client
-                already holds a version, and the next one exists once it is sent. */}
-            {!isRevision && (
-              <button type="button" onClick={handleSaveDraft} disabled={saving} className="easy-submit-outline">
-                <Save size={16} /> Save Draft
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={handleSendToClient}
-              disabled={saving}
-              className="easy-submit"
-            >
-              <Send size={16} /> {saving ? 'Sending…' : isRevision ? `Send ${version.next} to client` : 'Send to client'}
-            </button>
-          </div>
+          </DocSteps>
         </form>
       </div>
 
