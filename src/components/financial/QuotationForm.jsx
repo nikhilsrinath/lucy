@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Plus, Trash2, Eye, Send, Save, ArrowLeft } from 'lucide-react';
 import { documentStore, docNumber } from '../../services/documentStore';
 import { createPortalLink } from '../../services/portalService';
@@ -52,6 +52,9 @@ function formatDate(dateStr) {
 
 export default function QuotationForm({ editDocId }) {
   const navigate = useNavigate();
+  const location = useLocation();
+  const slashPrefill = location.state?.slashPrefill;
+  const autoSubmitRef = useRef(false);
   const toast = useToast();
   const { activeOrg } = useOrg();
   const savedClients = documentStore.getSavedClients();
@@ -90,7 +93,7 @@ export default function QuotationForm({ editDocId }) {
   const isRevision = isEditing && !!version?.published;
 
   const [formData, setFormData] = useState(() => ({
-    clientName: '',
+    clientName: slashPrefill?.clientName || '',
     clientCompany: '',
     clientAddress: '',
     clientGstin: '',
@@ -105,10 +108,10 @@ export default function QuotationForm({ editDocId }) {
     revision: 'v1',
     discountType: 'percent',
     discountValue: 0,
-    enableGst: false,
-    gstRate: 18,
+    enableGst: Number(slashPrefill?.gstRate) > 0,
+    gstRate: Number(slashPrefill?.gstRate ?? 18),
     items: [
-      { id: Date.now(), description: '', quantity: 1, unit: 'Nos', rate: 0, hsnSac: '' },
+      { id: Date.now(), description: slashPrefill?.description || '', quantity: 1, unit: 'Nos', rate: Number(slashPrefill?.amount) || 0, hsnSac: '' },
     ],
     paymentInstructions: '',
     terms: '',
@@ -443,6 +446,13 @@ export default function QuotationForm({ editDocId }) {
       setSaving(false);
     }
   };
+
+  useEffect(() => {
+    if (!location.state?.autoSubmit || autoSubmitRef.current || !slashPrefill?.clientName || !slashPrefill?.description) return;
+    autoSubmitRef.current = true;
+    const timer = setTimeout(() => handleSaveDraft(), 0);
+    return () => clearTimeout(timer);
+  }, [location.state?.autoSubmit, slashPrefill?.clientName, slashPrefill?.description]);
 
   const handleSendToClient = async () => {
     if (!formData.clientName) {

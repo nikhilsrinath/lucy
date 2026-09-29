@@ -65,7 +65,7 @@ export default function SlashPalette({
                         <div className="sb-slash-info">
                             <div className="sb-slash-name-row">
                                 <span className="sb-slash-name">/{cmd.name}</span>
-                                {cmd.instant && <span className="sb-slash-badge instant">Instant ⚡</span>}
+                                {cmd.instant && <span className="sb-slash-badge instant">Instant</span>}
                                 {cmd.category && <span className="sb-slash-cat">{cmd.category}</span>}
                             </div>
                             <span className="sb-slash-desc">{cmd.description}</span>

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { speakable, sentencesOf, pickVoice, tidyTranscript } from './voice';
+import { speakable, sentencesOf, pickVoice, voiceGender, tidyTranscript } from './voice';
 
 describe('speakable', () => {
   it('reads the words, not the Markdown', () => {
@@ -51,6 +51,23 @@ describe('pickVoice', () => {
     expect(pickVoice(voices.slice(0, 2)).name).toBe('Google US English');
     expect(pickVoice([])).toBeNull();
   });
+
+  it('gives each cofounder a voice of their own', async () => {
+    const { PERSONAS } = await import('../design/personas');
+    const edge = ['Neerja', 'Prabhat', 'Sonia', 'Christopher', 'Jenny', 'Ryan', 'Guy', 'Natasha']
+      .map((n) => ({ name: `Microsoft ${n} Online (Natural) - English`, lang: 'en-IN', localService: false }));
+    const chrome = [
+      { name: 'Google US English', lang: 'en-US' }, { name: 'Google UK English Female', lang: 'en-GB' },
+      { name: 'Google UK English Male', lang: 'en-GB' }, { name: 'Microsoft Heera - English (India)', lang: 'en-IN' },
+      { name: 'Microsoft Ravi - English (India)', lang: 'en-IN' }, { name: 'Microsoft David - English (United States)', lang: 'en-US' },
+      { name: 'Microsoft Mark - English (United States)', lang: 'en-US' }, { name: 'Microsoft Zira - English (United States)', lang: 'en-US' },
+    ];
+    for (const voices of [edge, chrome]) {
+      const picked = PERSONAS.map((p) => pickVoice(voices, p.voice));
+      expect(new Set(picked.map((v) => v.name)).size).toBe(PERSONAS.length);
+      PERSONAS.forEach((p, i) => expect(voiceGender(picked[i])).toBe(p.voice.gender));
+    }
+  });
 });
 
 describe('tidyTranscript', () => {
@@ -73,8 +90,8 @@ describe('fillers', () => {
 
   it('never says the same filler twice in a row', async () => {
     const { pickFiller } = await import('./voice');
-    const first = pickFiller('generic', () => 0);
-    const second = pickFiller('generic', () => 0);
+    const first = pickFiller('generic', null, () => 0);
+    const second = pickFiller('generic', null, () => 0);
     expect(second).not.toBe(first);
   });
 });

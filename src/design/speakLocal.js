@@ -1,9 +1,10 @@
 import { pickVoice } from '../services/voice';
 
 /* Local speech for things that must not reach the model: the carousel's
-   sample line and the onboarding call's greeting. The browser's own
-   speechSynthesis — no request, nothing metered. Each persona gets its own
-   pitch and rate, which is the whole of what "their voice" means here. */
+   sample line, the onboarding call's greeting and a chat answer read aloud.
+   The browser's own speechSynthesis — no request, nothing metered. Each
+   persona gets its own voice (their gender, from their own shortlist) and
+   their own pitch and rate. */
 
 const canSpeak = () => typeof window !== 'undefined' && 'speechSynthesis' in window;
 
@@ -16,7 +17,7 @@ export function speakSample(persona, text, { onStart, onEnd, onBoundary } = {}) 
     if (!canSpeak() || !text) return false;
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
-    const voice = pickVoice(window.speechSynthesis.getVoices());
+    const voice = pickVoice(window.speechSynthesis.getVoices(), persona?.voice);
     if (voice) u.voice = voice;
     u.lang = voice?.lang || 'en-IN';
     u.pitch = persona?.voice?.pitch ?? 1;

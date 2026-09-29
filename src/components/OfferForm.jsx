@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { Upload, CheckCircle, ChevronRight, Eye, Send, Loader, ExternalLink, Copy, X } from 'lucide-react';
 import { pdfService } from '../services/pdfService';
 import { storageService } from '../services/storageService';
@@ -22,6 +22,9 @@ function getDisplayName(emp) {
 
 export default function OfferForm() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const slashPrefill = location.state?.slashPrefill;
+  const autoSubmitRef = useRef(false);
   const { user } = useAuth();
   const { activeOrg } = useOrg();
   const [employees, setEmployees] = useState([]);
@@ -59,20 +62,20 @@ export default function OfferForm() {
     stampUrl: org.stamp_url || '',
     stampCity: org.stamp_city || '',
     showStamp: true,
-    studentName: '',
+    studentName: slashPrefill?.studentName || '',
     signature: org.signature_url || null,
     studentAddress: '',
     email: '',
     phone: '',
-    role: '',
-    department: '',
+    role: slashPrefill?.role || '',
+    department: slashPrefill?.department || '',
     supervisorName: '',
     responsibilities: '',
-    startDate: '',
+    startDate: slashPrefill?.startDate || '',
     endDate: '',
     acceptanceDeadline: '',
     isPaid: false,
-    stipend: '',
+    stipend: slashPrefill?.stipend || 0,
     currency: 'INR',
     paymentFrequency: 'Monthly'
   });
@@ -138,6 +141,13 @@ export default function OfferForm() {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    if (!location.state?.autoSubmit || autoSubmitRef.current || !slashPrefill?.studentName || !slashPrefill?.role) return;
+    autoSubmitRef.current = true;
+    const timer = setTimeout(() => handleSubmit({ preventDefault() {} }), 0);
+    return () => clearTimeout(timer);
+  }, [location.state?.autoSubmit, slashPrefill?.studentName, slashPrefill?.role]);
 
   const handlePreview = async () => {
     const resolved = await resolveFormImages(formData, ['companyLogo', 'signature', 'stampUrl']);

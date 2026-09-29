@@ -8,8 +8,8 @@
 // Pure functions except pickVoice, which only reads the list it is given.
 
 /** Added to the question sent to the model during a call — never shown in the chat. */
-export const VOICE_INSTRUCTION = '(This is a live phone-style voice call. Reply the way a sharp colleague '
-  + 'would out loud: one or two short sentences, under 35 words in total. Lead with the answer itself — '
+export const VOICE_INSTRUCTION = '(This is a live phone-style voice call. Reply the way you would out loud, '
+  + 'in your own persona and manner: one or two short sentences, under 35 words in total. Lead with the answer itself — '
   + 'no greeting, no restating the question, no "Great question". Plain spoken words only: no lists, '
   + 'tables, headings, symbols or Markdown. Round figures the way people say them, like "about 4.5 lakh". '
   + 'If there is more worth knowing, end with a very short offer such as "Want the breakdown?")';
@@ -37,9 +37,13 @@ export function fillerKind(question = '') {
   return 'generic';
 }
 
-/** A filler line for this moment. `random` is injectable for tests. */
-export function pickFiller(kind, random = Math.random) {
-  const pool = (FILLERS[kind] || FILLERS.generic).filter((f) => f !== lastFiller);
+/**
+ * A filler line for this moment, in the cofounder's own words when `own`
+ * (a persona's `fillers`) has some for this kind. `random` is injectable for tests.
+ */
+export function pickFiller(kind, own = null, random = Math.random) {
+  const lines = own?.[kind]?.length ? own[kind] : (FILLERS[kind] || FILLERS.generic);
+  const pool = lines.filter((f) => f !== lastFiller);
   lastFiller = pool[Math.floor(random() * pool.length)] || pool[0];
   return lastFiller;
 }
@@ -97,14 +101,35 @@ export function sentencesOf(text, final = true) {
   return out;
 }
 
+// Who a voice sounds like, from its name. Browsers do not report gender, so
+// this is the names that ship in Edge, Chrome, Windows and macOS. "female"
+// is tested first: it contains "male".
+const FEMALE = /female|\b(neerja|heera|veena|kalpana|aria|jenny|ana|michelle|emma|ava|sonia|libby|maisie|hazel|susan|zira|natasha|clara|emily|molly|luna|leah|samantha|karen|moira|tessa|fiona|victoria)\b|google us english/i;
+const MALE = /\bmale\b|\b(prabhat|ravi|hemant|rishi|guy|christopher|eric|roger|steffan|andrew|brian|ryan|thomas|george|david|mark|william|liam|connor|mitchell|wayne|luke|alex|daniel|fred|james)\b/i;
+
+/** 'f', 'm', or null when the name does not say. */
+export function voiceGender(v) {
+  const name = v?.name || '';
+  if (FEMALE.test(name)) return 'f';
+  if (MALE.test(name)) return 'm';
+  return null;
+}
+
 /**
- * The most natural English voice available. Edge's "Online (Natural)" voices
- * and Chrome's Google voices are far better than the old system ones, and an
- * Indian English voice says ₹, lakh and Indian names properly.
+ * The best English voice available for `style` — a persona's
+ * `{ gender, prefer }` (see src/design/personas.js). Without a style, simply
+ * the most natural one. Edge's "Online (Natural)" voices and Chrome's Google
+ * voices are far better than the old system ones, and an Indian English voice
+ * says ₹, lakh and Indian names properly.
+ *
+ * With a style, the right gender outweighs everything, and the persona's own
+ * shortlist (in order) decides between good voices — so two cofounders of the
+ * same gender land on different voices wherever the browser has more than one.
  */
-export function pickVoice(voices = []) {
+export function pickVoice(voices = [], style = null) {
   const en = voices.filter((v) => /^en[-_]/i.test(v.lang || '') || /^en$/i.test(v.lang || ''));
   if (!en.length) return voices[0] || null;
+  const prefer = (style?.prefer || []).map((n) => n.toLowerCase());
   const score = (v) => {
     const name = v.name || '';
     const lang = (v.lang || '').replace('_', '-').toLowerCase();
@@ -115,8 +140,14 @@ export function pickVoice(voices = []) {
     if (lang === 'en-in') s += 30;
     else if (lang === 'en-gb') s += 8;
     else if (lang === 'en-us') s += 6;
-    if (/female|neerja|aria|jenny|sonia|libby/i.test(name)) s += 2;
     if (v.localService === false) s += 3;
+    if (style?.gender) {
+      const g = voiceGender(v);
+      if (g === style.gender) s += 60;
+      else if (g) s -= 80;
+    } else if (/female|neerja|aria|jenny|sonia|libby/i.test(name)) s += 2;
+    const i = prefer.findIndex((n) => name.toLowerCase().includes(n));
+    if (i >= 0) s += Math.max(30, 80 - 8 * i);
     return s;
   };
   return [...en].sort((a, b) => score(b) - score(a))[0];

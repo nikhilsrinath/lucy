@@ -1,5 +1,5 @@
 import {
-    cashPosition, profitAndLoss, taxSummary, paymentPosition, issuedInvoices, isOverdue, todayIso, periodBounds,
+    cashPosition, profitAndLoss, taxSummary, issuedInvoices, isOverdue, todayIso, periodBounds,
 } from '../services/financeAnalytics';
 import { inr, taskBuckets } from './brief';
 import { orgStore } from '../services/orgStore';
@@ -150,7 +150,6 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         category: 'Actions',
         description: 'Create a new tax invoice or draft',
         icon: 'invoice',
-        prompt: 'Create a new invoice for ',
         navigate: '/money/invoices/new',
     },
     {
@@ -159,7 +158,6 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         category: 'Actions',
         description: 'Create a new quotation for a client',
         icon: 'quote',
-        prompt: 'Make a quotation for ',
         navigate: '/money/quotations/new',
     },
     {
@@ -168,7 +166,6 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         category: 'Actions',
         description: 'Log an expense (e.g. /expense 4500 office supplies)',
         icon: 'expense',
-        prompt: 'Log an expense: ',
     },
     {
         name: 'income',
@@ -176,7 +173,6 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         category: 'Actions',
         description: 'Log money received (e.g. /income 25000 consulting advance)',
         icon: 'income',
-        prompt: 'Record money in: ',
     },
     {
         name: 'task',
@@ -184,7 +180,6 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         category: 'Actions',
         description: 'Create a new task with deadline and assignee',
         icon: 'task',
-        prompt: 'Add task: ',
     },
     {
         name: 'client',
@@ -192,7 +187,6 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         category: 'Actions',
         description: 'Add a new client or CRM lead',
         icon: 'client',
-        prompt: 'Add a new client named ',
     },
     {
         name: 'offer',
@@ -223,7 +217,8 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         category: 'Tools',
         description: 'Ask EdgeBrain company memory or check status',
         icon: 'brain',
-        prompt: 'Search EdgeBrain memory for ',
+        instant: true,
+        run: () => 'EdgeBrain slash lookup is disabled for deterministic command execution. Use the EdgeBrain panel for knowledge search.',
     },
     {
         name: 'clear',
@@ -274,4 +269,99 @@ export function matchSlashCommands(query = '') {
         c.aliases?.some((a) => a.toLowerCase().includes(q)) ||
         c.description.toLowerCase().includes(q)
     ));
+}
+
+// Structured slash wizards stay entirely in the browser. They intentionally
+// return field values, not prose, so creation commands never enter the agent.
+/* Each question carries a short `name` for the review list, a `placeholder`
+   for the message box and optional `options` offered as one-tap chips. */
+const GST_OPTIONS = ['0', '5', '12', '18', '28'].map((v) => ({ label: `${v}%`, value: v }));
+const SKIP = { label: 'Skip', value: 'skip' };
+
+export const SLASH_WIZARDS = {
+    invoice: { kind: 'invoice', label: 'invoice', title: 'New invoice', questions: [
+        { key: 'clientName', name: 'Client', label: 'Who is this invoice for?', placeholder: 'Client or company name' },
+        { key: 'description', name: 'For', label: 'What are you billing for?', placeholder: 'e.g. Website design, March retainer' },
+        { key: 'amount', name: 'Amount', label: 'What is the line amount?', placeholder: 'Amount in ₹, before GST' },
+        { key: 'gstRate', name: 'GST', label: 'Which GST rate applies?', placeholder: 'Pick a rate or type 0, 5, 12, 18 or 28', options: GST_OPTIONS },
+    ] },
+    quote: { kind: 'quotation', label: 'quotation', title: 'New quote', questions: [
+        { key: 'clientName', name: 'Client', label: 'Who is this quote for?', placeholder: 'Client or company name' },
+        { key: 'description', name: 'For', label: 'What are you quoting for?', placeholder: 'e.g. Mobile app, phase one' },
+        { key: 'amount', name: 'Amount', label: 'What is the line amount?', placeholder: 'Amount in ₹, before GST' },
+        { key: 'gstRate', name: 'GST', label: 'Which GST rate applies?', placeholder: 'Pick a rate or type 0, 5, 12, 18 or 28', options: GST_OPTIONS },
+    ] },
+    offer: { kind: 'offer', label: 'offer letter', title: 'New offer letter', questions: [
+        { key: 'studentName', name: 'Candidate', label: 'Who is the candidate?', placeholder: 'Full name' },
+        { key: 'role', name: 'Role', label: 'What role are you offering?', placeholder: 'e.g. Design intern' },
+        { key: 'department', name: 'Department', label: 'Which department?', placeholder: 'Department, or skip', options: [SKIP] },
+        { key: 'startDate', name: 'Starts', label: 'When do they start?', placeholder: 'YYYY-MM-DD, or skip', options: [SKIP] },
+        { key: 'stipend', name: 'Stipend', label: 'What is the monthly stipend?', placeholder: 'Amount in ₹, or 0 if unpaid', options: [{ label: 'Unpaid', value: '0' }] },
+    ] },
+    expense: { kind: 'expense', label: 'expense', title: 'Log an expense', questions: [
+        { key: 'amount', name: 'Amount', label: 'How much was spent?', placeholder: 'Amount in ₹' },
+        { key: 'description', name: 'For', label: 'What was it for?', placeholder: 'e.g. Figma subscription' },
+    ] },
+    income: { kind: 'income', label: 'income entry', title: 'Log income', questions: [
+        { key: 'amount', name: 'Amount', label: 'How much was received?', placeholder: 'Amount in ₹' },
+        { key: 'description', name: 'For', label: 'What was it for?', placeholder: 'e.g. Consulting fee' },
+    ] },
+    task: { kind: 'task', label: 'task', title: 'New task', questions: [
+        { key: 'title', name: 'Task', label: 'What needs doing?', placeholder: 'Task title' },
+        { key: 'deadline', name: 'Due', label: 'When is it due?', placeholder: 'YYYY-MM-DD, or skip', options: 'dates' },
+    ] },
+    client: { kind: 'client', label: 'client', title: 'New client', questions: [
+        { key: 'clientName', name: 'Name', label: 'What is the client or company called?', placeholder: 'Client or company name' },
+    ] },
+};
+
+export function slashWizardFor(name) {
+    return SLASH_WIZARDS[name] || null;
+}
+
+export function parseSlashAnswer(key, answer) {
+    const value = String(answer || '').trim();
+    if (!value) return { error: 'Please enter a value.' };
+    if (['amount', 'stipend'].includes(key)) {
+        if (value.toLowerCase() === 'skip' && key === 'stipend') return { value: 0 };
+        const number = Number(value.replace(/[,₹$€£]/g, ''));
+        if (!Number.isFinite(number) || number < 0) return { error: 'Enter a valid non-negative amount.' };
+        if (key === 'amount' && number <= 0) return { error: 'Enter an amount greater than zero.' };
+        return { value: number };
+    }
+    if (key === 'gstRate') {
+        const rate = Number(value.replace('%', ''));
+        if (![0, 5, 12, 18, 28].includes(rate)) return { error: 'Use one of these GST rates: 0, 5, 12, 18 or 28.' };
+        return { value: rate };
+    }
+    if (['department', 'startDate', 'deadline'].includes(key) && value.toLowerCase() === 'skip') return { value: '' };
+    if (['startDate', 'deadline'].includes(key) && !/^\d{4}-\d{2}-\d{2}$/.test(value)) return { error: 'Use the date format YYYY-MM-DD, or reply skip.' };
+    return { value };
+}
+
+const isoIn = (days) => {
+    const d = new Date();
+    d.setDate(d.getDate() + days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** One-tap answers for a wizard question; date questions get relative picks. */
+export function wizardOptions(question) {
+    if (question?.options === 'dates') {
+        return [
+            { label: 'Today', value: isoIn(0) },
+            { label: 'Tomorrow', value: isoIn(1) },
+            { label: 'In a week', value: isoIn(7) },
+            SKIP,
+        ];
+    }
+    return question?.options || [];
+}
+
+/** How an accepted answer reads back in the wizard's review list. */
+export function formatWizardValue(key, value) {
+    if (value === '' || value == null) return '—';
+    if (['amount', 'stipend'].includes(key)) return Number(value) ? `₹${Number(value).toLocaleString('en-IN')}` : 'Unpaid';
+    if (key === 'gstRate') return `${value}%`;
+    return String(value);
 }

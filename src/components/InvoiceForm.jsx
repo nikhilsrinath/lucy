@@ -25,6 +25,8 @@ export default function InvoiceForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const [params] = useSearchParams();
+  const slashPrefill = location.state?.slashPrefill;
+  const autoSubmitRef = useRef(false);
   // Opened from a project (its page, or later a milestone) the invoice starts
   // allocated to it; otherwise the picker starts empty and, untouched, saves
   // nothing at all.
@@ -45,7 +47,7 @@ export default function InvoiceForm() {
 
   const org = activeOrg || {};
   const [formData, setFormData] = useState({
-    clientName: '',
+    clientName: slashPrefill?.clientName || '',
     clientEmail: '',
     clientAddress: '',
     invoiceNumber: '',
@@ -60,15 +62,15 @@ export default function InvoiceForm() {
     // the organisation — so this only has to be touched for a buyer the
     // customer record does not already place correctly.
     buyerCountry: '',
-    gstRate: 18,
+    gstRate: Number(slashPrefill?.gstRate ?? 18),
     items: Array.isArray(location.state?.lines) && location.state.lines.length
       ? location.state.lines.map((l, i) => ({
         id: i + 1, description: l.description || '', hsnCode: '', quantity: Number(l.quantity) || 1,
         price: Number(l.rate) || 0, makingCost: 0,
       }))
       : [{
-        id: 1, description: location.state?.line?.description || '', hsnCode: '', quantity: 1,
-        price: Number(location.state?.line?.amount) || 0, makingCost: 0,
+        id: 1, description: slashPrefill?.description || location.state?.line?.description || '', hsnCode: '', quantity: 1,
+        price: Number(slashPrefill?.amount || location.state?.line?.amount) || 0, makingCost: 0,
       }],
     discountRate: 0,
     notes: '',
@@ -415,6 +417,13 @@ export default function InvoiceForm() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (!location.state?.autoSubmit || autoSubmitRef.current || !slashPrefill?.clientName || !formData.invoiceNumber) return;
+    autoSubmitRef.current = true;
+    const timer = setTimeout(() => handleSubmit({ preventDefault() {} }), 0);
+    return () => clearTimeout(timer);
+  }, [location.state?.autoSubmit, slashPrefill?.clientName, formData.invoiceNumber]);
 
   return (
     <div className="mou-split-layout">

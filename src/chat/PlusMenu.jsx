@@ -88,39 +88,39 @@ export default function PlusMenu({
 
     const submenus = {
         actions: {
-            title: 'Quick Actions',
+            title: 'Add to project',
             items: [
-                { label: 'Create Tax Invoice', icon: <IconDoc size={14} />, to: '/money/invoices/new' },
-                { label: 'Create Quotation', icon: <IconDoc size={14} />, to: '/money/quotations/new' },
-                { label: 'Log Cash Out (Expense)', icon: <IconOut size={14} />, prompt: 'Log an expense' },
-                { label: 'Log Cash In (Income)', icon: <IconIn size={14} />, prompt: 'Record money received' },
-                { label: 'Add New Task', icon: <IconTask size={14} />, prompt: 'Add a new task' },
-                { label: 'Add Client / Lead', icon: <IconFolder />, prompt: 'Add a new client' },
+                { label: 'Tax invoice', icon: <IconDoc size={14} />, to: '/money/invoices/new' },
+                { label: 'Quotation', icon: <IconDoc size={14} />, to: '/money/quotations/new' },
+                { label: 'Log an expense', icon: <IconOut size={14} />, prompt: 'Log an expense' },
+                { label: 'Record money in', icon: <IconIn size={14} />, prompt: 'Record money received' },
+                { label: 'Task', icon: <IconTask size={14} />, prompt: 'Add a new task' },
+                { label: 'Client or lead', icon: <IconFolder />, prompt: 'Add a new client' },
             ],
         },
         metrics: {
-            title: 'Financial Intelligence',
+            title: 'Skills & metrics',
             items: [
-                { label: 'Net Cash Position', icon: <IconBolt size={14} />, instant: 'netcash', badge: '0ms' },
-                { label: 'Monthly Revenue & P&L', icon: <IconBolt size={14} />, instant: 'revenue', badge: '0ms' },
-                { label: 'Overdue Invoices', icon: <IconBolt size={14} />, instant: 'overdue', badge: '0ms' },
-                { label: 'Tax & GST Summary', icon: <IconBolt size={14} />, instant: 'tax', badge: '0ms' },
+                { label: 'Net cash position', icon: <IconBolt size={14} />, instant: 'netcash', badge: 'Instant' },
+                { label: 'Revenue & P&L this month', icon: <IconBolt size={14} />, instant: 'revenue', badge: 'Instant' },
+                { label: 'Overdue invoices', icon: <IconBolt size={14} />, instant: 'overdue', badge: 'Instant' },
+                { label: 'Tax & GST summary', icon: <IconBolt size={14} />, instant: 'tax', badge: 'Instant' },
             ],
         },
         team: {
-            title: 'Team & Legal',
+            title: 'Team & legal',
             items: [
-                { label: 'New Offer Letter', icon: <IconLegal />, to: '/team/letters/offer/new' },
-                { label: 'New NDA Agreement', icon: <IconLegal />, to: '/team/letters/nda/new' },
-                { label: 'Add Team Member', icon: <IconFolder />, to: '/employees/new' },
+                { label: 'Offer letter', icon: <IconLegal />, to: '/team/letters/offer/new' },
+                { label: 'NDA', icon: <IconLegal />, to: '/team/letters/nda/new' },
+                { label: 'Add a team member', icon: <IconFolder />, to: '/employees/new' },
             ],
         },
         connectors: {
-            title: 'Connectors & Integrations',
+            title: 'Connectors',
             items: [
-                { label: 'Gmail Integration', icon: <IconGrid />, to: '/settings' },
-                { label: 'WhatsApp Alerts', icon: <IconGrid />, prompt: 'Setup WhatsApp notifications' },
-                { label: 'Bank & Razorpay Sync', icon: <IconGrid />, to: '/settings' },
+                { label: 'Gmail', icon: <IconGrid />, to: '/settings' },
+                { label: 'WhatsApp alerts', icon: <IconGrid />, prompt: 'Setup WhatsApp notifications' },
+                { label: 'Bank & Razorpay sync', icon: <IconGrid />, to: '/settings' },
             ],
         },
     };
@@ -181,7 +181,7 @@ export default function PlusMenu({
                     onMouseEnter={() => setActiveSubmenu('metrics')}
                 >
                     <span className="sb-picon"><IconSpark /></span>
-                    <span className="sb-plabel">Skills & Metrics</span>
+                    <span className="sb-plabel">Skills & metrics</span>
                     <span className="sb-pchev"><IconChevronRight size={12} /></span>
                 </button>
 
@@ -193,7 +193,7 @@ export default function PlusMenu({
                 >
                     <span className="sb-picon"><IconGrid /></span>
                     <span className="sb-plabel">Connectors</span>
-                    <span className="sb-pwarn">⚠ 1</span>
+                    <span className="sb-pwarn" aria-label="1 connector needs attention" title="1 connector needs attention">1</span>
                     <span className="sb-pchev"><IconChevronRight size={12} /></span>
                 </button>
 
@@ -204,7 +204,7 @@ export default function PlusMenu({
                     onMouseEnter={() => setActiveSubmenu('team')}
                 >
                     <span className="sb-picon"><IconLegal /></span>
-                    <span className="sb-plabel">Team & Legal</span>
+                    <span className="sb-plabel">Team & legal</span>
                     <span className="sb-pchev"><IconChevronRight size={12} /></span>
                 </button>
 
@@ -217,7 +217,7 @@ export default function PlusMenu({
                     onClick={() => { onClose(); onStartCall?.(); }}
                 >
                     <span className="sb-picon"><IconCall size={14} outline /></span>
-                    <span className="sb-plabel">Voice Call Co-founder</span>
+                    <span className="sb-plabel">Start a voice call</span>
                 </button>
 
                 <button

@@ -29,7 +29,7 @@ export default function CallScreen({ onEnd, greeting = '' }) {
     const a = useAssistant();
     const { activeOrg } = useOrg();
     const { persona } = useCofounder();
-    const call = useVoiceCall(a, { greeting, voiceStyle: persona.voice });
+    const call = useVoiceCall(a, { greeting, voiceStyle: persona.voice, fillers: persona.fillers });
     const [startIds] = useState(() => new Set(a.messages.map((m) => m.id)));
     const [trOpen, setTrOpen] = useState(true);
     const rootRef = useRef(null);

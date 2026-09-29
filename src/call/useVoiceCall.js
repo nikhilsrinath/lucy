@@ -34,7 +34,7 @@ const STILL_AFTER_MS = 4500;
 
 const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
-export function useVoiceCall(a, { greeting = '', voiceStyle = null } = {}) {
+export function useVoiceCall(a, { greeting = '', voiceStyle = null, fillers = null } = {}) {
     const { speech } = a;
     const { supported, finalText, interim, error, levelRef: micLevelRef, heardAtRef, start, stop, reset } = speech;
 
@@ -74,11 +74,11 @@ export function useVoiceCall(a, { greeting = '', voiceStyle = null } = {}) {
     /* ── the voice ── */
     useEffect(() => {
         if (!canSpeak) return undefined;
-        const load = () => { voiceRef.current = pickVoice(window.speechSynthesis.getVoices()); };
+        const load = () => { voiceRef.current = pickVoice(window.speechSynthesis.getVoices(), voiceStyle); };
         load();
         window.speechSynthesis.addEventListener?.('voiceschanged', load);
         return () => window.speechSynthesis.removeEventListener?.('voiceschanged', load);
-    }, []);
+    }, [voiceStyle]);
 
     /* ── listening ── */
     const listen = useCallback(() => {
@@ -168,7 +168,7 @@ export function useVoiceCall(a, { greeting = '', voiceStyle = null } = {}) {
         const u = new SpeechSynthesisUtterance(line);
         u.voice = voiceRef.current;
         u.lang = voiceRef.current?.lang || 'en-IN';
-        u.rate = 1.0;
+        u.rate = voiceStyle?.rate ?? 1.0;
         u.pitch = voiceStyle?.pitch ? voiceStyle.pitch * 0.98 : 0.98;
         speakingRef.current = true;
         fillingRef.current = true;
@@ -195,10 +195,10 @@ export function useVoiceCall(a, { greeting = '', voiceStyle = null } = {}) {
             if (turnRef.current !== turn || turn.queued > 0 || speakingRef.current) return;
             sayFiller(line);
         };
-        turn.timers.push(setTimeout(fill(pickFiller(kind)), FILLER_AFTER_MS));
-        turn.timers.push(setTimeout(fill(pickFiller('still')), STILL_AFTER_MS));
+        turn.timers.push(setTimeout(fill(pickFiller(kind, fillers)), FILLER_AFTER_MS));
+        turn.timers.push(setTimeout(fill(pickFiller('still', fillers)), STILL_AFTER_MS));
         a.send(text, { voice: true });
-    }, [a, sayFiller]);
+    }, [a, sayFiller, fillers]);
 
     const endTurn = useCallback((text) => {
         stop();

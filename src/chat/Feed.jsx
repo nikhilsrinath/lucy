@@ -4,6 +4,7 @@ import { confirmDialog } from '../services/confirm';
 import { PixelAvatar, Button, IconTile, Badge } from '../design/ui';
 import { IconChevronRight, IconRefresh, IconSpeaker, IconCall } from '../design/icons';
 import ActionCard from './ActionCard';
+import { speakSample } from '../design/speakLocal';
 
 /* ══════════════════════════════════════════════════════════════════════════
    The conversation. A turn from the cofounder is one block — avatar, name,
@@ -129,7 +130,7 @@ function Item({ a, m, i, replying, working, activeId, onOpen, persona }) {
             {m.error && canRetry && (
                 <div><Button size="sm" onClick={() => a.regenerate(m.id)}><IconRefresh /> Retry</Button></div>
             )}
-            {!m.error && !replying && <Actions a={a} m={m} canRegenerate={canRetry} after={messages.length - 1 - i} />}
+            {!m.error && !replying && <Actions a={a} m={m} persona={persona} canRegenerate={canRetry} after={messages.length - 1 - i} />}
         </>
     );
 }
@@ -177,7 +178,7 @@ function useSpeaking(id) {
 }
 const canSpeak = typeof window !== 'undefined' && 'speechSynthesis' in window;
 
-function Actions({ a, m, canRegenerate, after }) {
+function Actions({ a, m, persona, canRegenerate, after }) {
     const [copied, setCopied] = useState(false);
     const speaking = useSpeaking(m.id);
 
@@ -197,15 +198,9 @@ function Actions({ a, m, canRegenerate, after }) {
     const toggleSpeak = () => {
         const synth = window.speechSynthesis;
         if (speaking) { synth.cancel(); setSpeaking(null); return; }
-        synth.cancel();
-        const u = new SpeechSynthesisUtterance(plain(m.content));
-        const voices = synth.getVoices();
-        u.voice = voices.find((v) => v.lang === 'en-IN') || voices.find((v) => v.lang?.startsWith('en')) || null;
-        u.lang = u.voice?.lang || 'en-IN';
-        u.onend = () => { if (speakingId === m.id) setSpeaking(null); };
-        u.onerror = u.onend;
-        setSpeaking(m.id);
-        synth.speak(u);
+        // In the cofounder's own voice.
+        const done = () => { if (speakingId === m.id) setSpeaking(null); };
+        if (speakSample(persona, plain(m.content), { onEnd: done })) setSpeaking(m.id);
     };
     const regenerate = async () => {
         if (after > 0) {

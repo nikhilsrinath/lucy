@@ -157,58 +157,58 @@
 }
 @media (prefers-reduced-motion: reduce) { .sb-m, .sb-memsg { animation: none; } .sb-typing i, .sb-bar .spin i { animation: none; } }
 
-/* ── Plus button context menu (matching dark sleek aesthetic) ─────────────── */
+/* ── Composer popovers: '+' menu and slash palette ────────────────────────
+   Light surfaces on the design-system tokens, so they sit with the cards and
+   sheets around them rather than floating as a dark island. */
 .sb-composer-box { position: relative; }
+@keyframes sbMenuIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: none; }
+}
+
 .sb-plus-popover {
   position: absolute;
-  bottom: calc(100% + 10px);
+  bottom: calc(100% + 8px);
   left: 0;
   display: flex;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 6px;
   z-index: 100;
-  animation: sbMenuIn .15s cubic-bezier(0.16, 1, 0.3, 1);
-}
-@keyframes sbMenuIn {
-  from { opacity: 0; transform: translateY(6px) scale(0.98); }
-  to { opacity: 1; transform: translateY(0) scale(1); }
+  animation: sbMenuIn .14s cubic-bezier(.16, 1, .3, 1);
 }
 
+.sb-plus-menu, .sb-plus-subpanel, .sb-slash-palette {
+  background: var(--surface);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: var(--sh-m), 0 18px 40px -20px rgba(17, 17, 19, .22);
+}
 .sb-plus-menu, .sb-plus-subpanel {
-  background: #17171a;
-  color: #ededed;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  padding: 6px;
-  width: 250px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(12px);
+  width: 244px;
+  padding: 5px;
   display: flex;
   flex-direction: column;
+  gap: 1px;
 }
-
-.sb-plus-subpanel {
-  width: 230px;
-}
+.sb-plus-subpanel { width: 232px; }
 
 .sb-pitem, .sb-sub-item {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 10px;
+  width: 100%;
+  height: 34px;
+  padding: 0 9px;
   border-radius: 8px;
   font-size: 13.5px;
   font-weight: 450;
-  color: #e2e2e5;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-  transition: background 0.1s, color 0.1s;
-  width: 100%;
+  color: var(--ink2);
+  transition: background .1s, color .1s;
 }
 .sb-pitem:hover, .sb-pitem.active, .sb-sub-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
+  background: var(--hover);
+  color: var(--ink);
 }
 
 .sb-picon, .sb-sub-icon {
@@ -216,207 +216,228 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ea0a6;
   flex: none;
+  color: var(--muted);
 }
-.sb-pitem:hover .sb-picon, .sb-sub-item:hover .sb-sub-icon {
-  color: #ffffff;
-}
+.sb-pitem:hover .sb-picon, .sb-pitem.active .sb-picon, .sb-sub-item:hover .sb-sub-icon { color: var(--ink); }
 
 .sb-plabel, .sb-sub-label {
   flex: 1;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
 .sb-pbadge {
-  font-size: 11px;
-  font-weight: 500;
-  color: #8c8e94;
-  background: rgba(255, 255, 255, 0.06);
-  padding: 2px 6px;
-  border-radius: 4px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--muted);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  border-radius: 5px;
 }
-
 .sb-pwarn {
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   font-size: 11px;
   font-weight: 600;
-  background: #3b2a1a;
-  color: #fca130;
-  padding: 1px 6px;
-  border-radius: 999px;
-  margin-right: 4px;
+  background: var(--a-bg);
+  color: var(--a-tx);
 }
+.sb-pchev { color: var(--faint); display: flex; align-items: center; }
+.sb-pitem.active .sb-pchev { color: var(--ink); }
+.sb-pcheck { color: var(--g-tx); display: flex; align-items: center; }
 
-.sb-pchev {
-  color: #6e7077;
-  display: flex;
-  align-items: center;
-}
-
-.sb-pcheck {
-  color: #3b82f6;
-  display: flex;
-  align-items: center;
-}
-
-.sb-pdivider {
-  height: 1px;
-  background: rgba(255, 255, 255, 0.08);
-  margin: 4px 6px;
-}
+.sb-pdivider { height: 1px; background: var(--line2); margin: 4px 4px; flex: none; }
 
 .sb-sub-header {
-  padding: 6px 10px 4px;
+  padding: 7px 9px 5px;
   font-size: 11px;
   font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #8c8e94;
+  letter-spacing: .02em;
+  color: var(--faint);
 }
-
-.sb-sub-badge {
+.sb-sub-list { display: flex; flex-direction: column; gap: 1px; }
+.sb-sub-badge, .sb-slash-badge.instant {
   font-size: 10.5px;
-  font-weight: 600;
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
+  font-weight: 550;
+  color: var(--g-tx);
+  background: var(--g-bg);
   padding: 1px 6px;
-  border-radius: 4px;
+  border-radius: 999px;
 }
 
-/* ── Slash Commands Palette ────────────────────────────────────────────────── */
+/* Two panels side by side do not fit a phone; stack the flyout above. */
+@media (max-width: 560px) {
+  .sb-plus-popover { flex-direction: column-reverse; align-items: stretch; }
+  .sb-plus-menu, .sb-plus-subpanel { width: min(280px, calc(100vw - 24px)); }
+}
+
+/* ── Slash commands palette ─────────────────────────────────────────────── */
 .sb-slash-palette {
   position: absolute;
-  bottom: calc(100% + 10px);
+  bottom: calc(100% + 8px);
   left: 0;
   right: 0;
   max-width: 480px;
   max-height: 320px;
-  background: #17171a;
-  color: #ededed;
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 14px;
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.3);
-  backdrop-filter: blur(12px);
   z-index: 110;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  animation: sbMenuIn .15s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: sbMenuIn .14s cubic-bezier(.16, 1, .3, 1);
 }
-
 .sb-slash-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 14px;
-  font-size: 11.5px;
+  padding: 9px 14px;
+  font-size: 11px;
   font-weight: 600;
-  color: #8c8e94;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  letter-spacing: .02em;
+  color: var(--faint);
+  border-bottom: 1px solid var(--line2);
 }
 .sb-slash-header kbd {
+  font-family: var(--mono);
   font-size: 10px;
-  font-family: inherit;
-  background: rgba(255, 255, 255, 0.08);
-  padding: 2px 5px;
-  border-radius: 4px;
-  color: #a1a1aa;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--soft);
+  border: 1px solid var(--line);
+  padding: 1px 5px;
+  border-radius: 5px;
 }
-
-.sb-slash-list {
-  overflow-y: auto;
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
+.sb-slash-list { overflow-y: auto; padding: 5px; display: flex; flex-direction: column; gap: 1px; }
 .sb-slash-item {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  background: transparent;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
-  color: #e2e2e5;
-  transition: background .08s, color .08s;
+  gap: 11px;
   width: 100%;
+  padding: 7px 9px;
+  border-radius: 8px;
+  color: var(--ink2);
+  transition: background .08s;
 }
-.sb-slash-item:hover, .sb-slash-item.sel {
-  background: rgba(255, 255, 255, 0.08);
-  color: #ffffff;
-}
-
+.sb-slash-item:hover, .sb-slash-item.sel { background: var(--hover); }
 .sb-slash-icon {
   width: 28px;
   height: 28px;
   border-radius: 7px;
-  background: rgba(255, 255, 255, 0.06);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #9ea0a6;
   flex: none;
+  background: var(--soft);
+  border: 1px solid var(--line2);
+  color: var(--muted);
 }
-.sb-slash-item.sel .sb-slash-icon {
-  background: rgba(255, 255, 255, 0.12);
-  color: #ffffff;
-}
-
-.sb-slash-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.sb-slash-name-row {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.sb-slash-name {
-  font-weight: 600;
-  font-size: 13.5px;
-  color: #ffffff;
-}
-
-.sb-slash-badge.instant {
-  font-size: 10px;
-  font-weight: 600;
-  color: #34d399;
-  background: rgba(52, 211, 153, 0.12);
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-
-.sb-slash-cat {
-  font-size: 10.5px;
-  color: #71717a;
-}
-
+.sb-slash-item.sel .sb-slash-icon { background: var(--surface); border-color: var(--line); color: var(--ink); }
+.sb-slash-info { flex: 1; min-width: 0; }
+.sb-slash-name-row { display: flex; align-items: center; gap: 6px; }
+.sb-slash-name { font-family: var(--mono); font-weight: 550; font-size: 13px; color: var(--ink); }
+.sb-slash-cat { font-size: 11px; color: var(--faint); }
 .sb-slash-desc {
   display: block;
+  margin-top: 1px;
   font-size: 12px;
-  color: #9ea0a6;
+  color: var(--muted);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-top: 1px;
+}
+.sb-slash-chev { color: var(--faint); display: flex; align-items: center; }
+.sb-slash-item.sel .sb-slash-chev { color: var(--ink); }
+
+/* ── Slash command wizard ──────────────────────────────────────────────────
+   The card a create command (/invoice, /expense …) opens above the message
+   box: one question at a time, answers so far as chips, then a review. */
+.sb-wiz {
+  margin: 0 0 8px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  box-shadow: var(--sh-m), 0 18px 40px -24px rgba(17, 17, 19, .2);
+  overflow: hidden;
+  animation: sbMenuIn .16s cubic-bezier(.16, 1, .3, 1);
+}
+.sb-wiz-head { display: flex; align-items: center; gap: 9px; padding: 10px 8px 8px 12px; }
+.sb-wiz-ico {
+  width: 26px; height: 26px; border-radius: 7px; flex: none;
+  display: grid; place-items: center;
+  background: var(--soft); border: 1px solid var(--line2); color: var(--ink2);
+}
+.sb-wiz-title { flex: 1; min-width: 0; font-size: 13.5px; font-weight: 600; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-wiz-step { font-family: var(--mono); font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.sb-wiz-x { width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--faint); flex: none; }
+.sb-wiz-x:hover { background: var(--hover); color: var(--ink); }
+
+.sb-wiz-prog { display: flex; gap: 4px; padding: 0 12px; }
+.sb-wiz-prog i { flex: 1; height: 3px; border-radius: 99px; background: var(--line2); transition: background .2s; }
+.sb-wiz-prog i.done { background: var(--ink); }
+.sb-wiz-prog i.cur { background: var(--faint); }
+
+.sb-wiz-body { padding: 12px 12px 10px; }
+.sb-wiz-q { margin: 0; font-size: 15.5px; font-weight: 600; letter-spacing: -.01em; line-height: 1.35; color: var(--ink); }
+
+.sb-wiz-chips { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 10px; }
+.sb-wiz-chips button {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 100%;
+  height: 24px; padding: 0 8px 0 7px; border-radius: 999px;
+  background: var(--soft); border: 1px solid var(--line2);
+  font-size: 12px; color: var(--ink2);
+  transition: background .1s, border-color .1s;
+}
+.sb-wiz-chips button:hover { background: var(--hover); border-color: var(--line); }
+.sb-wiz-chips svg { color: var(--g-tx); flex: none; }
+.sb-wiz-chips .k { color: var(--muted); }
+.sb-wiz-chips .v { font-weight: 550; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 160px; }
+
+.sb-wiz-opts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.sb-wiz-opts button {
+  height: 32px; padding: 0 13px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface); box-shadow: var(--sh);
+  font-size: 13px; font-weight: 550; color: var(--ink2);
+  transition: background .1s, border-color .1s;
+}
+.sb-wiz-opts button:hover { background: var(--soft); border-color: #D6D4CE; color: var(--ink); }
+
+.sb-wiz-err {
+  display: flex; align-items: flex-start; gap: 6px;
+  margin: 8px 0 0; padding: 7px 9px; border-radius: 8px;
+  background: var(--r-bg); color: var(--r-tx); font-size: 12.5px; line-height: 1.35;
+}
+.sb-wiz-err svg { flex: none; margin-top: 1px; }
+
+.sb-wiz-hint { margin: 10px 0 0; font-size: 11.5px; color: var(--faint); }
+.sb-wiz-hint kbd {
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  background: var(--soft); border: 1px solid var(--line); padding: 0 4px; border-radius: 4px;
 }
 
-.sb-slash-chev {
-  color: #52525b;
-  display: flex;
-  align-items: center;
+.sb-wiz-review { display: flex; flex-direction: column; border: 1px solid var(--line2); border-radius: 10px; overflow: hidden; }
+.sb-wiz-review .row {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 38px; padding: 7px 10px; text-align: left;
+  font-size: 13.5px; transition: background .1s;
 }
-.sb-slash-item.sel .sb-slash-chev {
-  color: #a1a1aa;
-}
+.sb-wiz-review .row + .row { border-top: 1px solid var(--line2); }
+.sb-wiz-review .row:hover:not(:disabled) { background: var(--soft); }
+.sb-wiz-review .k { width: 84px; flex: none; color: var(--muted); font-size: 12.5px; }
+.sb-wiz-review .v { flex: 1; min-width: 0; color: var(--ink); font-weight: 550; overflow-wrap: anywhere; }
+.sb-wiz-review .edit { font-size: 12px; color: var(--faint); opacity: 0; transition: opacity .1s; }
+.sb-wiz-review .row:hover .edit, .sb-wiz-review .row:focus-visible .edit { opacity: 1; color: var(--ink2); }
+.sb-wiz-actions { display: flex; justify-content: flex-end; gap: 6px; margin-top: 10px; }
 
+/* Touch screens have no hover or Esc key: always show Edit, drop the key hint. */
+@media (hover: none) {
+  .sb-wiz-review .edit { opacity: 1; }
+  .sb-wiz-hint { display: none; }
+}

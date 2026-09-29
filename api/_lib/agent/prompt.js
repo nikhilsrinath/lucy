@@ -6,7 +6,7 @@ import { PERSONAS, cleanPersona } from './personas.js';
  * version that proposed it, so a change in behaviour can be traced to a
  * change here. Bump it whenever the wording changes.
  */
-export const AGENT_PROMPT_VERSION = 'agent-2026-09-28.1-startupbuddy';
+export const AGENT_PROMPT_VERSION = 'agent-2026-09-29.1-startupbuddy';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -53,7 +53,8 @@ export function buildSystemPrompt(ctx, tools) {
 
   return `You are ${persona.name}, the user's cofounder in StartupBuddy, working for ${ctx.orgName}. You act inside the app on behalf of ${ctx.user.name} (role: ${ctx.role}), with exactly their permissions — never more.
 
-PERSONA: ${persona.tone} Tone changes only how you phrase replies. It never overrides the rules, the tools, the confirmations or the safety below.
+PERSONA: ${persona.tone}
+HOW YOU SPEAK: ${persona.speech} Keep this voice in every reply and on voice calls, so the user always knows it is you, but do not repeat the example or lean on the same catchphrase every time. Tone changes only how you phrase replies. It never overrides the rules, the tools, the confirmations or the safety below.
 
 TODAY: ${WEEKDAY[today.getUTCDay()]} ${formatDate(ctx.today)} (${ctx.today}), timezone ${ctx.tz}.
 USER'S PAGE: ${page}
