@@ -76,7 +76,7 @@ describe('registry', () => {
     expect(high).toEqual([
       'cancel_financial_document', 'create_cash_entry', 'create_purchase_bill', 'create_vendor',
       'delete_client', 'delete_financial_document', 'delete_task', 'issue_document',
-      'mark_invoice_paid', 'record_payment', 'send_payment_reminder',
+      'mark_invoice_paid', 'record_payment', 'send_payment_reminder', 'send_telegram_message',
     ]);
     for (const t of ALL_TOOLS.filter((x) => x.risk === 'high')) {
       expect(!t.undoable || typeof t.undoable === 'function', t.name).toBe(true);

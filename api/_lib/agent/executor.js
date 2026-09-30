@@ -1,5 +1,6 @@
 import { AgentError, friendlyDbError } from './db.js';
 import { sendOrgMail } from '../mailer.js';
+import { deliverPrivate, DeliveryError } from '../telegram/outbound.js';
 
 /**
  * Applies a write plan as the user.
@@ -22,6 +23,7 @@ import { sendOrgMail } from '../mailer.js';
  *   { op: 'delete', table, id, version, before }
  *   { op: 'rpc',    fn, params }
  *   { op: 'email',  orgId, userId, to, subject, text, fromName }
+ *   { op: 'telegram', orgId, employeeId, text, senderName, orgName }
  *
  * `allowDelete: false` (a linked company person, who never deletes) refuses
  * every delete op, including one a follow-up or an undo would run — the
@@ -30,6 +32,11 @@ import { sendOrgMail } from '../mailer.js';
  * An email leaves the building: it cannot be undone, so an action whose plan
  * sent one has no Undo. Put it first in a plan, so a failed send stops the
  * bookkeeping that would claim it went out.
+ *
+ * A Telegram message is the same: it goes to one company person's private
+ * chat with the bot, resolved again from the person id at the moment of
+ * sending (telegram/outbound.js), and it cannot be unsent. It counts as done
+ * only once Telegram returns the message id.
  *
  * `then` runs follow-ups that need the new row's id (a project allocation for
  * a cash entry). A follow-up failing leaves the main write standing and is
@@ -130,6 +137,15 @@ async function applyOp(db, op) {
         throw new AgentError(err?.message || 'The email could not be sent.', { code: 'email' });
       }
     }
+    case 'telegram': {
+      try {
+        const sent = await deliverPrivate(op);
+        return { op: 'telegram', table: null, id: null, before: null, after: sent, ok: true };
+      } catch (err) {
+        // A DeliveryError's message is written for the person; anything else is not.
+        throw new AgentError(err instanceof DeliveryError ? err.message : 'Telegram couldn’t deliver this message.', { code: 'telegram' });
+      }
+    }
     case 'rpc': {
       const { data, error } = await db.rpc(op.fn, op.params);
       if (error) throw error;
@@ -189,7 +205,7 @@ export function undoPlan(results) {
       plan.push({ op: 'update', table: r.table, id: r.id, version: r.after?.updated_at || null, patch: r.before || {}, before: pick(r.after, Object.keys(r.before || {})) });
     } else if (r.op === 'insert') {
       plan.push({ op: 'delete', table: r.table, id: r.id, version: r.after?.updated_at || null, before: r.after });
-    } else if (r.op === 'delete' || r.op === 'email') {
+    } else if (r.op === 'delete' || r.op === 'email' || r.op === 'telegram') {
       return null;
     }
   }

@@ -68,6 +68,7 @@ function body(card) {
   if (card.preview?.rows?.length && !card.diff?.length) {
     lines.push(...card.preview.rows.slice(0, 6).map((r) => `• ${r.map(esc).join(' — ')}`));
   }
+  if (card.message?.text) lines.push('', `<blockquote>${esc(card.message.text)}</blockquote>`);
   if (card.reason) lines.push(`<i>Why: ${esc(card.reason)}</i>`);
   for (const n of (card.notes || []).slice(0, 2)) lines.push(`<i>${esc(n)}</i>`);
   if (card.irreversible) lines.push(`⚠️ ${esc(card.irreversible)}`);

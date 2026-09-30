@@ -9,6 +9,7 @@ import projectTools from './tools/projects.js';
 import reminderTools from './tools/reminders.js';
 import planTools from './tools/plan.js';
 import pulseTools from './tools/pulse.js';
+import messageTools from './tools/messages.js';
 
 /**
  * The one catalogue of what EdgeAI can do.
@@ -36,6 +37,7 @@ export const ALL_TOOLS = [
   ...reminderTools,
   ...planTools,
   ...pulseTools,
+  ...messageTools,
 ];
 
 const BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]));

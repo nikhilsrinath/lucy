@@ -1,6 +1,6 @@
 import React, { Suspense, lazy, useEffect, useId, useMemo, useState } from 'react';
 import { Badge, Button, IconTile } from '../design/ui';
-import { IconDoc, IconCheckCircle, IconClock, IconAlert, IconUndo, IconExternal, IconRefresh, IconMail } from '../design/icons';
+import { IconDoc, IconCheckCircle, IconClock, IconAlert, IconUndo, IconExternal, IconRefresh, IconMail, IconSend } from '../design/icons';
 import { cardMeta } from './cardMeta';
 import './operator.css';
 
@@ -24,7 +24,7 @@ const DocPaper = lazy(() => import('../components/assistant/DocPaper'));
      cancelled / expired / undone   one quiet strip
 
    Every proposal carries Buddy's one-line why (card.reason) and, for an
-   email, the exact message that will go out.
+   email or a Telegram message, the exact text that will go out.
    ══════════════════════════════════════════════════════════════════════════ */
 
 /** **bold** inside a summary line. */
@@ -160,6 +160,13 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onRetry,
                         <div className="mh"><IconMail size={13} /><span>To <b>{card.email.to}</b></span></div>
                         <div className="ms">{card.email.subject}</div>
                         <pre className="mb">{card.email.text}</pre>
+                    </div>
+                )}
+
+                {!editing && card.message && (
+                    <div className="sb-mail" aria-label="The message that will be sent">
+                        <div className="mh"><IconSend size={13} /><span>To <b>{card.message.to}</b> · {card.message.via || 'Telegram'}, private chat</span></div>
+                        <pre className="mb">{card.message.text}</pre>
                     </div>
                 )}
 

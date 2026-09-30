@@ -206,6 +206,9 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onOpen }
                         ))}
                     </dl>
                 )}
+                {!editing && card.message && (
+                    <p className="cp-card-note" style={{ whiteSpace: 'pre-wrap' }} aria-label="The message that will be sent">{card.message.text}</p>
+                )}
                 {!editing && card.preview?.document && <DocTable doc={card.preview.document} full={!!card.preview.full} />}
                 {!editing && card.preview?.note && <p className="cp-card-note">{card.preview.note}</p>}
 

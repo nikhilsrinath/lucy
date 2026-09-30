@@ -119,6 +119,34 @@ Risk comes from the tool definition (`registry.js`), never from the model or the
 - Plans follow the existing rules (only `PLANNABLE` low-risk steps). Approving one in Telegram approves every step. To untick or edit steps, review it in the app.
 - Buddy says "done" only when `confirm` returns `executed`. Failures show the stored error and a *Try again* button (`retry` → a fresh, re-checked proposal).
 
+## Messaging a teammate (send_telegram_message)
+
+From the web chat, a call or Telegram itself, "text Swetha about tomorrow's task" becomes a
+high-risk card with the exact message (editable) and a **Send to Swetha** button. It is one more
+tool in the registry (`api/_lib/agent/tools/messages.js`), so it goes through the same
+propose → confirm → executor → `ai_actions` path as everything else. Nothing is sent until the tap.
+
+- The model names the person; the resolver finds them in Team through the caller's own client.
+  Two people with the same name are a choice, never a guess. The model never sees or passes a
+  Telegram id.
+- `api/_lib/telegram/outbound.js` works out the destination from the verified company and the
+  person id, at draft time and again at send time. It requires the person to be in this company
+  and still active, the company to have Telegram on, and a live, unrevoked link for the person in
+  this company. It also requires a private chat the person started (`dm_chat_id` equals their own
+  Telegram user id, so it can never be a group).
+- If any of those checks fails, the user is told why ("Swetha hasn't started a private chat with
+  Buddy yet…") and nothing is sent. A Telegram error marks the card failed and offers Try again.
+  The card shows Done only after Telegram returns a message id.
+- A message may not carry what the recipient could not read in StartupBuddy. Money and invoices
+  need finance view rights, and pay needs an owner or admin. Passwords, keys and bank details are
+  never sent. This is a keyword check on the text, re-run on any edit at the tap. The sender also
+  reviews the exact text.
+- The audit (`ai_actions`) records the actor, company, channel, recipient person id, Telegram link
+  id, the approved parameters, the lifecycle events and Telegram's message id. The delivery record
+  keeps no message text, and no Telegram user id or chat id.
+- The tool is not offered in team groups (`privateOnly`), and a voice call cannot confirm it by
+  voice (high risk).
+
 ## Groups vs private chats
 
 | | Private chat (DM) | Company group |
