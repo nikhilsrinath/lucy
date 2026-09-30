@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { QRCodeSVG } from 'qrcode.react';
-import { supabase } from '../lib/supabase';
 import { confirmDialog } from '../services/confirm';
-import { Button, Badge, Card, Sheet, Switch } from '../design/ui';
+import { telegramApi as api, tgName, tgWhen as until } from '../services/telegramService';
+import { Button, Badge, Card, Switch } from '../design/ui';
+import TelegramLinkSheet from './TelegramLinkSheet';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Settings → Telegram. Talks only to /api/telegram (api/_lib/telegram/
@@ -11,26 +11,12 @@ import { Button, Badge, Card, Sheet, Switch } from '../design/ui';
 
      everyone   link / unlink my own Telegram, see my status
      admins     Telegram on/off, connect a group, see every member's link,
-                send a member an invite link, Daily Pulse on/off + send now
+                send a member an invite link, connect a Team person (no
+                login needed) or revoke them, Daily Pulse on/off + send now
    ══════════════════════════════════════════════════════════════════════════ */
-
-async function api(body) {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) throw new Error('Your session has expired. Sign in again.');
-    const res = await fetch('/api/telegram', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${session.access_token}` },
-        body: JSON.stringify(body),
-    });
-    const out = await res.json().catch(() => ({}));
-    if (!res.ok || out.success === false) throw new Error(out.error || `Request failed (${res.status})`);
-    return out;
-}
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h);
 const hourLabel = (h) => new Date(2000, 0, 1, h).toLocaleTimeString('en-IN', { hour: 'numeric', hour12: true });
-const tgName = (t) => (t?.telegram_username ? `@${t.telegram_username}` : t?.telegram_name || 'Telegram');
-const until = (iso) => new Date(iso).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' });
 
 export default function TelegramSettings({ orgId }) {
     const [s, setS] = useState(null);
@@ -131,8 +117,8 @@ export default function TelegramSettings({ orgId }) {
                             </Card>
 
                             <Card list style={{ marginTop: 10 }}>
-                                <div className="sb-kvr"><span><b style={{ fontSize: 14 }}>Team on Telegram</b>
-                                    <small style={{ display: 'block', color: 'var(--muted)', fontSize: 12 }}>Only StartupBuddy members can link. Their role and permissions apply on Telegram too, and removing someone here ends their Telegram access.</small></span></div>
+                                <div className="sb-kvr"><span><b style={{ fontSize: 14 }}>Members on Telegram</b>
+                                    <small style={{ display: 'block', color: 'var(--muted)', fontSize: 12 }}>StartupBuddy logins linked to Telegram. Their role and permissions apply on Telegram too, and removing someone here ends their Telegram access.</small></span></div>
                                 {(s.members || []).map((m) => (
                                     <div key={m.user_id} className="sb-kvr">
                                         <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
@@ -153,6 +139,28 @@ export default function TelegramSettings({ orgId }) {
                                         </span>
                                     </div>
                                 ))}
+                            </Card>
+
+                            <Card list style={{ marginTop: 10 }}>
+                                <div className="sb-kvr"><span><b style={{ fontSize: 14 }}>People on Telegram</b>
+                                    <small style={{ display: 'block', color: 'var(--muted)', fontSize: 12 }}>Anyone in Team can use Buddy on Telegram — no StartupBuddy login needed. Send them their private link; they can then do the company's work with Buddy, confirming each change. Deleting stays with owners and admins.</small></span></div>
+                                {(s.people || []).map((p) => (
+                                    <div key={p.employee_id} className="sb-kvr">
+                                        <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                            {p.name}
+                                            <small style={{ display: 'block', color: 'var(--muted)', fontSize: 12 }}>
+                                                {[p.title, p.telegram ? `● Connected · ${tgName(p.telegram)}` : '○ Not connected'].filter(Boolean).join(' · ')}
+                                            </small>
+                                        </span>
+                                        {p.telegram
+                                            ? <Button size="sm" variant="ghost" disabled={!!busy} onClick={async () => {
+                                                if (await confirmDialog({ title: 'Revoke Telegram', message: `Buddy will stop answering ${p.name} on Telegram right away.`, confirmLabel: 'Revoke' })) run(`pu-${p.employee_id}`, () => api({ mode: 'person_unlink', org_id: orgId, employee_id: p.employee_id }));
+                                            }}>Revoke</Button>
+                                            : <Button size="sm" disabled={!!busy} onClick={() => showLink(`pi-${p.employee_id}`, { mode: 'person_invite', employee_id: p.employee_id }, `Connect ${p.name}`,
+                                                `Send this privately to ${p.name} only — whoever opens it first is connected as them. It works once and expires in 48 hours.`)}>Connect Telegram</Button>}
+                                    </div>
+                                ))}
+                                {!(s.people || []).length && <div className="sb-kvr"><span style={{ color: 'var(--muted)', fontSize: 13 }}>No one in Team yet.</span></div>}
                             </Card>
 
                             <Card list style={{ marginTop: 10 }}>
@@ -185,20 +193,7 @@ export default function TelegramSettings({ orgId }) {
                 </>
             )}
 
-            {linkSheet && (
-                <Sheet open onClose={() => { setLinkSheet(null); load(); }} title={linkSheet.title}
-                    footer={<Button variant="primary" block size="lg" as="a" href={linkSheet.url} target="_blank" rel="noopener noreferrer">Open Telegram</Button>}>
-                    <p className="sb-acnote">{linkSheet.note}</p>
-                    <div style={{ display: 'grid', placeItems: 'center', padding: 12 }}>
-                        <QRCodeSVG value={linkSheet.url} size={180} />
-                    </div>
-                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <code style={{ fontSize: 12, wordBreak: 'break-all', flex: 1 }}>{linkSheet.url}</code>
-                        <Button size="sm" onClick={() => navigator.clipboard?.writeText(linkSheet.url)}>Copy</Button>
-                    </div>
-                    <p className="sb-acnote">Expires {until(linkSheet.expires_at)}.</p>
-                </Sheet>
-            )}
+            <TelegramLinkSheet sheet={linkSheet} onClose={() => { setLinkSheet(null); load(); }} />
         </section>
     );
 }

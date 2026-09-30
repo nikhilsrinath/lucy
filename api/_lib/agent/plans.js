@@ -1,6 +1,6 @@
 import { getTool, allowed, undoableFor } from './registry.js';
 import { onlyKnown } from './helpers.js';
-import { applyPlan, undoPlan } from './executor.js';
+import { applyPlan, undoPlan, hasDelete } from './executor.js';
 import { forget, KINDS, loadKind } from './resolvers.js';
 import * as actionLog from './actions.js';
 import {
@@ -202,7 +202,7 @@ export async function confirmPlan(ctx, row, { selected = null, edits = null } = 
     events: withEvent({ events: edited ? withEvent(row, 'edited') : row.events }, 'approved', `${chosen.size} of ${steps.length} steps`),
   });
   if (!claimed) {
-    const now = await loadAction(id, ctx.user.id);
+    const now = await loadAction(id, ctx);
     return { status: effectiveStatus(now), card: toCard(now) };
   }
 
@@ -242,7 +242,7 @@ export async function confirmPlan(ctx, row, { selected = null, edits = null } = 
       const invalid = await tool.validate(r.args, ctx);
       if (invalid.length) { fail(invalid[0]); continue; }
       const ops = await tool.plan(r.args, ctx);
-      const outcome = await applyPlan(db, ops, { stopOnError: tool.stopOnError ?? ops.length <= 1 });
+      const outcome = await applyPlan(db, ops, { stopOnError: tool.stopOnError ?? ops.length <= 1, allowDelete: ctx.canDelete !== false });
       for (const res of outcome.results) if (TABLE_KIND[res.table]) forget(ctx, TABLE_KIND[res.table]);
       const done = outcome.results.some((x) => x.ok !== false);
       if (!done) { fail(outcome.results.find((x) => x.ok === false)?.error || 'The change could not be saved.'); continue; }
@@ -254,7 +254,10 @@ export async function confirmPlan(ctx, row, { selected = null, edits = null } = 
         n: step.n, tool: step.tool, ok: true,
         summary: tool.summary(outcome, r.args, ctx),
         warnings: outcome.warnings,
-        undoable: undoableFor(tool, r.args, ctx) && !!(tool.undoPlan ? tool.undoPlan(outcome.results, r.args) : undoPlan(outcome.results)),
+        undoable: (() => {
+          const reversal = undoableFor(tool, r.args, ctx) ? (tool.undoPlan ? tool.undoPlan(outcome.results, r.args) : undoPlan(outcome.results)) : null;
+          return !!reversal && (ctx.canDelete !== false || !hasDelete(reversal));
+        })(),
         entities: tool.entitiesOf ? tool.entitiesOf(outcome) : [],
         href: tool.href?.(r.args) || null,
         args: r.args,
@@ -316,7 +319,7 @@ export async function undoPlanAction(ctx, row) {
     const stepArgs = row.args?.steps?.find((x) => x.n === s.n)?.args || {};
     const plan = tool?.undoPlan ? tool.undoPlan(s.results, stepArgs) : undoPlan(s.results);
     if (!plan || !undoableFor(tool, stepArgs, ctx)) { kept += 1; continue; }
-    const outcome = await applyPlan(db, plan, { stopOnError: false });
+    const outcome = await applyPlan(db, plan, { stopOnError: false, allowDelete: ctx.canDelete !== false });
     for (const res of outcome.results) if (TABLE_KIND[res.table]) forget(ctx, TABLE_KIND[res.table]);
     if (outcome.results.some((x) => x.ok !== false)) reversed += 1; else kept += 1;
     undoResults.push({ n: s.n, results: outcome.results });

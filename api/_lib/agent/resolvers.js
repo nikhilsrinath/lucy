@@ -197,7 +197,7 @@ export const KINDS = {
     label: (r) => r.full_name,
     aliases: (r) => [r.full_name, r.email, (r.full_name || '').split(' ')[0]].filter(Boolean),
     inactive: (r) => !!r.exited_at,
-    mine: (r, ctx) => r.user_id === ctx.user.id,
+    mine: (r, ctx) => (ctx.actor?.kind === 'person' ? r.id === ctx.employeeId : !!ctx.user.id && r.user_id === ctx.user.id),
   },
   project: {
     table: 'projects', resource: 'projects', noun: 'project', href: (r) => `/projects/${r.id}`,

@@ -44,9 +44,25 @@ export const getTool = (name) => BY_NAME.get(name) || null;
 
 export const isWrite = (tool) => tool?.kind === 'write';
 
+/**
+ * Deleting is for users whose role allows it. A company person acting
+ * through a linked channel identity (ctx.canDelete false) never deletes —
+ * whatever the permission map says; the database refuses it too (0071).
+ */
+export const deletes = (tool) => tool?.kind === 'write' && tool.permission?.action === 'delete';
+
+/**
+ * A tool whose approval happens only in the StartupBuddy app (it emails
+ * someone outside the company). Someone with no app login cannot approve it,
+ * so it is never offered to them.
+ */
+export const appApprovalOnly = (tool) => tool?.approval === 'app';
+
 /** May this user, on this plan, use this tool at all? */
 export function allowed(tool, ctx) {
   if (!tool) return false;
+  if (ctx.canDelete === false && deletes(tool)) return false;
+  if (ctx.actor?.kind === 'person' && appApprovalOnly(tool)) return false;
   // A shared space (a team group) never gets the tools that read one
   // person's history or the company-wide audit trail — context.js.
   if (tool.privateOnly && ctx.audience === 'shared') return false;
@@ -90,6 +106,9 @@ export function toModelTools(tools, ctx = null) {
 /** Is Undo on offer for this executed action? */
 export function undoableFor(tool, args, ctx) {
   if (!tool || !isWrite(tool)) return false;
+  // Undoing a creation deletes what it made — not for someone who cannot
+  // delete. They edit or cancel it instead (or an admin removes it).
+  if (ctx?.canDelete === false && tool.permission?.action === 'create') return false;
   return typeof tool.undoable === 'function' ? !!tool.undoable(args, ctx) : !!tool.undoable;
 }
 

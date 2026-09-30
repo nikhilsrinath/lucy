@@ -49,6 +49,9 @@ const send_payment_reminder = {
   module: 'finance',
   kind: 'write',
   risk: 'high',
+  // It emails a client: approved only in the app, where the exact email is
+  // shown and editable — never from a chat channel (registry.appApprovalOnly).
+  approval: 'app',
   permission: { resource: 'financial_documents', action: 'edit' },
   description: 'Email a payment reminder for one unpaid invoice to the client, from the company\'s Gmail: "remind Acme about INV-0042", '
     + '"chase Kite for the overdue invoice", "send the same reminder again". The user sees and can edit the exact email before it is sent. '

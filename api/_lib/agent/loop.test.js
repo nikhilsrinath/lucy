@@ -12,7 +12,9 @@ vi.mock('./actions.js', async (importOriginal) => {
     insertProposal: async (ctx, { chatId, messageId, tool, args, targets, preview }) => {
       const id = `aaaaaaaa-0000-4000-8000-${String(++n).padStart(12, '0')}`;
       const row = {
-        id, org_id: ctx.orgId, user_id: ctx.user.id, chat_id: chatId, message_id: messageId,
+        id, org_id: ctx.orgId, user_id: ctx.actor?.kind === 'person' ? null : ctx.user.id,
+        employee_id: ctx.actor?.kind === 'person' ? ctx.actor.employeeId : null, channel_actor: ctx.actor?.channelActor || null,
+        chat_id: chatId, message_id: messageId,
         tool: tool.name, module: tool.module, risk: tool.risk, args, target_ref: targets?.length ? { items: targets } : null,
         preview, status: 'proposed', proposed_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + real.PROPOSAL_TTL_MS).toISOString(),
@@ -20,7 +22,8 @@ vi.mock('./actions.js', async (importOriginal) => {
       store.set(id, row);
       return { ...row };
     },
-    loadAction: async (id, userId) => { const r = store.get(id); return r && r.user_id === userId ? { ...r } : null; },
+    // The real ownership rule: a user by user_id, a linked person by employee_id.
+    loadAction: async (id, ctx) => { const r = store.get(id); return real.isOwner(r, ctx) ? { ...r } : null; },
     transition: async (id, from, patch) => {
       const r = store.get(id);
       if (!r || r.status !== from) return null;

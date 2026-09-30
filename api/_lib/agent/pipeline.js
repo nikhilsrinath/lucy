@@ -1,6 +1,6 @@
-import { getTool, allowed, undoableFor } from './registry.js';
+import { getTool, allowed, undoableFor, deletes } from './registry.js';
 import { onlyKnown } from './helpers.js';
-import { applyPlan, undoPlan, sameInstant } from './executor.js';
+import { applyPlan, undoPlan, sameInstant, hasDelete } from './executor.js';
 import { forget, KINDS } from './resolvers.js';
 import * as actionLog from './actions.js';
 import {
@@ -46,6 +46,7 @@ const TABLE_KIND = Object.fromEntries(Object.entries(KINDS).map(([k, d]) => [d.t
 export async function propose(tool, rawArgs, ctx, { chatId, messageId, reason = null, parentId = null } = {}) {
   if (!tool || tool.kind !== 'write') return { kind: 'error', message: 'Not a write tool.' };
   if (!allowed(tool, ctx)) {
+    if (ctx.canDelete === false && deletes(tool)) return { kind: 'none', stops: true, message: deleteRefusal(tool) };
     return { kind: 'none', stops: true, message: `Your role can't ${verbOf(tool)} from here, so I can't do that for you.` };
   }
   const args = onlyKnown(rawArgs, tool.params);
@@ -90,6 +91,14 @@ export async function propose(tool, rawArgs, ctx, { chatId, messageId, reason = 
     console.error('[agent] insertProposal', err);
     return { kind: 'none', stops: true, message: 'I could not prepare that change just now. Try again in a moment.' };
   }
+}
+
+const DELETE_NOUN = { tasks: 'tasks', clients: 'clients', financial_documents: 'invoices and quotations' };
+
+/** What a person who cannot delete is told — plainly, with what they can do instead. */
+export function deleteRefusal(tool) {
+  const noun = DELETE_NOUN[tool?.permission?.resource] || 'records';
+  return `Deleting ${noun} requires admin access. I can help you edit it or prepare the change for an admin.`;
 }
 
 function verbOf(tool) {
@@ -145,7 +154,7 @@ function stale(targetRef, freshTargets) {
  * already past, that state is returned rather than acted on again.
  */
 export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
-  const row = await loadAction(id, ctx.user.id);
+  const row = await loadAction(id, ctx);
   if (!row || row.org_id !== ctx.orgId) return { status: 'not_found', message: 'That change is no longer available.' };
 
   const status = effectiveStatus(row);
@@ -193,14 +202,14 @@ export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
     events: withEvent({ events: withEvent({ events: edited ? withEvent(row, 'edited') : row.events }, 'approved') }, 'executing'),
   });
   if (!claimed) {
-    const now = await loadAction(id, ctx.user.id);
+    const now = await loadAction(id, ctx);
     return { status: effectiveStatus(now), card: toCard(now) };
   }
 
   let outcome;
   try {
     const plan = await tool.plan(r.args, ctx);
-    outcome = await applyPlan(ctx.dbFor(id), plan, { stopOnError: tool.stopOnError ?? plan.length <= 1 });
+    outcome = await applyPlan(ctx.dbFor(id), plan, { stopOnError: tool.stopOnError ?? plan.length <= 1, allowDelete: ctx.canDelete !== false });
   } catch (err) {
     console.error(`[agent] execute ${tool.name}`, err);
     outcome = { results: [{ ok: false, error: 'The change could not be saved.' }], warnings: [], ok: false };
@@ -210,8 +219,10 @@ export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
   for (const res of outcome.results) if (TABLE_KIND[res.table]) forget(ctx, TABLE_KIND[res.table]);
   const summary = tool.summary(outcome, r.args, ctx);
   const followUp = anyDone && tool.after ? await tool.after(outcome, ctx).catch(() => null) : null;
-  const undoable = anyDone && undoableFor(tool, r.args, ctx)
-    && !!(tool.undoPlan ? tool.undoPlan(outcome.results, r.args) : undoPlan(outcome.results));
+  const reversal = anyDone && undoableFor(tool, r.args, ctx)
+    ? (tool.undoPlan ? tool.undoPlan(outcome.results, r.args) : undoPlan(outcome.results)) : null;
+  // Undo is offered only if this actor could run it (a person never deletes).
+  const undoable = !!reversal && (ctx.canDelete !== false || !hasDelete(reversal));
   const firstError = outcome.results.find((x) => x.ok === false);
   const entities = anyDone && tool.entitiesOf ? tool.entitiesOf(outcome) : row.preview?.entities || [];
 
@@ -235,10 +246,10 @@ export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
 }
 
 export async function cancel(ctx, id) {
-  const row = await loadAction(id, ctx.user.id);
+  const row = await loadAction(id, ctx);
   if (!row || row.org_id !== ctx.orgId) return { status: 'not_found' };
   const done = await transition(id, 'proposed', { status: 'cancelled', decided_at: new Date().toISOString(), events: withEvent(row, 'cancelled') });
-  const now = done || await loadAction(id, ctx.user.id);
+  const now = done || await loadAction(id, ctx);
   return { status: effectiveStatus(now), card: toCard(now) };
 }
 
@@ -247,7 +258,7 @@ export async function cancel(ctx, id) {
  * rows since. Runs as the user, attributed to the same action.
  */
 export async function undo(ctx, id) {
-  const row = await loadAction(id, ctx.user.id);
+  const row = await loadAction(id, ctx);
   if (!row || row.org_id !== ctx.orgId) return { status: 'not_found', message: 'That change is no longer available.' };
   if (row.status === 'undone') return { status: 'undone', card: toCard(row) };
   if (row.status !== 'executed' || !row.result?.undoable) return { status: 'invalid', message: 'This change cannot be undone.' };
@@ -260,7 +271,7 @@ export async function undo(ctx, id) {
   const tool = getTool(row.tool);
   const plan = tool?.undoPlan ? tool.undoPlan(row.result.results, row.args) : undoPlan(row.result.results);
   if (!plan) return { status: 'invalid', message: 'This change cannot be undone.' };
-  const outcome = await applyPlan(ctx.dbFor(id), plan, { stopOnError: false });
+  const outcome = await applyPlan(ctx.dbFor(id), plan, { stopOnError: false, allowDelete: ctx.canDelete !== false });
   for (const res of outcome.results) if (TABLE_KIND[res.table]) forget(ctx, TABLE_KIND[res.table]);
   if (!outcome.results.some((x) => x.ok !== false)) {
     const first = outcome.results.find((x) => x.ok === false);
@@ -286,7 +297,7 @@ export async function undo(ctx, id) {
  * executes anything by itself.
  */
 export async function retry(ctx, id) {
-  const row = await loadAction(id, ctx.user.id);
+  const row = await loadAction(id, ctx);
   if (!row || row.org_id !== ctx.orgId) return { status: 'not_found', message: 'That change is no longer available.' };
   const isPlan = row.kind === 'plan' || row.tool === 'plan';
   const retriable = row.status === 'failed' || (isPlan && row.status === 'executed' && row.result?.partial);

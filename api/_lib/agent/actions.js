@@ -28,21 +28,50 @@ const db = () => supabaseAdmin();
  * stops sending them. Nothing is lost that the older schema could hold.
  */
 const EXTENDED = ['kind', 'channel', 'reason', 'source', 'approval_required', 'edits', 'events', 'parent_id'];
+// 0071: who acted when it was not a user. Only ever sent when set, so a user
+// on a database without 0071 is unaffected; a person needs 0071 anyway.
+const IDENTITY = ['employee_id', 'channel_actor'];
 let extended = true;
+let identity = true;
 const missingColumn = (error) => error && (error.code === 'PGRST204' || error.code === '42703'
   || /column .* does not exist|could not find the .* column/i.test(error.message || ''));
 const narrow = (row) => {
-  if (extended) return row;
   const out = { ...row };
-  for (const k of EXTENDED) delete out[k];
+  if (!identity) for (const k of IDENTITY) delete out[k];
+  if (!extended) for (const k of EXTENDED) delete out[k];
   return out;
 };
 async function tolerant(write, row) {
-  const first = await write(narrow(row));
-  if (!first.error || !extended || !missingColumn(first.error)) return first;
-  extended = false;
-  console.warn('[agent] ai_actions has no 0069 columns; logging without plan/channel/timeline fields.');
-  return write(narrow(row));
+  let res = await write(narrow(row));
+  while (res.error && missingColumn(res.error) && (identity || extended)) {
+    if (identity && IDENTITY.some((k) => k in row)) {
+      identity = false;
+      console.warn('[agent] ai_actions has no 0071 columns; logging without the channel actor.');
+    } else if (extended) {
+      extended = false;
+      console.warn('[agent] ai_actions has no 0069 columns; logging without plan/channel/timeline fields.');
+    } else break;
+    res = await write(narrow(row));
+  }
+  return res;
+}
+
+/**
+ * Only the actor who asked may see, confirm, cancel, undo or retry an action:
+ * a user by user_id, a linked company person (no login) by employee_id.
+ */
+export function ownedBy(q, ctx) {
+  const a = ctx.actor;
+  if (a?.kind === 'person') return q.is('user_id', null).eq('employee_id', a.employeeId);
+  return q.eq('user_id', ctx.user.id);
+}
+
+/** Whether a loaded row belongs to this actor (for rows read without ownedBy). */
+export function isOwner(row, ctx) {
+  if (!row) return false;
+  const a = ctx.actor;
+  if (a?.kind === 'person') return !row.user_id && !!row.employee_id && row.employee_id === a.employeeId;
+  return !!row.user_id && row.user_id === ctx.user.id;
 }
 
 /** One lifecycle event, appended to the row's timeline. */
@@ -54,8 +83,8 @@ export const isMissingTable = (error) => error && (error.code === '42P01' || err
   || /ai_actions/.test(error.message || '') && /does not exist|schema cache/.test(error.message || ''));
 
 export async function countPending(ctx, chatId) {
-  const { count, error } = await db().from('ai_actions').select('id', { count: 'exact', head: true })
-    .eq('org_id', ctx.orgId).eq('user_id', ctx.user.id).eq('chat_id', chatId)
+  const { count, error } = await ownedBy(db().from('ai_actions').select('id', { count: 'exact', head: true })
+    .eq('org_id', ctx.orgId), ctx).eq('chat_id', chatId)
     .eq('status', 'proposed').gt('expires_at', new Date().toISOString());
   if (error) return 0;
   return count || 0;
@@ -65,7 +94,9 @@ export async function insertProposal(ctx, { chatId, messageId, tool, args, targe
   const now = Date.now();
   const { data, error } = await tolerant((row) => db().from('ai_actions').insert(row).select().single(), {
     org_id: ctx.orgId,
-    user_id: ctx.user.id,
+    user_id: ctx.actor?.kind === 'person' ? null : ctx.user.id,
+    ...(ctx.actor?.kind === 'person' ? { employee_id: ctx.actor.employeeId } : {}),
+    ...(ctx.actor?.channelActor ? { channel_actor: ctx.actor.channelActor } : {}),
     chat_id: String(chatId || '').slice(0, 64) || null,
     message_id: String(messageId || '').slice(0, 64) || null,
     tool: tool.name,
@@ -93,8 +124,9 @@ export async function insertProposal(ctx, { chatId, messageId, tool, args, targe
   return data;
 }
 
-export async function loadAction(id, userId) {
-  const { data, error } = await db().from('ai_actions').select('*').eq('id', id).eq('user_id', userId).maybeSingle();
+/** The action, if it is this actor's. */
+export async function loadAction(id, ctx) {
+  const { data, error } = await ownedBy(db().from('ai_actions').select('*').eq('id', id), ctx).maybeSingle();
   if (error) throw error;
   return data;
 }
@@ -117,7 +149,7 @@ export async function patchAction(id, patch) {
  * did, for the activity view and for "what did you do today?".
  */
 export async function recentFor(ctx, { limit = 20, since = null } = {}) {
-  let q = db().from('ai_actions').select('*').eq('org_id', ctx.orgId).eq('user_id', ctx.user.id)
+  let q = ownedBy(db().from('ai_actions').select('*').eq('org_id', ctx.orgId), ctx)
     .order('proposed_at', { ascending: false }).limit(Math.min(50, Math.max(1, limit)));
   if (since) q = q.gte('proposed_at', since);
   const { data, error } = await q;
@@ -125,10 +157,10 @@ export async function recentFor(ctx, { limit = 20, since = null } = {}) {
   return data || [];
 }
 
-export async function loadMany(ids, userId) {
+export async function loadMany(ids, ctx) {
   const clean = (ids || []).filter((x) => /^[0-9a-f-]{36}$/i.test(x)).slice(0, 100);
   if (!clean.length) return [];
-  const { data, error } = await db().from('ai_actions').select('*').eq('user_id', userId).in('id', clean);
+  const { data, error } = await ownedBy(db().from('ai_actions').select('*'), ctx).in('id', clean);
   if (error) return [];
   return data || [];
 }

@@ -128,3 +128,22 @@ export function fakeCtx({ db = fakeDb(), perms = null, today = '2026-09-26', rec
   ctx.aiLimit = Infinity;
   return ctx;
 }
+
+/**
+ * The context buildAgentContext makes for a company person acting through a
+ * linked Telegram account with no StartupBuddy login (0071): no user id, the
+ * person as the actor, the admin role's operational rights and no delete.
+ */
+export function personCtx({ employeeId = 'e-swetha', name = 'Swetha NM', title = 'Business Development Lead', linkId = 'l-swetha', telegramUserId = 7001, perms = null, ...rest } = {}) {
+  const ops = { view: true, create: true, edit: true, delete: false };
+  const p = perms || Object.fromEntries(['tasks', 'clients', 'employees', 'projects', 'financial_documents', 'document_line_items',
+    'payments', 'vendors', 'purchase_invoices', 'expenses', 'income_entries', 'project_allocations', 'edgebrain', 'records']
+    .map((k) => [k, ops]));
+  const ctx = fakeCtx({ ...rest, perms: p, employeeId });
+  ctx.user = { id: null, email: null, name };
+  ctx.role = 'teammate';
+  ctx.actor = { kind: 'person', employeeId, linkId, title, via: 'telegram_link', channelActor: `telegram:${telegramUserId}` };
+  ctx.canDelete = false;
+  ctx.channel = 'telegram';
+  return ctx;
+}

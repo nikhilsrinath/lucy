@@ -170,6 +170,21 @@ begin
     insert into ai_actions (org_id, user_id, tool, risk)
     select o, m.user_id, 'create_task', 'low' from memberships m where m.org_id = o limit 1;
 
+    -- Telegram adapter (0070, 0071): server-only tables, and the Daily Pulse
+    -- log (readable by its person and owners/admins — 15_telegram_person_test
+    -- and the pulse policy; here it only has to stay inside its org).
+    insert into org_telegram (org_id) values (o);
+    insert into telegram_chats (org_id, chat_id, chat_type)
+      values (o, case s when 'a' then -1001 else -1002 end, 'group');
+    insert into telegram_links (org_id, employee_id, telegram_user_id, linked_via)
+      values (o, e, case s when 'a' then 9001 else 9002 end, 'person_invite');
+    insert into telegram_link_tokens (token_hash, org_id, purpose, created_by, expires_at)
+    select 'hash-' || s, o, 'group', m.user_id, now() + interval '1 hour' from memberships m where m.org_id = o limit 1;
+    insert into telegram_conversations (chat_id, telegram_user_id, org_id)
+      values (case s when 'a' then 1 else 2 end, 9000, o);
+    insert into pulse_checkins (org_id, user_id, pulse_date, channel)
+    select o, m.user_id, current_date, 'telegram' from memberships m where m.org_id = o limit 1;
+
     -- Document library (0063): a stored file and one passage read from it.
     insert into library_documents (org_id, title, file_name, mime_type, size_bytes, storage_path)
       values (o, 'Handbook ' || s, 'handbook.pdf', 'application/pdf', 1024, o || '/handbook-' || s || '.pdf')
@@ -382,8 +397,15 @@ begin
     return false;
   end if;
   -- NON-NEGOTIABLE: server-only.
-  if p_tbl in ('org_secrets', 'email_events') then
+  if p_tbl in ('org_secrets', 'email_events', 'org_telegram', 'telegram_chats', 'telegram_links',
+               'telegram_link_tokens', 'telegram_conversations') then
     return false;
+  end if;
+  -- 0070: the Daily Pulse log is read by its own person and by owners/admins
+  -- (the founder's view of the team pulse); it is written only by the API.
+  -- The fixture row belongs to neither of the other roles' callers.
+  if p_tbl = 'pulse_checkins' then
+    return p_verb = 'S' and p_role in ('owner', 'admin');
   end if;
 
   -- 0029 §6: announcements carries an additive `announcements_self_select`

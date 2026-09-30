@@ -23,6 +23,10 @@ import { sendOrgMail } from '../mailer.js';
  *   { op: 'rpc',    fn, params }
  *   { op: 'email',  orgId, userId, to, subject, text, fromName }
  *
+ * `allowDelete: false` (a linked company person, who never deletes) refuses
+ * every delete op, including one a follow-up or an undo would run — the
+ * database refuses it as well (0071); this says so plainly first.
+ *
  * An email leaves the building: it cannot be undone, so an action whose plan
  * sent one has no Undo. Put it first in a plan, so a failed send stops the
  * bookkeeping that would claim it went out.
@@ -32,8 +36,12 @@ import { sendOrgMail } from '../mailer.js';
  * reported as a warning — the card says so rather than pretending either way.
  */
 
-export async function applyPlan(db, plan, { dryRun = false, stopOnError = true } = {}) {
+export async function applyPlan(db, plan, { dryRun = false, stopOnError = true, allowDelete = true } = {}) {
   if (dryRun) return { dryRun: true, ops: plan.map(describeOp) };
+  const apply = (op) => {
+    if (op.op === 'delete' && !allowDelete) throw new AgentError(DELETE_REFUSED, { code: 'denied' });
+    return applyOp(db, op);
+  };
   const results = [];
   const warnings = [];
 
@@ -45,7 +53,7 @@ export async function applyPlan(db, plan, { dryRun = false, stopOnError = true }
     if (!op.then || done.after === undefined || done.after === null) return;
     for (const follow of op.then(done.after) || []) {
       try {
-        const res = { ...(await applyOp(db, follow)), followUp: true, key: follow.key || null };
+        const res = { ...(await apply(follow)), followUp: true, key: follow.key || null };
         results.push(res);
         await followUps(follow, res);
       } catch (err) {
@@ -60,7 +68,7 @@ export async function applyPlan(db, plan, { dryRun = false, stopOnError = true }
 
   for (const op of plan) {
     try {
-      const done = { ...(await applyOp(db, op)), key: op.key || null };
+      const done = { ...(await apply(op)), key: op.key || null };
       results.push(done);
       await followUps(op, done);
     } catch (err) {
@@ -75,6 +83,8 @@ export async function applyPlan(db, plan, { dryRun = false, stopOnError = true }
   }
   return { results, warnings, ok: results.length > 0 && results.every((r) => r.ok !== false) };
 }
+
+export const DELETE_REFUSED = 'Deleting requires admin access.';
 
 function describeOp(op) {
   const { then: _then, ...rest } = op;
@@ -184,6 +194,11 @@ export function undoPlan(results) {
     }
   }
   return plan.length ? plan : null;
+}
+
+/** Whether a plan deletes a row. */
+export function hasDelete(plan) {
+  return (plan || []).some((op) => op?.op === 'delete');
 }
 
 export function pick(obj, keys) {

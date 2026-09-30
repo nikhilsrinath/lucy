@@ -16,6 +16,10 @@ import { appUrl } from './render.js';
  *   unlink            everyone for themselves; admins for anyone
  *   settings          admin: Telegram on/off, Daily Pulse on/off and hour
  *   invite_token      admin: a one-time deep link for a member (48 hours)
+ *   person_invite     admin: a one-time deep link for a company PERSON in
+ *                     Team, who needs no StartupBuddy login (48 hours, 0071)
+ *   person_unlink     admin: revoke a person's Telegram connection — their
+ *                     very next message, or query, is refused
  *   group_token       admin: a one-time "add to group" link (30 minutes),
  *                     usable only by that admin's own linked Telegram
  *   disconnect_group  admin
@@ -27,7 +31,7 @@ import { appUrl } from './render.js';
 
 const isUuid = (s) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(String(s || ''));
 const BUDDY_ROLES = new Set(['owner', 'admin', 'member', 'viewer']);
-const ADMIN_MODES =new Set(['settings', 'invite_token', 'group_token', 'disconnect_group', 'pulse_now']);
+const ADMIN_MODES = new Set(['settings', 'invite_token', 'person_invite', 'person_unlink', 'group_token', 'disconnect_group', 'pulse_now']);
 
 async function botUsername() {
   if (!bot.isConfigured()) return null;
@@ -75,6 +79,37 @@ export async function manage(req, res) {
           pulse_hour: body.pulse_hour === undefined ? undefined : Number(body.pulse_hour),
         }, user.id);
         return res.status(200).json({ success: true, settings: { enabled: saved.enabled, pulse_enabled: saved.pulse_enabled, pulse_hour: saved.pulse_hour } });
+      }
+
+      case 'person_invite': {
+        const username = await botUsername();
+        if (!username) throw new HttpError(503, 'The Telegram bot is not configured on the server yet.');
+        const settings = await store.orgSettings(orgId);
+        if (!settings.enabled) throw new HttpError(409, 'Turn Telegram on for this company first.');
+        if (!isUuid(body.employee_id)) throw new HttpError(400, 'Missing employee_id');
+        // The person must be in THIS company; the token then names exactly them.
+        const person = await store.personInOrg(orgId, body.employee_id);
+        if (!person || person.exited_at) throw new HttpError(404, 'That person is not on this company\'s team.');
+        await store.voidPersonTokens(orgId, person.id);
+        const t = await store.createToken({
+          orgId, purpose: 'person', employeeId: person.id, createdBy: user.id, ttlMs: store.INVITE_TOKEN_TTL_MS,
+        });
+        return res.status(200).json({ success: true, url: deepLink(username, 'start', t.token), expires_at: t.expires_at });
+      }
+
+      case 'person_unlink': {
+        if (!isUuid(body.employee_id)) throw new HttpError(400, 'Missing employee_id');
+        const link = await store.personLinkFor(orgId, body.employee_id);
+        await store.voidPersonTokens(orgId, body.employee_id);
+        if (link) {
+          await store.revokeLink(link.id, 'admin_unlink');
+          await store.clearConversationsFor(link.telegram_user_id, orgId);
+          if (link.dm_chat_id) {
+            const org = await store.orgBasics(orgId);
+            await bot.sendMessage(link.dm_chat_id, `An admin disconnected your Telegram from <b>${bot.esc(org.name)}</b>. I can't act for you there anymore.`).catch(() => null);
+          }
+        }
+        return res.status(200).json({ success: true, unlinked: !!link });
       }
 
       case 'link_token':
@@ -149,11 +184,23 @@ async function status({ user, orgId, admin, token }) {
   };
   if (!admin) return out;
 
-  const [groups, membersRes] = await Promise.all([
+  const [groups, membersRes, peopleRes] = await Promise.all([
     store.chatsForOrg(orgId),
     userClient(token).rpc('org_members', { p_org: orgId }),
+    userClient(token).from('employees').select('id, full_name, role, email, user_id, is_owner')
+      .eq('org_id', orgId).is('exited_at', null).order('full_name'),
   ]);
-  const byUser = new Map(links.map((l) => [l.user_id, l]));
+  const byUser = new Map(links.filter((l) => l.user_id).map((l) => [l.user_id, l]));
+  const byPerson = new Map(links.filter((l) => l.employee_id).map((l) => [l.employee_id, l]));
+  // Everyone in Team, whether or not they have a login: who can use Buddy on
+  // Telegram through a person link (Team → person → Connect Telegram).
+  out.people = (peopleRes.data || []).map((p) => ({
+    employee_id: p.id,
+    name: p.full_name,
+    title: p.role || null,
+    has_login: !!p.user_id,
+    telegram: linkView(byPerson.get(p.id)),
+  }));
   out.groups = groups.map((g) => ({ id: g.id, title: g.title || 'Untitled group', type: g.chat_type, connected_at: g.connected_at }));
   out.members = (membersRes.data || []).map((m) => ({
     user_id: m.user_id,

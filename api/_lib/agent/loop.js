@@ -118,7 +118,7 @@ async function runControl(name, args, ctx, emit) {
   // confirm_proposal: the server's own guards, not the model's word.
   if (!ctx.voice) return { status: 'error', message: 'Confirming needs the user to tap the card.' };
   // Risk and kind from the stored action, never from what the client listed.
-  const row = await loadAction(card.action_id, ctx.user.id).catch(() => null);
+  const row = await loadAction(card.action_id, ctx).catch(() => null);
   if (!row || row.org_id !== ctx.orgId) return { status: 'error', message: 'That is not one of the open cards.' };
   if (row.kind === 'plan' || row.tool === 'plan') return { status: 'error', message: 'A plan needs the user to tap Approve on its card.' };
   if (row.risk !== 'low') return { status: 'error', message: 'A high-risk change needs the user to tap the card.' };

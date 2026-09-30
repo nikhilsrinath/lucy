@@ -30,8 +30,15 @@ import { computeInsights } from './insights.js';
  * database confirmed it.
  */
 
-export async function openSession({ user, token, orgId, body = {}, channel = null }) {
-  const ctx = await buildAgentContext({ user, token, orgId, body: channel ? { ...body, channel } : body });
+/**
+ * Who is asking is resolved by the caller before this — never by the model:
+ *   { user, token }            a StartupBuddy user (web, voice, their linked Telegram)
+ *   { person, linkId, token }  a company person with no login, through a link
+ *                              the channel verified (channelSession.js)
+ * Both reach the same context, tools, lifecycle and audit trail.
+ */
+export async function openSession({ user = null, person = null, linkId = null, token, orgId, body = {}, channel = null, channelActor = null }) {
+  const ctx = await buildAgentContext({ user, person, linkId, token, orgId, channelActor, body: channel ? { ...body, channel } : body });
   return ctx;
 }
 
@@ -42,7 +49,7 @@ export { confirm, cancel, undo, retry };
 
 /** The latest state of these cards, limited to this company. */
 export async function status(ctx, ids) {
-  const rows = await loadMany(ids, ctx.user.id);
+  const rows = await loadMany(ids, ctx);
   return rows.filter((r) => r.org_id === ctx.orgId).map(toCard);
 }
 

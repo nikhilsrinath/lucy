@@ -1,4 +1,5 @@
 import { esc, mdToHtml } from './bot.js';
+import { getTool, appApprovalOnly } from '../agent/registry.js';
 
 /**
  * Buddy's events and cards, as Telegram messages. Display only: every button
@@ -7,14 +8,17 @@ import { esc, mdToHtml } from './bot.js';
  *
  * Callback data (≤ 64 bytes):
  *   a:c:<action id>  confirm      a:x:<id> cancel     a:u:<id> undo
- *   a:r:<id>         retry        k:<nonce>:<i>       pick option i of the
- *                                                     conversation's offers
+ *   a:r:<id>         retry        a:v:<id> review     a:e:<id> edit
+ *   k:<nonce>:<i>    pick option i of the conversation's offers
  *   s:<org id>       switch company (DM)
  *
  * Risk decides the buttons. A low-risk card or a plan (plans hold only
- * low-risk steps) gets Confirm/Approve. A high-risk card — money, anything
- * leaving the company, deletes — never gets one: it gets "Review in
- * StartupBuddy", and the confirm callback refuses high risk anyway.
+ * low-risk steps) gets Confirm/Approve, Edit, Cancel. A high-risk card —
+ * money, issuing documents, deletes — gets Review, Edit, Cancel in a private
+ * chat; Review redraws it with the single Confirm. In a group it gets no
+ * Confirm at all. A tool approved only in the app (it emails someone) gets
+ * "Review in StartupBuddy". The confirm callback enforces all of this
+ * server-side (handler.confirmRefusal) whatever a button said.
  */
 
 /** The app's public URL, for "View in StartupBuddy" buttons; null if unknown or not https. */
@@ -72,11 +76,16 @@ function body(card) {
 
 /**
  * A card in its current state: { html, buttons }. `now` for the undo window.
+ * `group`: the card is in a team group (high risk is never confirmed there).
+ * `reviewing`: the person tapped Review on a high-risk card — show the one
+ * button that applies it.
  */
-export function renderCard(card, now = Date.now()) {
+export function renderCard(card, now = Date.now(), { group = false, reviewing = false } = {}) {
   const lines = body(card);
   const id = card.action_id;
   const review = reviewUrl(id);
+  const cancel = { text: 'Cancel', callback_data: `a:x:${id}` };
+  const edit = { text: '✏️ Edit', callback_data: `a:e:${id}` };
   let buttons = [];
 
   switch (card.status) {
@@ -85,11 +94,20 @@ export function renderCard(card, now = Date.now()) {
         lines.push('', '⌛ <i>Expired — nothing was changed. Ask again and I\'ll prepare it fresh.</i>');
         break;
       }
-      if (card.risk === 'high') {
+      if (card.risk === 'high' && appApprovalOnly(getTool(card.tool))) {
         lines.push('', review
           ? '🔒 <b>Needs your approval in StartupBuddy.</b> This kind of change is never confirmed from Telegram.'
           : '🔒 <b>Needs your approval in StartupBuddy</b> (open Buddy in the app). This kind of change is never confirmed from Telegram.');
-        buttons = rows([urlButton('Review in StartupBuddy', review)], [{ text: 'Cancel', callback_data: `a:x:${id}` }]);
+        buttons = rows([urlButton('Review in StartupBuddy', review)], [cancel]);
+      } else if (card.risk === 'high' && group) {
+        lines.push('', '🔒 <b>Sensitive change.</b> Message me privately to review and confirm it — it is never confirmed in a group.');
+        buttons = rows([cancel]);
+      } else if (card.risk === 'high' && reviewing) {
+        lines.push('', '🔒 <b>Check every detail above.</b> Confirm applies it now.');
+        buttons = rows([{ text: `✅ ${card.confirmLabel || 'Confirm'}`, callback_data: `a:c:${id}` }, cancel]);
+      } else if (card.risk === 'high') {
+        lines.push('', '🔒 <i>Not done yet. Review it, then confirm.</i>');
+        buttons = rows([{ text: '🔍 Review', callback_data: `a:v:${id}` }, edit, cancel]);
       } else if (card.kind === 'plan') {
         lines.push('', '<i>Nothing happens until you approve. To untick or edit steps, review it in StartupBuddy.</i>');
         buttons = rows(
@@ -98,10 +116,7 @@ export function renderCard(card, now = Date.now()) {
         );
       } else {
         lines.push('', '<i>Not done yet — confirm to apply.</i>');
-        buttons = rows(
-          [{ text: `✅ ${card.confirmLabel || 'Confirm'}`, callback_data: `a:c:${id}` }, { text: 'Cancel', callback_data: `a:x:${id}` }],
-          [urlButton('Edit in StartupBuddy', card.fields?.length ? review : null)],
-        );
+        buttons = rows([{ text: `✅ ${card.confirmLabel || 'Confirm'}`, callback_data: `a:c:${id}` }, edit, cancel]);
       }
       break;
     }

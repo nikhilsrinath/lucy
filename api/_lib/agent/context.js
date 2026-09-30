@@ -30,20 +30,34 @@ export const SHARED_RESOURCES = new Set([
   'tasks', 'projects', 'project_milestones', 'project_members', 'employees', 'announcements',
 ]);
 
-export async function buildAgentContext({ user, token, orgId, body = {}, actionId = null }) {
+/**
+ * The role a company person acting through a linked channel identity holds
+ * for Buddy (0071, app.person_permission): the admin role's operational
+ * rights, never delete, never governance. Not a membership role.
+ */
+export const PERSON_ROLE = 'teammate';
+
+export async function buildAgentContext({ user = null, person = null, linkId = null, token, orgId, body = {}, actionId = null, channelActor = null }) {
   if (!orgId) throw new HttpError(400, 'Missing org_id');
-  const membership = await requireOrgRole(user.id, orgId, 'viewer');
+  if (!user && !person) throw new HttpError(401, 'No verified identity');
+  // A user's membership is checked here; a person's link was verified by the
+  // channel (channelSession.verifyLinkedPerson) and is re-checked by the
+  // database on every query their token makes.
+  const membership = person ? { role: PERSON_ROLE } : await requireOrgRole(user.id, orgId, 'viewer');
   const db = userClient(token);
 
   const [permsRes, planRes, orgRes, meRes] = await Promise.all([
     db.rpc('my_permissions', { p_org: orgId }),
     db.from('subscriptions').select('plan').eq('org_id', orgId).maybeSingle(),
     db.from('organizations').select('*').eq('id', orgId).maybeSingle(),
-    db.from('employees').select('id, full_name').eq('org_id', orgId).eq('user_id', user.id).maybeSingle(),
+    person
+      ? Promise.resolve({ data: { id: person.id, full_name: person.full_name } })
+      : db.from('employees').select('id, full_name').eq('org_id', orgId).eq('user_id', user.id).maybeSingle(),
   ]);
 
   let permRows = permsRes.data;
   if (permsRes.error) {
+    if (person) throw new HttpError(503, 'Buddy is not available for linked people on this database yet (migration 0071).');
     // A database without 0062: the role's matrix alone.
     const fb = await db.from('role_permissions').select('resource, can_view, can_create, can_edit, can_delete')
       .eq('org_id', orgId).eq('role', membership.role);
@@ -53,7 +67,8 @@ export async function buildAgentContext({ user, token, orgId, body = {}, actionI
   const perms = {};
   for (const r of permRows || []) {
     if (audience === 'shared' && !SHARED_RESOURCES.has(r.resource)) continue;
-    perms[r.resource] = { view: !!r.can_view, create: !!r.can_create, edit: !!r.can_edit, delete: !!r.can_delete };
+    // A person never deletes: the database says so too (app.person_permission).
+    perms[r.resource] = { view: !!r.can_view, create: !!r.can_create, edit: !!r.can_edit, delete: !person && !!r.can_delete };
   }
 
   const plan = PLANS[planRes.data?.plan] ? planRes.data.plan : DEFAULT_PLAN;
@@ -61,7 +76,16 @@ export async function buildAgentContext({ user, token, orgId, body = {}, actionI
   const tz = org.timezone || org.time_zone || DEFAULT_TZ;
 
   const ctx = {
-    user: { id: user.id, email: user.email || null, name: meRes.data?.full_name || user.user_metadata?.full_name || user.email || 'you' },
+    user: person
+      ? { id: null, email: person.email || null, name: person.full_name || 'you' }
+      : { id: user.id, email: user.email || null, name: meRes.data?.full_name || user.user_metadata?.full_name || user.email || 'you' },
+    // Who is acting, as resolved server-side before Buddy runs. Everything
+    // that owns or attributes an action reads this, never the model.
+    actor: person
+      ? { kind: 'person', employeeId: person.id, linkId, title: person.role || null, via: 'telegram_link', channelActor: cleanActor(channelActor) }
+      : { kind: 'user', userId: user.id, channelActor: cleanActor(channelActor) },
+    // Deleting is for users whose role allows it; a linked person never does.
+    canDelete: !person,
     orgId,
     orgName: org.company_name || org.name || 'your company',
     org,
@@ -122,6 +146,11 @@ function cleanPage(page) {
   const recordType = KINDS[page.recordType] ? page.recordType : null;
   const recordId = isUuid(page.recordId) ? page.recordId : null;
   return { route, recordType: recordId ? recordType : null, recordId: recordType ? recordId : null };
+}
+
+/** "telegram:123456" — which channel account asked. Never a message body. */
+function cleanActor(a) {
+  return typeof a === 'string' && /^[a-z]{2,16}:[\w.-]{1,64}$/.test(a) ? a : null;
 }
 
 const CHANNELS = new Set(['chat', 'voice', 'insight', 'api', 'telegram']);

@@ -35,7 +35,9 @@ export async function sendPulse({ orgId, force = false }) {
   if (!force && hourIn(org.tz) < settings.pulse_hour) return { sent: 0, skipped: 0, failed: 0, reason: 'Not yet time.' };
   const date = pulse.pulseDate(org.tz);
 
-  const links = (await store.linksForOrg(orgId)).filter((l) => l.dm_chat_id && !l.pulse_opt_out);
+  // Daily Pulse is for StartupBuddy users for now: pulse_checkins keys on the
+  // user, and a company person linked without a login has none (0071).
+  const links = (await store.linksForOrg(orgId)).filter((l) => l.user_id && l.dm_chat_id && !l.pulse_opt_out);
   const out = { sent: 0, skipped: 0, failed: 0 };
   for (const link of links) {
     let row = null;

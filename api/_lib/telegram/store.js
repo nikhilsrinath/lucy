@@ -7,7 +7,7 @@ import { supabaseAdmin } from '../supabaseAdmin.js';
  * who is linked to whom, which group belongs to which company, which updates
  * were already handled, and each chat's short-term context.
  *
- * Link and group tokens are 24 random bytes, shown once as base64url and kept
+ * Link, person and group tokens are 24 random bytes, shown once as base64url and kept
  * only as their SHA-256; consuming one is a single conditional UPDATE, so a
  * token works exactly once even if two people race to use it.
  */
@@ -115,6 +115,42 @@ export async function createLink({ orgId, userId, from, dmChatId, via, invitedBy
   }).select().single());
 }
 
+/**
+ * Links this Telegram account to a company person (0071) — someone in Team
+ * who may have no StartupBuddy login at all. The same replace-not-duplicate
+ * rule as createLink: an earlier live link of this person, or of this
+ * Telegram account, in this company is revoked first. The unique indexes
+ * (one live person per Telegram account anywhere) are the final word.
+ */
+export async function createPersonLink({ orgId, employeeId, from, dmChatId, invitedBy }) {
+  const at = nowIso();
+  await db().from('telegram_links').update({ revoked_at: at, revoked_reason: 'relinked' })
+    .eq('org_id', orgId).is('revoked_at', null).or(`employee_id.eq.${employeeId},telegram_user_id.eq.${from.id}`);
+  return must(await db().from('telegram_links').insert({
+    org_id: orgId,
+    employee_id: employeeId,
+    telegram_user_id: from.id,
+    telegram_username: from.username || null,
+    telegram_name: [from.first_name, from.last_name].filter(Boolean).join(' ').slice(0, 120) || null,
+    dm_chat_id: dmChatId,
+    linked_via: 'person_invite',
+    invited_by: invitedBy,
+    last_seen_at: at,
+  }).select().single());
+}
+
+/** A company person's live link, if any. */
+export async function personLinkFor(orgId, employeeId) {
+  return must(await db().from('telegram_links').select('*')
+    .eq('org_id', orgId).eq('employee_id', employeeId).is('revoked_at', null).maybeSingle());
+}
+
+/** The company person record a person invite names — only in that company. */
+export async function personInOrg(orgId, employeeId) {
+  return must(await db().from('employees').select('id, org_id, full_name, role, email, user_id, exited_at, access_revoked_at')
+    .eq('id', employeeId).eq('org_id', orgId).maybeSingle());
+}
+
 export async function revokeLink(id, reason) {
   await db().from('telegram_links').update({ revoked_at: nowIso(), revoked_reason: String(reason).slice(0, 60) })
     .eq('id', id).is('revoked_at', null);
@@ -167,13 +203,20 @@ export async function migrateChat(fromId, toId) {
 const hash = (token) => createHash('sha256').update(token).digest('hex');
 export const isTokenShape = (s) => /^[A-Za-z0-9_-]{32}$/.test(String(s || ''));
 
-export async function createToken({ orgId, purpose, userId = null, createdBy, ttlMs }) {
+export async function createToken({ orgId, purpose, userId = null, employeeId = null, createdBy, ttlMs }) {
   const token = randomBytes(24).toString('base64url');
   const expires = new Date(Date.now() + ttlMs).toISOString();
   must(await db().from('telegram_link_tokens').insert({
     token_hash: hash(token), org_id: orgId, purpose, user_id: userId, created_by: createdBy, expires_at: expires,
+    ...(employeeId ? { employee_id: employeeId } : {}),
   }));
   return { token, expires_at: expires };
+}
+
+/** Voids a person's unused invites (a new one was made, or their link was revoked). */
+export async function voidPersonTokens(orgId, employeeId) {
+  await db().from('telegram_link_tokens').update({ used_at: nowIso() })
+    .eq('org_id', orgId).eq('employee_id', employeeId).eq('purpose', 'person').is('used_at', null);
 }
 
 /** The token's row if it was unused and unexpired — and now it is used. Otherwise null. */

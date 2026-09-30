@@ -1,12 +1,13 @@
 import * as bot from './bot.js';
 import * as store from './store.js';
 import * as buddy from '../agent/buddy.js';
-import { openChannelSession, verifyPerson, ChannelAccessError } from '../agent/channelSession.js';
+import { openChannelSession, verifyPerson, verifyLink, ChannelAccessError } from '../agent/channelSession.js';
 import { supabaseAdmin } from '../supabaseAdmin.js';
 import { requireOrgRole } from '../auth.js';
 import { bumpAiUsage, logAiUsage } from '../aiUsage.js';
 import { AGENT_MODEL, newUsage, describeUsage } from '../agent/model.js';
 import * as pulse from '../agent/pulse.js';
+import { getTool, appApprovalOnly } from '../agent/registry.js';
 import {
   currentState, freshState, requestBody, pushHistory, remember, trackCard, cardLine, nonce, chatKey,
 } from './conversation.js';
@@ -16,8 +17,12 @@ import { renderCard, renderView, renderOptions, renderNotice, renderNavigate } f
  * One Telegram update, start to finish. The Telegram half of the adapter:
  *
  *   identify   update → Telegram user + chat → (group mapping | DM choice)
- *              → the company → that person's live link → verifyPerson
- *              (account, membership, revoked login) — on every update
+ *              → the company → that Telegram account's live link in THAT
+ *              company → verified on every update: a StartupBuddy user
+ *              (account, membership, revoked login) or a company person with
+ *              no login (live link, still in the company) — channelSession.js.
+ *              Nothing Telegram says about someone (name, username, group
+ *              membership) is ever taken as who they are.
  *   translate  a message becomes the same request body the web client sends
  *              (conversation.js), a button becomes the same confirm / cancel
  *              / undo / retry / resume call the web card makes
@@ -25,7 +30,15 @@ import { renderCard, renderView, renderOptions, renderNotice, renderNavigate } f
  *
  * Everything that decides anything — intent, tools, permissions, proposals,
  * approval, execution, audit, undo — is Buddy's (api/_lib/agent/buddy.js),
- * running as the person with their own database identity.
+ * running as the person with their own database identity — a user's token,
+ * or a person principal the database re-checks on every query (0071).
+ *
+ * Approvals: a low-risk card is confirmed with one tap. A high-risk card
+ * (money, issuing documents, deletes) is confirmed only in a private chat,
+ * with two taps — Review, which shows exactly what will happen, then Confirm
+ * — and the confirm callback refuses it unless that review happened in this
+ * chat within the last few minutes. Never in a group. Tools that email
+ * someone outside the company are approved in the app only.
  *
  * Groups: Buddy answers only when addressed (a command, an @mention, or a
  * reply to one of its messages) — with BotFather privacy mode on, Telegram
@@ -40,8 +53,11 @@ import { renderCard, renderView, renderOptions, renderNotice, renderNavigate } f
 const RATE_WINDOW_MS = 60 * 1000;
 const RATE_MAX = 20;
 const PULSE_FOLLOW_UP_MS = 30 * 60 * 1000;
-const ONBOARD = 'To talk to me here, link your StartupBuddy account: open <b>StartupBuddy → Settings → Telegram</b> and tap <b>Link my Telegram</b>, or ask your admin for an invite link.';
-const ENDED = 'Your StartupBuddy access to this company has ended, so I can\'t act for you here anymore. If that\'s a mistake, ask your admin.';
+const ONBOARD = 'I don\'t recognize your Buddy account yet. Ask your company admin to connect your Telegram account (<b>Team → your name → Connect Telegram</b>). If you use StartupBuddy yourself, open <b>Settings → Telegram</b> and tap <b>Link my Telegram</b>.';
+const UNKNOWN_IN_GROUP = 'I don\'t recognize your Buddy account yet. Ask your company admin to connect your Telegram account.';
+const ENDED = 'Your access to this company through Buddy has ended, so I can\'t act for you here anymore. If that\'s a mistake, ask your admin.';
+const NOT_READY = 'Buddy isn\'t available for your account right now — the company\'s setup needs attention. Your admin can check Settings → Telegram.';
+const REVIEW_WINDOW_MS = 5 * 60 * 1000;
 const noBuddy = (role) => `Your role in StartupBuddy${role ? ` (${role})` : ''} doesn't include Buddy, so I can't help you here yet. Ask your admin to change your role.`;
 
 /**
@@ -51,6 +67,7 @@ const noBuddy = (role) => `Your role in StartupBuddy${role ? ` (${role})` : ''} 
  */
 async function refused(err, link, orgId) {
   console.warn(`[telegram] link ${link.id} refused: ${err.reason}`);
+  if (err.reason === 'config') return NOT_READY;
   if (!err.ended) return noBuddy(err.role);
   await store.revokeLink(link.id, `access_${err.reason}`);
   await store.clearConversationsFor(link.telegram_user_id, orgId);
@@ -109,6 +126,13 @@ function parseCommand(text, username) {
 
 const mentionRe = (username) => new RegExp(`@${username}\\b`, 'ig');
 const personName = (user, emp) => emp?.full_name || user?.user_metadata?.full_name || user?.email || 'there';
+const actorOf = (from) => `telegram:${from.id}`;
+const isPersonLink = (link) => !!link?.employee_id && !link.user_id;
+
+/** Whether an ai_actions row was asked for by this link's identity. */
+export const ownsAction = (link, row) => (isPersonLink(link)
+  ? !row.user_id && !!row.employee_id && row.employee_id === link.employee_id
+  : !!row.user_id && row.user_id === link.user_id);
 
 async function employeeOf(orgId, userId) {
   const { data } = await supabaseAdmin().from('employees').select('id, full_name').eq('org_id', orgId).eq('user_id', userId).maybeSingle();
@@ -119,9 +143,9 @@ async function employeeOf(orgId, userId) {
  * Opens Buddy as the linked person, or explains why not. A person whose
  * StartupBuddy access ended has the link revoked here, at first contact.
  */
-async function session(link, orgId, body, { chatId, cb = null }) {
+async function session(link, orgId, body, { chatId, cb = null, from }) {
   try {
-    return await openChannelSession({ userId: link.user_id, orgId, channel: 'telegram', body });
+    return await openChannelSession({ link, orgId, channel: 'telegram', body, channelActor: actorOf(from) });
   } catch (err) {
     if (!(err instanceof ChannelAccessError)) throw err;
     const text = await refused(err, link, orgId);
@@ -195,10 +219,11 @@ async function onGroupMessage(msg, cmd, text, me) {
     return 'done';
   }
   if (cmd && ['help', 'start'].includes(cmd.name)) { await reply(msg, helpText(true, me)); return 'done'; }
+  // The group says which company; the sender's own link in THAT company says
+  // who they are. Being in the group, a name or a username proves nothing.
   const link = await store.linkFor(msg.from.id, chatRow.org_id);
   if (!link) {
-    await reply(msg, 'I don\'t know you yet. Message me privately to link your StartupBuddy account first.',
-      { buttons: me.username ? [[{ text: 'Message Buddy', url: `https://t.me/${me.username}` }]] : null });
+    await reply(msg, UNKNOWN_IN_GROUP);
     return 'done';
   }
   let say = text;
@@ -223,13 +248,14 @@ async function buddyTurn({ msg, text, audience, link, orgId, conv }) {
   // A check-in stays open for follow-up messages for a while after the first
   // answer ("oh, and…"); after that, messages are ordinary questions again.
   if (state.pulse?.answered_at && Date.now() - state.pulse.answered_at > PULSE_FOLLOW_UP_MS) state.pulse = null;
-  if (audience === 'private' && state.pulse?.id) {
+  // Daily Pulse is for StartupBuddy users for now (pulse_checkins keys on the user).
+  if (audience === 'private' && state.pulse?.id && link.user_id) {
     checkin = await pulse.openCheckin({ id: state.pulse.id, orgId, userId: link.user_id }).catch(() => null);
     if (!checkin) state.pulse = null;
   }
   const messageId = `tg${msg.message_id}`;
   const body = requestBody(state, { chatId: chat.id, messageId, audience, source: checkin ? `pulse:${checkin.id}` : null });
-  const ctx = await session(link, orgId, body, { chatId: chat.id });
+  const ctx = await session(link, orgId, body, { chatId: chat.id, from });
   if (!ctx) return 'done';
   await store.touchLink(link, { from, dmChatId: audience === 'private' ? chat.id : null });
 
@@ -287,7 +313,7 @@ async function deliver(chatId, state, events, { replyTo = null, turn }) {
         break;
       }
       case 'card': {
-        const m = await send(renderCard(data.card));
+        const m = await send(renderCard(data.card, Date.now(), { group: chatId < 0 }));
         trackCard(state, data.card, m?.message_id);
         pushHistory(state, 'assistant', cardLine(data.card));
         remember(state, data.card.entities, turn);
@@ -335,8 +361,9 @@ async function deliver(chatId, state, events, { replyTo = null, turn }) {
 }
 
 /** Re-draws a card where it was shown (or sends it, if that message is unknown). */
-async function showCard(chatId, state, card, messageId = null) {
-  const r = renderCard(card);
+async function showCard(chatId, state, card, messageId = null, { reviewing = false } = {}) {
+  // Telegram group ids are negative; private chats are the person.
+  const r = renderCard(card, Date.now(), { group: chatId < 0, reviewing });
   const mid = messageId || state.cards.find((c) => c.action_id === card.action_id)?.message_id;
   if (mid) {
     try { await bot.editMessage(chatId, mid, r.html, { buttons: r.buttons }); trackCard(state, card, mid); return; } catch { /* sent afresh below */ }
@@ -347,13 +374,28 @@ async function showCard(chatId, state, card, messageId = null) {
 
 /* ── buttons ──────────────────────────────────────────────────────────────── */
 
+/**
+ * Whether a Confirm tap may go ahead from Telegram — null if so, else what to
+ * tell the person. Low risk: yes. High risk: never in a group, never for a
+ * tool approved only in the app, and only right after this person tapped
+ * Review on it in this private chat (state.reviewed, server-side).
+ */
+export function confirmRefusal({ row, group, state, now = Date.now() }) {
+  if (row.risk === 'low') return null;
+  if (appApprovalOnly(getTool(row.tool))) return 'This is approved in the StartupBuddy app only — use "Review in StartupBuddy".';
+  if (group) return 'Money and other sensitive changes are confirmed in a private chat with me, not in the group.';
+  const r = state?.reviewed;
+  if (!r || r.action_id !== row.id || !(now - r.at <= REVIEW_WINDOW_MS)) return 'Tap Review first — it shows exactly what will happen.';
+  return null;
+}
+
 async function onCallback(cb) {
   const chat = cb.message?.chat;
   if (!chat) { await bot.answerCallback(cb.id); return 'ignored'; }
   if (await overLimit(cb.from, null)) { await bot.answerCallback(cb.id, 'Slow down a little — try again in a minute.'); return 'ignored'; }
   const data = String(cb.data || '');
   let m;
-  if ((m = /^a:([cxur]):([0-9a-f-]{36})$/i.exec(data))) return onCardButton(cb, m[1], m[2]);
+  if ((m = /^a:([cxurve]):([0-9a-f-]{36})$/i.exec(data))) return onCardButton(cb, m[1], m[2]);
   if ((m = /^k:([0-9a-f]{8}):(\d{1,2})$/.exec(data))) return onOption(cb, m[1], Number(m[2]));
   if ((m = /^s:([0-9a-f-]{36})$/i.exec(data)) && chat.type === 'private') return onSwitch(cb, m[1]);
   await bot.answerCallback(cb.id, 'That button is no longer active.');
@@ -364,10 +406,10 @@ async function onCardButton(cb, op, actionId) {
   const chat = cb.message.chat;
   const group = chat.type !== 'private';
   // Only to learn which company to check; buddy.* reload it by id AND owner.
-  const { data: row } = await supabaseAdmin().from('ai_actions').select('id, org_id, user_id, risk, kind, tool').eq('id', actionId).maybeSingle();
+  const { data: row } = await supabaseAdmin().from('ai_actions').select('id, org_id, user_id, employee_id, risk, kind, tool').eq('id', actionId).maybeSingle();
   if (!row) { await bot.answerCallback(cb.id, 'That change is no longer available.'); return 'done'; }
   const link = await store.linkFor(cb.from.id, row.org_id);
-  if (!link || link.user_id !== row.user_id) {
+  if (!link || !ownsAction(link, row)) {
     await bot.answerCallback(cb.id, 'Only the person who asked for this can use these buttons.', { alert: true });
     return 'done';
   }
@@ -375,25 +417,43 @@ async function onCardButton(cb, op, actionId) {
     const chatRow = await store.chatFor(chat.id);
     if (!chatRow || chatRow.org_id !== row.org_id) { await bot.answerCallback(cb.id, 'That change is not available here.'); return 'done'; }
   }
-  // Never from Telegram, whatever the button said: high risk is approved in the app.
-  if (op === 'c' && row.risk !== 'low') {
-    await bot.answerCallback(cb.id, 'This needs your approval in StartupBuddy — use "Review in StartupBuddy".', { alert: true });
-    return 'done';
-  }
   const settings = await store.orgSettings(row.org_id);
   if (!settings.enabled) { await bot.answerCallback(cb.id, 'Telegram is switched off for this company.', { alert: true }); return 'done'; }
 
   const conv = await store.loadConversation(chat.id, cb.from.id);
   const state = currentState(conv?.org_id === row.org_id ? conv : null, row.org_id);
+  if (op === 'c') {
+    const why = confirmRefusal({ row, group, state });
+    if (why) { await bot.answerCallback(cb.id, why, { alert: true }); return 'done'; }
+  }
+  if (op === 'v' && (group || row.risk === 'low' || appApprovalOnly(getTool(row.tool)))) {
+    await bot.answerCallback(cb.id, group ? 'Open a private chat with me to review this.' : 'Nothing more to review here.');
+    return 'done';
+  }
   const body = requestBody(state, { chatId: chat.id, messageId: `cb${cb.message.message_id}`, audience: group ? 'shared' : 'private' });
-  const ctx = await session(link, row.org_id, body, { chatId: chat.id, cb });
+  const ctx = await session(link, row.org_id, body, { chatId: chat.id, cb, from: cb.from });
   if (!ctx) return 'done';
   await bot.answerCallback(cb.id, op === 'c' ? 'Working on it…' : '');
 
   const mid = cb.message.message_id;
   const say = (html) => bot.sendMessage(chat.id, html, { replyTo: group ? mid : null });
   let res;
-  if (op === 'c') {
+  if (op === 'v') {
+    // Step one of a high-risk approval: the full card, and the one button that applies it.
+    const [card] = await buddy.status(ctx, [actionId]);
+    if (!card || card.status !== 'proposed') {
+      if (card) await showCard(chat.id, state, card, mid);
+      else await say('That change is no longer available.');
+    } else {
+      state.reviewed = { action_id: actionId, at: Date.now() };
+      await showCard(chat.id, state, card, mid, { reviewing: true });
+    }
+  } else if (op === 'e') {
+    state.pending = null;
+    await say('What should I change? Reply with the correction — e.g. “make it ₹4,500” or “date it yesterday” — and I\'ll prepare an updated card. Nothing changes until you confirm.');
+    pushHistory(state, 'assistant', `[Asked what to change on the card "${actionId}"]`);
+  } else if (op === 'c') {
+    state.reviewed = null;
     await bot.clearButtons(chat.id, mid);
     res = await buddy.confirm(ctx, actionId);
     if (res.status === 'invalid') {
@@ -454,7 +514,7 @@ async function onOption(cb, n, i) {
   const state = currentState(conv, orgId);
   const messageId = `cb${cb.message.message_id}`;
   const body = requestBody(state, { chatId: chat.id, messageId, audience: group ? 'shared' : 'private' });
-  const ctx = await session(link, orgId, body, { chatId: chat.id, cb });
+  const ctx = await session(link, orgId, body, { chatId: chat.id, cb, from: cb.from });
   if (!ctx) return 'done';
   await bot.answerCallback(cb.id);
   await bot.clearButtons(chat.id, cb.message.message_id);
@@ -474,7 +534,7 @@ async function onOption(cb, n, i) {
 async function onSwitch(cb, orgId) {
   const link = await store.linkFor(cb.from.id, orgId);
   if (!link) { await bot.answerCallback(cb.id, 'You are not linked to that company.'); return 'done'; }
-  try { await verifyPerson({ userId: link.user_id, orgId }); } catch (err) {
+  try { await verifyLink(link, orgId); } catch (err) {
     if (!(err instanceof ChannelAccessError)) throw err;
     await bot.answerCallback(cb.id, await refused(err, link, orgId), { alert: true });
     return 'done';
@@ -492,7 +552,8 @@ async function onSwitch(cb, orgId) {
 async function linkAccount(msg, token) {
   const { from, chat } = msg;
   const row = await store.consumeToken(token, from.id);
-  if (!row) { await reply(msg, 'That link has expired or was already used. Create a new one in <b>StartupBuddy → Settings → Telegram</b>.'); return 'done'; }
+  if (!row) { await reply(msg, 'That link has expired or was already used. Ask your company admin for a new one.'); return 'done'; }
+  if (row.purpose === 'person') return linkPerson(msg, row, token);
   if (row.purpose !== 'link') {
     await store.releaseToken(token);
     await reply(msg, 'That link connects a group. Open it again and choose the group to add me to.');
@@ -520,6 +581,54 @@ async function linkAccount(msg, token) {
     '• What do I need to do today?',
     '• Move my payment task to Friday',
     '• I\'m blocked on the payment integration — need API access',
+    '',
+    'I always show you a change before I make it. /help for more.',
+  ].join('\n'));
+  return 'done';
+}
+
+/**
+ * A person invite (0071): an admin made it for ONE company person, who may
+ * have no StartupBuddy login. The token alone decides which person and which
+ * company — nothing the person types or their Telegram profile says. Opening
+ * it links this Telegram account to that person, once.
+ */
+async function linkPerson(msg, row, token) {
+  const { from, chat } = msg;
+  const fail = async (html, { keep = true } = {}) => { if (keep) await store.releaseToken(token); await reply(msg, html); return 'done'; };
+  const settings = await store.orgSettings(row.org_id);
+  if (!settings.enabled) return fail('Telegram is switched off for this company in StartupBuddy.');
+
+  const person = await store.personInOrg(row.org_id, row.employee_id);
+  if (!person || person.exited_at || person.access_revoked_at) {
+    return fail('This invite is no longer valid: that person is no longer on the team. Ask your admin.', { keep: false });
+  }
+  // One Telegram account is one identity per company, and one company person anywhere.
+  const mine = await store.linksForTelegram(from.id);
+  if (mine.some((l) => l.org_id === row.org_id && l.user_id)) {
+    return fail('This Telegram account is already linked to a StartupBuddy login in this company, so it can\'t also be connected as a team member. Use /unlink first, or open the invite from the right Telegram account.');
+  }
+  if (mine.some((l) => l.employee_id && l.org_id !== row.org_id)) {
+    return fail('This Telegram account is already connected to another company as a team member. Ask that company\'s admin to disconnect it first.');
+  }
+
+  try {
+    await store.createPersonLink({ orgId: row.org_id, employeeId: person.id, from, dmChatId: chat.type === 'private' ? chat.id : null, invitedBy: row.created_by });
+  } catch (err) {
+    if (err?.code === '23505') return fail('This Telegram account is already connected to another team member. Ask your admin.');
+    throw err;
+  }
+  await store.voidPersonTokens(row.org_id, person.id);
+  await store.saveConversation(chat.id, from.id, row.org_id, freshState(row.org_id));
+  const org = await store.orgBasics(row.org_id);
+  console.info(`[telegram] linked tg ${from.id} → person ${person.id} org ${row.org_id} (person_invite)`);
+  await reply(msg, [
+    `✅ You're connected to <b>${bot.esc(org.name)}</b> as <b>${bot.esc(person.full_name)}</b>. You can now use Buddy here.`,
+    '',
+    'Ask me things like:',
+    '• Show me my tasks',
+    '• Create a task for me to follow up with the sponsor tomorrow',
+    '• Invoice Client X ₹25,000 for the event',
     '',
     'I always show you a change before I make it. /help for more.',
   ].join('\n'));
@@ -556,7 +665,7 @@ async function connectGroup(msg, token, me) {
   await reply(msg, [
     `✅ This group is connected to <b>${bot.esc(org.name)}</b>.`,
     '',
-    `Mention me (@${bot.esc(me.username)}) or reply to my messages to ask about tasks and projects. I only answer teammates who have linked their StartupBuddy account, with their own permissions, and I keep money, invoices and personal details out of the group.`,
+    `Mention me (@${bot.esc(me.username)}) or reply to my messages to ask about tasks and projects. I only answer teammates whose Telegram is connected to StartupBuddy, with their own permissions, and I keep money, invoices and personal details out of the group.`,
   ].join('\n'));
   return 'done';
 }
@@ -604,15 +713,19 @@ async function welcome(msg) {
 async function whoAmI(msg) {
   const id = await dmIdentity(msg.from, msg.chat.id);
   if (!id) { await reply(msg, ONBOARD); return 'done'; }
-  let person;
-  try { person = await verifyPerson({ userId: id.link.user_id, orgId: id.link.org_id }); } catch (err) {
+  let who;
+  try { who = await verifyLink(id.link, id.link.org_id); } catch (err) {
     if (!(err instanceof ChannelAccessError)) throw err;
     await reply(msg, bot.esc(await refused(err, id.link, id.link.org_id)));
     return 'done';
   }
-  const [org, emp] = await Promise.all([store.orgBasics(id.link.org_id), employeeOf(id.link.org_id, id.link.user_id)]);
+  const [org, emp] = await Promise.all([
+    store.orgBasics(id.link.org_id),
+    who.kind === 'person' ? who.person : employeeOf(id.link.org_id, id.link.user_id),
+  ]);
+  const name = who.kind === 'person' ? who.name : personName(who.user, emp);
   const others = id.links.length - 1;
-  await reply(msg, `You're <b>${bot.esc(personName(person.user, emp))}</b> (${bot.esc(person.membership.role)}) at <b>${bot.esc(org.name)}</b>.${others ? `\nLinked to ${others} other compan${others === 1 ? 'y' : 'ies'} — /company to switch.` : ''}`);
+  await reply(msg, `You're <b>${bot.esc(name)}</b>${who.title ? ` (${bot.esc(who.title)})` : ''} at <b>${bot.esc(org.name)}</b>.${others ? `\nLinked to ${others} other compan${others === 1 ? 'y' : 'ies'} — /company to switch.` : ''}`);
   return 'done';
 }
 

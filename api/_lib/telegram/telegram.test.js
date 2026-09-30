@@ -19,25 +19,41 @@ describe('Telegram cards: risk decides the buttons', () => {
   beforeEach(() => { process.env.APP_URL = 'https://app.example.com'; });
   afterEach(() => { process.env = { ...env }; });
 
-  it('a low-risk proposal gets Confirm and Cancel', () => {
+  it('a low-risk proposal gets Confirm, Edit and Cancel', () => {
     const { html, buttons } = renderCard({ action_id: ID, status: 'proposed', risk: 'low', kind: 'action', title: 'Update task deadline', expires_at: future, diff: [{ label: 'Deadline', from: '25 Sep', to: '2 Oct 2026' }] });
-    expect(callbacks(buttons)).toEqual([`a:c:${ID}`, `a:x:${ID}`]);
+    expect(callbacks(buttons)).toEqual([`a:c:${ID}`, `a:e:${ID}`, `a:x:${ID}`]);
     expect(html).toContain('Not done yet');
     expect(html).toContain('25 Sep → <b>2 Oct 2026</b>');
   });
 
-  it('a high-risk proposal never gets a Confirm button — only review in the app, or cancel', () => {
-    const { html, buttons } = renderCard({ action_id: ID, status: 'proposed', risk: 'high', kind: 'action', title: 'Send payment reminder', expires_at: future });
+  it('a high-risk proposal has no Confirm until it is reviewed — Review, Edit, Cancel', () => {
+    const card = { action_id: ID, tool: 'create_cash_entry', status: 'proposed', risk: 'high', kind: 'action', title: 'Record cash out', expires_at: future };
+    const { html, buttons } = renderCard(card);
+    expect(callbacks(buttons)).toEqual([`a:v:${ID}`, `a:e:${ID}`, `a:x:${ID}`]);
+    expect(html).toMatch(/Review it, then confirm/);
+    // Tapping Review redraws it with the one button that applies it.
+    const reviewing = renderCard(card, Date.now(), { reviewing: true });
+    expect(callbacks(reviewing.buttons)).toEqual([`a:c:${ID}`, `a:x:${ID}`]);
+    expect(reviewing.html).toMatch(/Check every detail/);
+  });
+
+  it('a high-risk proposal in a group never gets Confirm or Review', () => {
+    const { html, buttons } = renderCard({ action_id: ID, tool: 'create_cash_entry', status: 'proposed', risk: 'high', kind: 'action', title: 'Record cash out', expires_at: future }, Date.now(), { group: true, reviewing: true });
     expect(callbacks(buttons)).toEqual([`a:x:${ID}`]);
-    expect(callbacks(buttons).some((c) => c.startsWith('a:c:'))).toBe(false);
+    expect(html).toMatch(/never confirmed in a group/);
+  });
+
+  it('a tool approved only in the app (it emails a client) gets review in the app, or cancel', () => {
+    const { html, buttons } = renderCard({ action_id: ID, tool: 'send_payment_reminder', status: 'proposed', risk: 'high', kind: 'action', title: 'Send payment reminder', expires_at: future }, Date.now(), { reviewing: true });
+    expect(callbacks(buttons)).toEqual([`a:x:${ID}`]);
     expect(urls(buttons)).toEqual([`https://app.example.com/chat?action=${ID}`]);
     expect(html).toMatch(/approval in StartupBuddy/);
   });
 
-  it('a high-risk proposal still has no Confirm when no app URL is known', () => {
+  it('an app-only proposal still has no Confirm when no app URL is known', () => {
     delete process.env.APP_URL;
     delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
-    const { buttons } = renderCard({ action_id: ID, status: 'proposed', risk: 'high', kind: 'action', title: 'Delete task', expires_at: future });
+    const { buttons } = renderCard({ action_id: ID, tool: 'send_payment_reminder', status: 'proposed', risk: 'high', kind: 'action', title: 'Send payment reminder', expires_at: future });
     expect(callbacks(buttons)).toEqual([`a:x:${ID}`]);
     expect(urls(buttons)).toEqual([]);
   });
@@ -165,8 +181,8 @@ describe('shared spaces (a team group) see only work data', () => {
     ctx.audience = 'shared';
     const prompt = buildSystemPrompt(ctx, toolsFor(ctx));
     expect(prompt).toMatch(/SHARED SPACE/);
-    expect(prompt).toMatch(/Confirm button in Telegram/);
-    expect(prompt).toMatch(/approved only in the StartupBuddy app/);
+    expect(prompt).toMatch(/tapping its buttons in Telegram/);
+    expect(prompt).toMatch(/Review and then Confirm, in a private chat/);
   });
 
   it('marks a Daily Pulse reply in the turn context only when it is one', () => {

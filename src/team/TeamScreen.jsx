@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useOrg } from '../context/OrgContext';
 import { useAuth } from '../context/AuthContext';
@@ -9,6 +9,8 @@ import { emailService } from '../services/emailService';
 import { createPortalLink } from '../services/portalService';
 import { portalAccessService } from '../services/portalAccessService';
 import { confirmDialog } from '../services/confirm';
+import { telegramApi, tgName } from '../services/telegramService';
+import TelegramLinkSheet from '../settings/TelegramLinkSheet';
 import { useSectionList } from '../shell/useSectionList';
 import { Button, Badge, Card, ListRow, PageHeader, Sheet, Field, Segmented, PixelAvatar, IconTile, KpiStrip } from '../design/ui';
 import { personAvatar } from '../design/personas';
@@ -30,6 +32,11 @@ import '../design/hub.css';
    written in their own editors (/team/letters/:kind/new); certificates and
    MoUs already issued stay listed and downloadable, read-only. Status is the
    portal's: sent → opened → accepted / declined.
+
+   Telegram (owners/admins): each person's Telegram connection. Anyone in
+   Team can use Buddy on Telegram without a StartupBuddy login — an admin
+   sends them a private one-time link (api/_lib/telegram/manage.js,
+   person_invite) and can revoke it here at any time.
    ══════════════════════════════════════════════════════════════════════════ */
 
 const KIND = { offer: 'Offer letter', nda: 'NDA', certificate: 'Certificate', mou: 'MoU', role_change: 'Role change', termination: 'Termination notice' };
@@ -84,6 +91,24 @@ export default function TeamScreen() {
     const canLetters = orgStore.can('records', 'create');
     const canPeople = orgStore.can('employees', 'create');
 
+    // Telegram connection per person — owners and admins only.
+    const admin = ['owner', 'admin'].includes(orgStore.getRole());
+    const [tg, setTg] = useState(null); // { on, people: Map(employee_id → status) }
+    const loadTg = useCallback(async () => {
+        if (!admin || !orgId) return;
+        try {
+            const s = await telegramApi({ mode: 'status', org_id: orgId });
+            setTg({ on: !!(s.enabled && s.configured && s.bot_username), people: new Map((s.people || []).map((p) => [p.employee_id, p])) });
+        } catch { setTg(null); }
+    }, [admin, orgId]);
+    useEffect(() => { const t = setTimeout(loadTg, 0); return () => clearTimeout(t); }, [loadTg]);
+    const tgBadge = (p) => {
+        if (!tg?.on || view !== 'current') return null;
+        return tg.people.get(p.id)?.telegram
+            ? <Badge tone="g">● Telegram</Badge>
+            : <span style={{ color: 'var(--faint)', fontSize: 12 }}>○ Telegram</span>;
+    };
+
     return (
         <div className="sb-scroll">
             <div className="sb-page">
@@ -121,7 +146,7 @@ export default function TeamScreen() {
                                     lead={<PixelAvatar spec={personAvatar(p.name)} round size={36} />}
                                     title={p.is_owner ? `${p.name} (owner)` : p.name}
                                     sub={[p.role, view === 'past' ? `Left ${fmt(p.exited_at)}` : p.startDate ? (p.startDate > new Date().toISOString().slice(0, 10) ? `Joins ${fmt(p.startDate)}` : `Since ${fmt(p.startDate)}`) : ''].filter(Boolean).join(' · ')}
-                                    trail={<span style={{ color: 'var(--faint)' }}><IconChevronRight /></span>} />
+                                    trail={<span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{tgBadge(p)}<span style={{ color: 'var(--faint)' }}><IconChevronRight /></span></span>} />
                             ))}
                             {!list.length && <div className="sb-empty">{view === 'past' ? 'No one has left.' : 'No one yet.'}</div>}
                         </Card>
@@ -151,7 +176,8 @@ export default function TeamScreen() {
             </div>
 
             {person && <PersonSheet key={person.id} person={person} letters={letters.filter((r) => r.employee_id === person.id || (person.email && r.recipient_email === person.email))}
-                onClose={() => setParams({})} onLetter={setLetter} notify={notify} />}
+                onClose={() => setParams({})} onLetter={setLetter} notify={notify}
+                telegram={tg ? { on: tg.on, status: tg.people.get(person.id) || null } : null} onTelegramChange={loadTg} />}
             {shownLetter && <LetterSheet key={shownLetter.id} letter={shownLetter} onClose={closeLetter} notify={notify} />}
             {openAdd && <PersonForm onClose={closeAdd} notify={notify} />}
             {note && <div className="sb sb-toast" role="status">{note}</div>}
@@ -159,7 +185,7 @@ export default function TeamScreen() {
     );
 }
 
-function PersonSheet({ person, letters, onClose, onLetter, notify }) {
+function PersonSheet({ person, letters, onClose, onLetter, notify, telegram, onTelegramChange }) {
     const [editing, setEditing] = useState(false);
     const { activeOrg } = useOrg();
     const exited = !!person.exited_at;
@@ -202,6 +228,9 @@ function PersonSheet({ person, letters, onClose, onLetter, notify }) {
                     {!letters.length && <div className="sb-lr"><span className="t"><small>No letters yet</small></span></div>}
                 </Card>
             </div>
+            {telegram && !exited && (
+                <PersonTelegram person={person} telegram={telegram} orgId={activeOrg?.id} notify={notify} onChange={onTelegramChange} />
+            )}
             {!exited && orgStore.can('employees', 'edit') && (
                 <div className="sb-dacts">
                     <Button variant="primary" onClick={() => setEditing(true)}>Edit details</Button>
@@ -223,6 +252,57 @@ function PersonSheet({ person, letters, onClose, onLetter, notify }) {
             )}
             {editing && <PersonForm existing={person} onClose={() => setEditing(false)} notify={notify} />}
         </Sheet>
+    );
+}
+
+/**
+ * Team → person → Telegram. Connect sends a private one-time link for THIS
+ * person (they need no StartupBuddy login); Revoke ends their Telegram
+ * access at once. Both are owner/admin only, checked by the server.
+ */
+function PersonTelegram({ person, telegram, orgId, notify, onChange }) {
+    const [busy, setBusy] = useState(false);
+    const [sheet, setSheet] = useState(null);
+    const link = telegram.status?.telegram || null;
+    const connect = async () => {
+        setBusy(true);
+        try {
+            const r = await telegramApi({ mode: 'person_invite', org_id: orgId, employee_id: person.id });
+            setSheet({
+                title: `Connect ${person.name}`, url: r.url, expires_at: r.expires_at,
+                note: `Send this privately to ${person.name} only — whoever opens it first is connected as them. It works once and expires in 48 hours. They don't need a StartupBuddy login.`,
+            });
+        } catch (e) { notify(e.message); } finally { setBusy(false); }
+    };
+    const revoke = async () => {
+        if (!(await confirmDialog({ title: 'Revoke Telegram', message: `Buddy will stop answering ${person.name} on Telegram right away.`, confirmLabel: 'Revoke' }))) return;
+        setBusy(true);
+        try {
+            await telegramApi({ mode: 'person_unlink', org_id: orgId, employee_id: person.id });
+            notify(`${person.name}'s Telegram is disconnected.`);
+            await onChange();
+        } catch (e) { notify(e.message); } finally { setBusy(false); }
+    };
+    return (
+        <div className="sb-dsec">
+            <h5>Telegram</h5>
+            <Card list>
+                <div className="sb-kvr">
+                    <span>
+                        {link ? <>● Connected</> : '○ Not connected'}
+                        <small style={{ display: 'block', color: 'var(--muted)', fontSize: 12 }}>
+                            {link
+                                ? `${tgName(link)} · can use Buddy on Telegram`
+                                : telegram.on ? 'Lets them use Buddy on Telegram, no login needed.' : 'Turn Telegram on in Settings → Telegram first.'}
+                        </small>
+                    </span>
+                    {telegram.on && (link
+                        ? <Button size="sm" variant="ghost" onClick={revoke} disabled={busy}>Revoke</Button>
+                        : <Button size="sm" onClick={connect} disabled={busy}>{busy ? 'Creating…' : 'Connect Telegram'}</Button>)}
+                </div>
+            </Card>
+            <TelegramLinkSheet sheet={sheet} onClose={() => { setSheet(null); onChange(); }} />
+        </div>
     );
 }
 
