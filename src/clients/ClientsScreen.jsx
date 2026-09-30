@@ -16,6 +16,8 @@ import { statusOf } from '../money/blanks';
 import BusinessNav from '../business/BusinessNav';
 import '../money/money.css';
 import './clients.css';
+import '../business/business.css';
+import '../business/business-tabs.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Clients — the Business hub's pipeline board and client sheet (BusinessNav
@@ -94,7 +96,7 @@ export default function ClientsScreen() {
     const lateCount = Object.values(money).filter((x) => x.late).length;
 
     return (
-        <div className="sb-scroll">
+        <div className="sb-scroll nb nbx">
             <div className="sb-page" style={{ maxWidth: 1200 }}>
                 <PageHeader title="Business"
                     sub={`Clients · ${owedTotal > 0 ? `${inr(owedTotal)} owed across ${owedCount} ${owedCount === 1 ? 'client' : 'clients'}` : 'nobody owes you money right now'}`}
@@ -145,7 +147,7 @@ export default function ClientsScreen() {
             {open && <ClientSheet key={open.id} lead={open} client={byCustomer[open.id]} docs={docsOf[open.id] || []}
                 money={money[open.id]} onClose={() => setOpen(null)} notify={notify} tz={activeOrg?.timezone} />}
             {addOpen && <ClientForm onClose={closeAdd} notify={notify} onCreated={(id) => { justAdded.current = true; setOpen(id); }} />}
-            {note && <div className="sb sb-toast" role="status">{note}</div>}
+            {note && <div className="sb sb-toast nbx-toast" role="status">{note}</div>}
         </div>
     );
 }
@@ -215,7 +217,7 @@ function ClientSheet({ lead, client, docs, money, onClose, notify, tz }) {
     };
 
     return (
-        <Sheet open onClose={onClose} title="Client">
+        <Sheet open onClose={onClose} className="nb-sheet" title="Client">
             {error && <div className="sb-err" role="alert">{error}</div>}
             <Card className="sb-dsum">
                 <div className="top2">
@@ -328,7 +330,7 @@ function ClientForm({ existing, onClose, notify, onCreated }) {
     };
 
     return (
-        <Sheet open onClose={onClose} title={existing?.id ? 'Edit client' : 'Add lead'}
+        <Sheet open onClose={onClose} className="nb-sheet" title={existing?.id ? 'Edit client' : 'Add lead'}
             footer={<Button variant="primary" block onClick={save} disabled={saving}>{saving ? 'Saving…' : existing?.id ? 'Save' : 'Add lead'}</Button>}>
             {error && <div className="sb-err" role="alert">{error}</div>}
             <Field label="Company"><input value={f.name} data-autofocus onChange={(e) => set('name', e.target.value)} /></Field>

@@ -12,14 +12,14 @@ import { confirmDialog } from '../services/confirm';
 import { telegramApi, tgName } from '../services/telegramService';
 import TelegramLinkSheet from '../settings/TelegramLinkSheet';
 import { useSectionList } from '../shell/useSectionList';
-import { Button, Badge, Card, ListRow, PageHeader, Sheet, Field, Segmented, PixelAvatar, IconTile, KpiStrip } from '../design/ui';
+import { Button, Badge, Card, ListRow, Sheet, Field, Segmented, PixelAvatar } from '../design/ui';
 import { personAvatar } from '../design/personas';
-import { IconDoc, IconPlus, IconChevronRight, IconSparkle, IconLock } from '../design/icons';
+import { IconDoc, IconPlus, IconSparkle, IconLock } from '../design/icons';
 import { useAssistant } from '../components/assistant/assistantStore';
 import { useCofounder } from '../design/useCofounder';
 import { inr } from '../chat/brief';
 import '../money/money.css';
-import '../design/hub.css';
+import './team.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Team — people, their details, and their letters (offer letters, NDAs and
@@ -102,77 +102,129 @@ export default function TeamScreen() {
         } catch { setTg(null); }
     }, [admin, orgId]);
     useEffect(() => { const t = setTimeout(loadTg, 0); return () => clearTimeout(t); }, [loadTg]);
-    const tgBadge = (p) => {
-        if (!tg?.on || view !== 'current') return null;
-        return tg.people.get(p.id)?.telegram
-            ? <Badge tone="g">● Telegram</Badge>
-            : <span style={{ color: 'var(--faint)', fontSize: 12 }}>○ Telegram</span>;
-    };
+
+    const today = new Date().toISOString().slice(0, 10);
+    const firstName = (n) => String(n || '').split(' ')[0];
+    const showLetters = (v) => { setLetterView(v); document.getElementById('tm-letters')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
 
     return (
-        <div className="sb-scroll">
-            <div className="sb-page">
-                <PageHeader title="Team"
-                    sub={`${people.length} ${people.length === 1 ? 'person' : 'people'}${joining.length ? `. ${joining[0].name.split(' ')[0]} joins ${fmt(joining[0].startDate)}.` : ''}`}
-                    actions={canLetters && <Button variant="primary" onClick={() => navigate('/team/letters/offer/new')}><IconPlus /><span className="lbl">Offer letter</span></Button>} />
+        <div className="sb-scroll tm">
+            <div className="sb-page tm-page">
+                <header className="tm-hero">
+                    <div className="tm-title">
+                        <h1>Team</h1>
+                        <p>
+                            {people.length ? `${people.length} ${people.length === 1 ? 'person' : 'people'} on board.` : 'Nobody on board yet.'}
+                            {joining.length > 0 && ` ${firstName(joining[0].name)} joins ${fmt(joining[0].startDate)}.`}
+                        </p>
+                    </div>
+                    <nav className="tm-acts" aria-label="Team actions">
+                        {canLetters && <button type="button" className="tm-act y" onClick={() => navigate('/team/letters/offer/new')}><IconDoc /><span>Offer letter</span></button>}
+                        {canLetters && <button type="button" className="tm-act" onClick={() => navigate('/team/letters/nda/new')}><IconLock /><span>NDA</span></button>}
+                        {canPeople && <button type="button" className="tm-act" onClick={() => setAdding(true)}><IconPlus /><span>Add a person</span></button>}
+                        <button type="button" className="tm-act k" onClick={() => ask('Who on the team has the most open tasks?')}><IconSparkle /><span>Ask {persona.name}</span></button>
+                    </nav>
+                </header>
 
-                <KpiStrip items={[
-                    { label: 'People', value: String(people.length), sub: past.length ? `${past.length} past` : 'Everyone current', tone: 'g', onClick: () => setView('current') },
-                    { label: 'Joining soon', value: String(joining.length), sub: joining.length ? `${joining[0].name.split(' ')[0]}, ${fmt(joining[0].startDate)}` : 'No one scheduled', tone: joining.length ? 'b' : 'n' },
-                    { label: 'Awaiting signature', value: String(waiting.length), sub: signedThisMonth ? `${signedThisMonth} signed this month` : 'Offer letters and NDAs', tone: waiting.length ? 'a' : 'n', onClick: () => setLetterView('waiting') },
-                ]} />
+                <section className="tm-stats" aria-label="Summary">
+                    <button type="button" className="tm-stat m" onClick={() => setView('current')}>
+                        <span className="n">{people.length}</span>
+                        <span className="l">People</span>
+                        <small>{past.length ? `${past.length} have left` : 'Everyone is current'}</small>
+                    </button>
+                    <div className="tm-stat b">
+                        <span className="n">{joining.length}</span>
+                        <span className="l">Joining soon</span>
+                        <small>{joining.length ? `${firstName(joining[0].name)} on ${fmt(joining[0].startDate)}` : 'No start dates ahead'}</small>
+                    </div>
+                    <button type="button" className="tm-stat p" onClick={() => showLetters('waiting')}>
+                        <span className="n">{waiting.length}</span>
+                        <span className="l">Awaiting signature</span>
+                        <small>{signedThisMonth ? `${signedThisMonth} signed this month` : 'Offer letters and NDAs'}</small>
+                    </button>
+                </section>
 
-                {(canLetters || canPeople) && (
-                    <section aria-labelledby="team-qa">
-                        <h2 id="team-qa" className="sb-sr">Quick actions</h2>
-                        <div className="sb-qa">
-                            {canLetters && <button type="button" className="sb-cd" onClick={() => navigate('/team/letters/offer/new')}><IconTile tone="g"><IconDoc /></IconTile><span><b>Offer letter</b><small>Hire with a signed offer</small></span></button>}
-                            {canLetters && <button type="button" className="sb-cd" onClick={() => navigate('/team/letters/nda/new')}><IconTile tone="n"><IconLock /></IconTile><span><b>NDA</b><small>Before you share anything</small></span></button>}
-                            {canPeople && <button type="button" className="sb-cd" onClick={() => setAdding(true)}><IconTile tone="b"><IconPlus /></IconTile><span><b>Add a person</b><small>Someone already on board</small></span></button>}
-                            <button type="button" className="sb-cd" onClick={() => ask('Who on the team has the most open tasks?')}><IconTile tone="n"><IconSparkle /></IconTile><span><b>Ask {persona.name}</b><small>Who is on what</small></span></button>
-                        </div>
-                    </section>
-                )}
+                <section className="tm-sec" aria-labelledby="tm-people-h">
+                    <div className="tm-sh">
+                        <h2 id="tm-people-h">People</h2>
+                        {past.length > 0 && <Toggle label="People" value={view} onChange={setView}
+                            options={[{ value: 'current', label: 'Current', count: people.length }, { value: 'past', label: 'Past', count: past.length }]} />}
+                    </div>
+                    <ul className="tm-wall">
+                        {list.map((p) => {
+                            const exited = view === 'past';
+                            const soon = !exited && p.startDate && p.startDate > today;
+                            const onTg = !exited && tg?.on && tg.people.get(p.id)?.telegram;
+                            return (
+                                <li key={p.id}>
+                                    <button type="button" className={`tm-badge ${exited ? 'x' : p.is_owner ? 'o' : typeTone(p.offerType)}`} onClick={() => setParams({ person: p.id })}>
+                                        <span className="strip">
+                                            <span className="hole" aria-hidden="true" />
+                                            <span>{p.is_owner ? 'Owner' : exited ? 'Former' : TYPE_LABEL[p.offerType] || 'Team'}</span>
+                                        </span>
+                                        <span className="body">
+                                            <PixelAvatar spec={personAvatar(p.name)} size={60} />
+                                            <span className="who">
+                                                <b>{p.name}</b>
+                                                <span>{p.role || 'No role yet'}</span>
+                                                {p.department && <small>{p.department}</small>}
+                                            </span>
+                                        </span>
+                                        <span className="foot">
+                                            <span className={soon ? 'soon' : undefined}>
+                                                {exited ? `Left ${fmt(p.exited_at)}` : p.startDate ? `${soon ? 'Joins' : 'Since'} ${fmt(p.startDate)}` : 'Start date not set'}
+                                            </span>
+                                            {onTg && <span className="tg">Telegram</span>}
+                                        </span>
+                                    </button>
+                                </li>
+                            );
+                        })}
+                        {view === 'current' && canPeople && (
+                            <li>
+                                <button type="button" className="tm-badge add" onClick={() => setAdding(true)}>
+                                    <span className="plus"><IconPlus /></span>
+                                    <b>Add a person</b>
+                                    <small>Someone who has already joined</small>
+                                </button>
+                            </li>
+                        )}
+                    </ul>
+                    {!list.length && !(view === 'current' && canPeople) && (
+                        <div className="tm-empty">{view === 'past' ? 'No one has left.' : 'No one on the team yet.'}</div>
+                    )}
+                </section>
 
-                <div className="sb-split">
-                    <div>
-                        <div className="sb-lh" style={{ alignItems: 'center' }}>
-                            <span>People</span>
-                            {past.length > 0 && <Segmented label="People" value={view} onChange={setView} options={[{ value: 'current', label: 'Current' }, { value: 'past', label: `Past ${past.length}` }]} />}
-                        </div>
-                        <Card list>
-                            {list.map((p) => (
-                                <ListRow key={p.id} onClick={() => setParams({ person: p.id })}
-                                    lead={<PixelAvatar spec={personAvatar(p.name)} round size={36} />}
-                                    title={p.is_owner ? `${p.name} (owner)` : p.name}
-                                    sub={[p.role, view === 'past' ? `Left ${fmt(p.exited_at)}` : p.startDate ? (p.startDate > new Date().toISOString().slice(0, 10) ? `Joins ${fmt(p.startDate)}` : `Since ${fmt(p.startDate)}`) : ''].filter(Boolean).join(' · ')}
-                                    trail={<span style={{ display: 'flex', gap: 8, alignItems: 'center' }}>{tgBadge(p)}<span style={{ color: 'var(--faint)' }}><IconChevronRight /></span></span>} />
-                            ))}
-                            {!list.length && <div className="sb-empty">{view === 'past' ? 'No one has left.' : 'No one yet.'}</div>}
-                        </Card>
-                        {orgStore.can('employees', 'create') && view === 'current' && (
-                            <div style={{ marginTop: 12 }}><Button variant="ghost" onClick={() => setAdding(true)}><IconPlus /> Add a person</Button></div>
+                <section className="tm-sec" id="tm-letters" aria-labelledby="tm-letters-h">
+                    <div className="tm-sh">
+                        <h2 id="tm-letters-h">Letters</h2>
+                        <Toggle label="Letters" value={letterView} onChange={setLetterView}
+                            options={[{ value: 'all', label: 'All', count: letters.length }, { value: 'waiting', label: 'Waiting', count: waiting.length }]} />
+                    </div>
+                    <div className="tm-tray">
+                        {shownLetters.slice(0, 40).map((r) => {
+                            const [tone, label] = letterStatus(r);
+                            return (
+                                <button type="button" key={r.id} className="tm-letter" onClick={() => setLetter(r)}>
+                                    <span className={`kind k-${r.type}`}>{KIND[r.type]}</span>
+                                    <span className="to">
+                                        <b>{r.issued_to || 'Unaddressed'}</b>
+                                        <small>{fmt(r.issue_date || r.created_at)}</small>
+                                    </span>
+                                    <span className={`tm-stamp ${tone}`}>{label}</span>
+                                </button>
+                            );
+                        })}
+                        {!shownLetters.length && (
+                            <div className="tm-empty">
+                                <span>{letterView === 'waiting' ? 'Nothing is waiting on anyone.' : 'No letters yet.'}</span>
+                                {letterView === 'all' && canLetters && (
+                                    <button type="button" className="tm-act y" onClick={() => navigate('/team/letters/offer/new')}><IconDoc /><span>Write an offer letter</span></button>
+                                )}
+                            </div>
                         )}
                     </div>
-                    <div>
-                        <div className="sb-lh" style={{ alignItems: 'center' }}>
-                            <span>Letters</span>
-                            <Segmented label="Letters" value={letterView} onChange={setLetterView}
-                                options={[{ value: 'all', label: `All ${letters.length}` }, { value: 'waiting', label: `Waiting ${waiting.length}` }]} />
-                        </div>
-                        <Card list>
-                            {shownLetters.slice(0, 40).map((r) => {
-                                const [tone, label] = letterStatus(r);
-                                return (
-                                    <ListRow key={r.id} onClick={() => setLetter(r)} lead={<IconTile><IconDoc /></IconTile>}
-                                        title={KIND[r.type]} sub={`${r.issued_to || 'Unaddressed'} · ${fmt(r.issue_date || r.created_at)}`}
-                                        trail={<Badge tone={tone}>{label}</Badge>} />
-                                );
-                            })}
-                            {!shownLetters.length && <div className="sb-empty">{letterView === 'waiting' ? 'Nothing waiting on anyone.' : 'No letters yet.'}</div>}
-                        </Card>
-                    </div>
-                </div>
+                </section>
             </div>
 
             {person && <PersonSheet key={person.id} person={person} letters={letters.filter((r) => r.employee_id === person.id || (person.email && r.recipient_email === person.email))}
@@ -180,7 +232,22 @@ export default function TeamScreen() {
                 telegram={tg ? { on: tg.on, status: tg.people.get(person.id) || null } : null} onTelegramChange={loadTg} />}
             {shownLetter && <LetterSheet key={shownLetter.id} letter={shownLetter} onClose={closeLetter} notify={notify} />}
             {openAdd && <PersonForm onClose={closeAdd} notify={notify} />}
-            {note && <div className="sb sb-toast" role="status">{note}</div>}
+            {note && <div className="sb sb-toast tm-toast" role="status">{note}</div>}
+        </div>
+    );
+}
+
+// Badge colour by how someone is engaged.
+const typeTone = (t) => ({ fulltime: 'c', parttime: 'm', intern: 'y', internship: 'y', contract: 'p', collaboration: 'p' }[t] || 'c');
+
+function Toggle({ label, value, onChange, options }) {
+    return (
+        <div className="tm-toggle" role="radiogroup" aria-label={label}>
+            {options.map((o) => (
+                <button key={o.value} type="button" role="radio" aria-checked={o.value === value} onClick={() => onChange(o.value)}>
+                    {o.label}<span className="c">{o.count}</span>
+                </button>
+            ))}
         </div>
     );
 }
@@ -201,17 +268,22 @@ function PersonSheet({ person, letters, onClose, onLetter, notify, telegram, onT
         } catch (err) { notify(err.message); }
     };
     return (
-        <Sheet open onClose={onClose} title="Person">
-            <Card className="sb-dsum">
-                <div className="top2">
-                    <PixelAvatar spec={personAvatar(person.name)} round size={52} />
-                    <div><b>{person.name}</b><small>{[person.role, person.department, TYPE_LABEL[person.offerType]].filter(Boolean).join(' · ')}</small></div>
+        <Sheet open onClose={onClose} title="Person" className="tm-sheet">
+            <div className={`tm-id ${exited ? 'x' : person.is_owner ? 'o' : typeTone(person.offerType)}`}>
+                <div className="strip"><span className="hole" aria-hidden="true" /><span>{person.is_owner ? 'Owner' : exited ? 'Former' : TYPE_LABEL[person.offerType] || 'Team'}</span></div>
+                <div className="body">
+                    <PixelAvatar spec={personAvatar(person.name)} size={76} />
+                    <div className="who">
+                        <b>{person.name}</b>
+                        <span>{person.role || 'No role yet'}</span>
+                        {person.department && <small>{person.department}</small>}
+                    </div>
                 </div>
-                <div className="sb-two">
-                    <div><small>{exited ? 'Left' : 'Joined'}</small><b style={{ fontSize: 14 }}>{fmt(exited ? person.exited_at : person.startDate) || '—'}</b></div>
-                    <div><small>Pay{pay ? ', visible to admins' : ''}</small><b style={{ fontSize: 14 }}>{pay || 'Not shown to your role'}</b></div>
+                <div className="facts">
+                    <div><small>{exited ? 'Left' : 'Joined'}</small><b>{fmt(exited ? person.exited_at : person.startDate) || 'Not set'}</b></div>
+                    <div><small>Pay{pay ? ', visible to admins' : ''}</small><b>{pay || 'Not shown to your role'}</b></div>
                 </div>
-            </Card>
+            </div>
             {(person.email || person.phone) && (
                 <Card list>
                     {person.email && <div className="sb-kvr"><span>Email</span><span>{person.email}</span></div>}
@@ -223,7 +295,7 @@ function PersonSheet({ person, letters, onClose, onLetter, notify, telegram, onT
                 <Card list>
                     {letters.map((r) => {
                         const [tone, label] = letterStatus(r);
-                        return <ListRow key={r.id} onClick={() => onLetter(r)} title={KIND[r.type]} sub={fmt(r.issue_date || r.created_at)} trail={<Badge tone={tone}>{label}</Badge>} />;
+                        return <ListRow key={r.id} onClick={() => onLetter(r)} title={KIND[r.type]} sub={fmt(r.issue_date || r.created_at)} trail={<span className={`tm-stamp ${tone}`}>{label}</span>} />;
                     })}
                     {!letters.length && <div className="sb-lr"><span className="t"><small>No letters yet</small></span></div>}
                 </Card>
@@ -344,13 +416,13 @@ function LetterSheet({ letter, onClose, notify }) {
         return `Sent to ${letter.recipient_email}.`;
     });
     return (
-        <Sheet open onClose={onClose} title={KIND[letter.type]}>
-            <Card className="sb-dsum">
-                <div className="top2">
-                    <div><b>{letter.issued_to || 'Unaddressed'}</b><small>{[letter.doc_number, fmt(letter.issue_date || letter.created_at)].filter(Boolean).join(' · ')}</small></div>
-                    <Badge tone={tone}>{label}</Badge>
-                </div>
-            </Card>
+        <Sheet open onClose={onClose} title={KIND[letter.type]} className="tm-sheet">
+            <div className="tm-doc">
+                <span className={`kind k-${letter.type}`}>{KIND[letter.type]}</span>
+                <b>{letter.issued_to || 'Unaddressed'}</b>
+                <small>{letter.doc_number ? `${letter.doc_number}, ` : ''}{fmt(letter.issue_date || letter.created_at)}</small>
+                <span className={`tm-stamp big ${tone}`}>{label}</span>
+            </div>
             {readOnlyKind && <div className="sb-note b">New {KIND[letter.type].toLowerCase()}s aren't made here any more. This one stays available to download.</div>}
             <div className="sb-dacts">
                 {isDraft && <Button variant="primary" onClick={() => navigate(`/team/letters/${letter.type}/new?draft=${letter.id}`)}>Continue editing</Button>}
@@ -413,7 +485,7 @@ function PersonForm({ existing, onClose, notify }) {
     };
 
     return (
-        <Sheet open onClose={onClose} title={existing ? 'Edit person' : 'Add a person'}
+        <Sheet open onClose={onClose} title={existing ? 'Edit person' : 'Add a person'} className="tm-sheet"
             footer={<Button variant="primary" block onClick={save} disabled={saving}>{saving ? 'Saving…' : existing ? 'Save' : 'Add to the team'}</Button>}>
             {error && <div className="sb-err" role="alert">{error}</div>}
             {!existing && <div className="sb-note b">To hire with a signed offer, use Offer letter instead. This adds someone who has already joined.</div>}

@@ -14,7 +14,7 @@ import { InsightRow } from '../chat/ViewBlock';
 import { isoDay, inr } from '../chat/brief';
 import { docClient } from '../money/useMoneyData';
 import { useAssistant } from '../components/assistant/assistantStore';
-import { Button, Card, ListRow, IconTile, Initials, PixelAvatar } from '../design/ui';
+import { Button, ListRow, IconTile, Initials, PixelAvatar } from '../design/ui';
 import { personAvatar } from '../design/personas';
 import {
     IconDoc, IconMail, IconTask, IconBolt, IconCheckCircle, IconChevronRight, IconClock, IconInvoice, IconTeam, IconWork,
@@ -155,29 +155,49 @@ export default function HomeScreen() {
         ...(shell.brainBuilt ? [{ label: 'How’s the month?', prompt: 'How did we do this month?' }] : []),
     ];
 
+    const now = new Date();
+    /* A panel's title bar: its number sticker, title, a count and one way out. */
+    const bar = (no, id, title, extra, link) => (
+        <div className="ph">
+            <span className="no" aria-hidden="true">{no}</span>
+            <h2 id={id}>{title}</h2>
+            {extra}
+            {link}
+        </div>
+    );
+
     return (
         <div className="sb-scroll hm">
             <div className="hm-page">
-                <header className="hm-head">
-                    <PixelAvatar spec={persona} className="hm-ava" />
-                    <div className="hm-title">
-                        <p className="hm-date">{new Date().toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' })}</p>
+                <header className="hm-hero">
+                    <div className="hm-hero-l">
+                        <p className="hm-date">
+                            <span>{now.toLocaleDateString('en-IN', { weekday: 'long' })}</span>
+                            {now.toLocaleDateString('en-IN', { day: 'numeric', month: 'long' })}
+                        </p>
                         <h1 className="hm-greet">{brief.greeting}</h1>
-                    </div>
-                    <div className="hm-acts">
-                        {shell.canCall && <Button onClick={() => shell.startCall()} aria-label={`Call ${persona.name}`}><IconCall size={14} />Talk</Button>}
-                        <Button variant="primary" onClick={() => navigate('/chat')}><IconChat size={14} />Open {persona.name}</Button>
-                    </div>
-                    <div className="hm-note">
-                        <p className="hm-bubble"><b>{persona.name}</b>{brief.lede}</p>
+                        <div className="hm-bubble">
+                            <b>{persona.name} says</b>
+                            <p>{brief.lede}</p>
+                        </div>
                         <div className="hm-chips" role="group" aria-label={`Ask ${persona.name}`}>
                             {chips.map((c) => (
                                 <button key={c.label} type="button" disabled={assistant.streaming} onClick={() => ask(c.prompt)}>
-                                    <IconSparkle size={11} />{c.label}
+                                    <IconSparkle size={12} />{c.label}
                                 </button>
                             ))}
                         </div>
                         <p className="hm-fine">Tell {persona.name} what happened. Nothing changes until you confirm it.</p>
+                    </div>
+                    <div className="hm-hero-r">
+                        <div className="hm-card">
+                            <PixelAvatar spec={persona} className="hm-ava" />
+                            <span className="hm-tag"><b>{persona.name}</b><small>{persona.role}</small></span>
+                        </div>
+                        <div className="hm-acts">
+                            <Button variant="primary" onClick={() => navigate('/chat')}><IconChat size={15} />Open {persona.name}</Button>
+                            {shell.canCall && <Button onClick={() => shell.startCall()} aria-label={`Call ${persona.name}`}><IconCall size={15} />Talk</Button>}
+                        </div>
                     </div>
                 </header>
 
@@ -185,10 +205,10 @@ export default function HomeScreen() {
                     <section aria-labelledby="home-snap" className={`hm-vitals n${n}`}>
                         <h2 id="home-snap" className="sb-sr">Financial snapshot</h2>
                         {brief.kpis.map((k) => (
-                            <button key={k.id} type="button" className="hm-vital" onClick={() => onKpi(k)}>
-                                <span className="kl">{k.label}</span>
+                            <button key={k.id} type="button" className={`hm-vital v-${k.id}`} onClick={() => onKpi(k)}>
+                                <span className="kl">{k.label}<IconChevronRight size={14} /></span>
                                 <span className="kv sb-num">{k.value}</span>
-                                <span className="ks"><i className={`sb-dot ${k.tone}`} aria-hidden="true" />{k.sub}</span>
+                                <span className={`ks t-${k.tone}`}><i aria-hidden="true" />{k.sub}</span>
                             </button>
                         ))}
                     </section>
@@ -196,14 +216,12 @@ export default function HomeScreen() {
 
                 <div className="hm-grid">
                     <div className="hm-col">
-                        <Card as="section" className="hm-panel" aria-labelledby="home-today">
-                            <div className="ph">
-                                <h2 id="home-today">Suggested by {persona.name}</h2>
-                                {brief.suggestions.length > 0 && <span className="c">{brief.suggestions.length}</span>}
-                                <Link to="/chat">Ask more<IconChevronRight size={12} /></Link>
-                            </div>
+                        <section className="hm-panel p-sun" aria-labelledby="home-today">
+                            {bar('01', 'home-today', `Suggested by ${persona.name}`,
+                                brief.suggestions.length > 0 && <span className="c">{brief.suggestions.length}</span>,
+                                <Link to="/chat">Ask more<IconChevronRight size={13} /></Link>)}
                             {brief.suggestions.length === 0 ? (
-                                <div className="pe"><IconCheckCircle size={16} /><p>Nothing needs you today. Late invoices, signed offers and overdue tasks show up here first.</p></div>
+                                <div className="pe"><span className="pi"><IconCheckCircle size={16} /></span><p>Nothing needs you today. Late invoices, signed offers and overdue tasks show up here first.</p></div>
                             ) : brief.suggestions.map((s) => {
                                 if (s.insight) return <InsightRow key={s.id} insight={s.insight} onAction={runInsightAction} onDismiss={dismissInsight} />;
                                 const Icon = SUG_ICONS[s.icon] || IconDoc;
@@ -214,36 +232,35 @@ export default function HomeScreen() {
                                         trail={<Button size="sm" onClick={() => onSuggestion(s)} disabled={isBuild && building}>{isBuild && building ? 'Building…' : s.action}</Button>} />
                                 );
                             })}
-                        </Card>
+                        </section>
 
                         {seeWork && (
-                            <Card as="section" className="hm-panel" aria-labelledby="home-work">
-                                <div className="ph">
-                                    <h2 id="home-work">Active work</h2>
-                                    {work.length > 0 && <span className="c">{work.length}</span>}
-                                    <Link to="/work">Open Work<IconChevronRight size={12} /></Link>
-                                </div>
+                            <section className="hm-panel p-lilac" aria-labelledby="home-work">
+                                {bar('03', 'home-work', 'Active work',
+                                    work.length > 0 && <span className="c">{work.length}</span>,
+                                    <Link to="/work">Open Work<IconChevronRight size={13} /></Link>)}
                                 {work.length === 0 && (
-                                    <div className="pe"><IconWork size={16} /><p>{looseTasks ? `${looseTasks} open ${looseTasks === 1 ? 'task' : 'tasks'}, no projects running.` : 'No projects running.'} Start one from Work, or ask {persona.name}.</p></div>
+                                    <div className="pe"><span className="pi"><IconWork size={16} /></span><p>{looseTasks ? `${looseTasks} open ${looseTasks === 1 ? 'task' : 'tasks'}, no projects running.` : 'No projects running.'} Start one from Work, or ask {persona.name}.</p></div>
                                 )}
-                                {work.slice(0, 4).map((p) => (
-                                    <ListRow key={p.id} onClick={() => navigate(`/work?project=${p.id}`)} lead={<IconTile><IconWork size={16} /></IconTile>}
-                                        title={p.name}
-                                        sub={[`${p.open} open`, p.late ? `${p.late} late` : '', p.total ? `${p.done} done` : 'No tasks yet'].filter(Boolean).join(', ')}
-                                        trail={p.total ? <span className="mini" aria-hidden="true"><i style={{ width: `${Math.round((p.done / p.total) * 100)}%` }} /></span> : null} />
-                                ))}
-                                {work.length > 0 && looseTasks > 0 && <div className="pf"><IconClock size={13} /><span>{looseTasks} general {looseTasks === 1 ? 'task' : 'tasks'} outside projects</span></div>}
-                            </Card>
+                                {work.slice(0, 4).map((p) => {
+                                    const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+                                    return (
+                                        <ListRow key={p.id} onClick={() => navigate(`/work?project=${p.id}`)} lead={<IconTile tone={p.late ? 'r' : 'n'}><IconWork size={16} /></IconTile>}
+                                            title={p.name}
+                                            sub={[`${p.open} open`, p.late ? `${p.late} late` : '', p.total ? `${p.done} done` : 'No tasks yet'].filter(Boolean).join(', ')}
+                                            trail={p.total ? <span className="prog" aria-hidden="true"><span className="mini"><i style={{ width: `${pct}%` }} /></span><span className="sb-num">{pct}%</span></span> : null} />
+                                    );
+                                })}
+                                {work.length > 0 && looseTasks > 0 && <div className="pf"><IconClock size={14} /><span>{looseTasks} general {looseTasks === 1 ? 'task' : 'tasks'} outside projects</span></div>}
+                            </section>
                         )}
                     </div>
 
                     <div className="hm-col">
-                        <Card as="section" className="hm-panel" aria-labelledby="home-dl">
-                            <div className="ph">
-                                <h2 id="home-dl">Next seven days</h2>
-                                {lateCount > 0 && <span className="late">{lateCount} late</span>}
-                                {seeWork && <Link to="/work">Work<IconChevronRight size={12} /></Link>}
-                            </div>
+                        <section className="hm-panel p-sky" aria-labelledby="home-dl">
+                            {bar('02', 'home-dl', 'Next seven days',
+                                lateCount > 0 && <span className="late">{lateCount} late</span>,
+                                seeWork && <Link to="/work">Work<IconChevronRight size={13} /></Link>)}
                             <div className={`hm-rail${lateCount > 0 ? ' has-late' : ''}`} role="group" aria-label="Show one day">
                                 {lateCount > 0 && (
                                     <button type="button" className="d late" aria-pressed={day === 'late'} aria-label={`Late, ${lateCount} ${lateCount === 1 ? 'item' : 'items'}`} onClick={() => pick('late')}>
@@ -259,7 +276,7 @@ export default function HomeScreen() {
                                     </button>
                                 ))}
                             </div>
-                            {shown.length === 0 && <div className="pe"><IconClock size={16} /><p>{emptyDay}</p></div>}
+                            {shown.length === 0 && <div className="pe"><span className="pi"><IconClock size={16} /></span><p>{emptyDay}</p></div>}
                             {shown.slice(0, 6).map((d) => {
                                 const Icon = d.icon;
                                 const late = d.date < today;
@@ -270,15 +287,13 @@ export default function HomeScreen() {
                                 );
                             })}
                             {shown.length > 6 && <div className="pf"><span>{shown.length - 6} more</span><Link to="/work">See all</Link></div>}
-                        </Card>
+                        </section>
 
                         {seeMoney && (
-                            <Card as="section" className="hm-panel" aria-labelledby="home-clients">
-                                <div className="ph">
-                                    <h2 id="home-clients">Clients to watch</h2>
-                                    <Link to="/clients">Clients<IconChevronRight size={12} /></Link>
-                                </div>
-                                {clientItems.length === 0 && <div className="pe"><IconInvoice size={16} /><p>No client owes you money right now.</p></div>}
+                            <section className="hm-panel p-rose" aria-labelledby="home-clients">
+                                {bar('04', 'home-clients', 'Clients to watch', null,
+                                    <Link to="/clients">Clients<IconChevronRight size={13} /></Link>)}
+                                {clientItems.length === 0 && <div className="pe"><span className="pi"><IconInvoice size={16} /></span><p>No client owes you money right now.</p></div>}
                                 {clientItems.slice(0, 4).map((c) => (
                                     <ListRow key={c.key} onClick={() => navigate(c.customerId ? `/clients?client=${c.customerId}` : `/money/invoices?doc=${c.firstDoc}`)}
                                         lead={<Initials name={c.name} />} title={c.name}
@@ -288,13 +303,13 @@ export default function HomeScreen() {
                                 {inTalks.length > 0 && (
                                     <div className="pf">
                                         <span className="stack" aria-hidden="true">
-                                            {inTalks.slice(0, 3).map((l) => <PixelAvatar key={l.id} spec={personAvatar(l.name)} round size={20} />)}
+                                            {inTalks.slice(0, 3).map((l) => <PixelAvatar key={l.id} spec={personAvatar(l.name)} round size={24} />)}
                                         </span>
                                         <span>{inTalks.length} {inTalks.length === 1 ? 'lead' : 'leads'} in talks</span>
                                         <Link to="/clients">Pipeline</Link>
                                     </div>
                                 )}
-                            </Card>
+                            </section>
                         )}
                     </div>
                 </div>
@@ -302,4 +317,3 @@ export default function HomeScreen() {
         </div>
     );
 }
-

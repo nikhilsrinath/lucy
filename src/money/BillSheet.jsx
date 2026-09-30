@@ -95,7 +95,7 @@ export default function BillSheet({ bill, vendors, onClose, notify }) {
     const active = vendors.filter((v) => !v.archived_at);
 
     return (
-        <Sheet open onClose={onClose} title={isNew ? 'New bill' : `Bill ${b.bill_number}`}
+        <Sheet open onClose={onClose} className="nb-sheet" title={isNew ? 'New bill' : `Bill ${b.bill_number}`}
             footer={(
                 <>
                     {canDelete && <Button variant="danger" onClick={remove}>Delete</Button>}

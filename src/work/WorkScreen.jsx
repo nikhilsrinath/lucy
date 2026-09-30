@@ -8,7 +8,7 @@ import {
 } from '../services/projectService';
 import { confirmDialog } from '../services/confirm';
 import { useSectionList } from '../shell/useSectionList';
-import { Button, Badge, Card, PageHeader, Sheet, Field, Segmented, PixelAvatar, KpiStrip } from '../design/ui';
+import { Button, Sheet, Field, Segmented, PixelAvatar } from '../design/ui';
 import { personAvatar } from '../design/personas';
 import { IconPlus, IconMore } from '../design/icons';
 import { isoDay, endOfWeek } from '../chat/brief';
@@ -28,6 +28,10 @@ import './work.css';
    timesheets and health stay in the database, untouched.
    ══════════════════════════════════════════════════════════════════════════ */
 
+// Neobrutalist tints: each project keeps one colour everywhere it shows up.
+const TINTS = ['#FFD84D', '#FF9EC7', '#7CC4FF', '#9BE59B', '#C3A6FF', '#FFAE6B'];
+const tint = (id) => { let h = 0; for (const c of String(id)) h = (h * 31 + c.charCodeAt(0)) >>> 0; return TINTS[h % TINTS.length]; };
+const GROUP_TONE = { Overdue: 'r', 'This week': 'y', Later: 'b', Done: 'g', Unassigned: 'w' };
 const isOpenProject = (p) => !p.archived_at && !['completed', 'cancelled'].includes(p.status);
 const firstName = (n) => String(n || '').trim().split(/\s+/)[0] || '';
 const fmt = (d) => (d ? new Date(`${d}T00:00:00`).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : '');
@@ -126,94 +130,152 @@ export default function WorkScreen() {
         ...(open.length ? [{ id: 'general', label: 'General' }] : []),
         { id: 'done', label: 'Done' },
     ];
+    const doneCount = tasks.length - openCount;
+    const donePct = tasks.length ? Math.round((doneCount / tasks.length) * 100) : 0;
+    const canCreate = orgStore.can('tasks', 'create');
+    const groupTone = (name) => GROUP_TONE[name] || (groupBy === 'person' && tab !== 'done' ? 'p' : 'n');
 
     return (
-        <div className="sb-scroll">
-            <div className="sb-page" style={{ maxWidth: 860 }}>
-                <PageHeader title="Work" sub={`Tasks, projects and deadlines · ${openCount} open${lateCount ? `, ${lateCount} overdue` : ''}`}
-                    actions={(
-                        <>
-                            {canCreateProjects() && <Button onClick={() => setProjectSheet({})}>Project</Button>}
-                            {orgStore.can('tasks', 'create') && <Button variant="primary" onClick={() => setEditing({ projectId: current?.id || null })}><IconPlus /><span className="lbl">New task</span></Button>}
-                        </>
-                    )} />
+        <div className="sb-scroll nbw">
+            <div className="nbw-page">
+                <header className="nbw-hero">
+                    <div className="nbw-hero-t">
+                        <span className="nbw-stamp">{now.toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+                        <h1>Work<span aria-hidden="true">.</span></h1>
+                        <p>Tasks, projects and deadlines. Who is on what, and what is late.</p>
+                    </div>
+                    <div className="nbw-acts">
+                        {canCreateProjects() && <button type="button" className="nbw-btn" onClick={() => setProjectSheet({})}><IconPlus />Project</button>}
+                        {canCreate && <button type="button" className="nbw-btn y" onClick={() => setEditing({ projectId: current?.id || null })}><IconPlus />New task</button>}
+                    </div>
+                </header>
 
-                <KpiStrip items={[
-                    { label: 'Overdue', value: String(lateCount), sub: lateCount ? 'Needs a new date or a nudge' : 'Nothing late', tone: lateCount ? 'r' : 'g', onClick: () => { setTab('all'); setGroupBy('due'); } },
-                    { label: 'Due this week', value: String(weekCount), sub: `Through ${new Date(`${eow}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long' })}`, tone: weekCount ? 'a' : 'n', onClick: () => { setTab('all'); setGroupBy('due'); } },
-                    { label: 'Assigned', value: `${people} ${people === 1 ? 'person' : 'people'}`, sub: `${open.length} active ${open.length === 1 ? 'project' : 'projects'}`, tone: 'n', onClick: () => { setTab('all'); setGroupBy('person'); } },
-                ]} />
+                <div className="nbw-meter" role="img" aria-label={`${doneCount} of ${tasks.length} tasks done`}>
+                    <span className="lbl">Progress</span>
+                    <span className="track"><i style={{ width: `${donePct}%` }} /></span>
+                    <span className="val sb-num">{doneCount}/{tasks.length}</span>
+                </div>
+
+                <div className="nbw-stats">
+                    <button type="button" className={`nbw-stat ${lateCount ? 'r' : 'g'}`} onClick={() => { setTab('all'); setGroupBy('due'); }}>
+                        <span className="k">Overdue</span>
+                        <span className="v sb-num">{lateCount}</span>
+                        <span className="s">{lateCount ? 'Needs a new date or a nudge' : 'Nothing late. Nice.'}</span>
+                    </button>
+                    <button type="button" className={`nbw-stat ${weekCount ? 'y' : 'w'}`} onClick={() => { setTab('all'); setGroupBy('due'); }}>
+                        <span className="k">Due this week</span>
+                        <span className="v sb-num">{weekCount}</span>
+                        <span className="s">Through {new Date(`${eow}T00:00:00`).toLocaleDateString('en-IN', { weekday: 'long' })}</span>
+                    </button>
+                    <button type="button" className="nbw-stat b" onClick={() => { setTab('all'); setGroupBy('person'); }}>
+                        <span className="k">People on it</span>
+                        <span className="v sb-num">{people}</span>
+                        <span className="s">{open.length} active {open.length === 1 ? 'project' : 'projects'}</span>
+                    </button>
+                </div>
 
                 {projectStats.length > 0 && (
-                    <>
-                        <div className="sb-lh"><span>Projects</span><span>{projectStats.length}</span></div>
-                        <div className="sb-projs">
-                            {projectStats.map((p) => (
-                                <button key={p.id} type="button" className="sb-cd sb-proj" aria-pressed={tab === p.id} onClick={() => setTab(tab === p.id ? 'all' : p.id)}>
-                                    <span><b>{p.name}</b><small>{[p.code, p.client_name].filter(Boolean).join(' · ') || (p.client_id ? 'Client project' : 'Internal')}</small></span>
-                                    <span className="bar" aria-hidden="true"><i style={{ width: `${p.total ? Math.round((p.done / p.total) * 100) : 0}%` }} /></span>
-                                    <span className="ft"><span>{p.total ? `${p.done} of ${p.total} done` : 'No tasks yet'}</span>{p.late ? <span className="late">{p.late} late</span> : <span>{p.open} open</span>}</span>
-                                </button>
-                            ))}
+                    <section aria-labelledby="nbw-projects">
+                        <div className="nbw-h"><h2 id="nbw-projects">Projects</h2><span className="n sb-num">{projectStats.length}</span><i aria-hidden="true" /></div>
+                        <div className="nbw-projs">
+                            {projectStats.map((p) => {
+                                const pct = p.total ? Math.round((p.done / p.total) * 100) : 0;
+                                return (
+                                    <button key={p.id} type="button" className="nbw-proj" style={{ '--tint': tint(p.id) }} aria-pressed={tab === p.id} onClick={() => setTab(tab === p.id ? 'all' : p.id)}>
+                                        <span className="top">
+                                            <span>{p.code || 'Project'}</span>
+                                            {tab === p.id ? <span className="on">Filtering</span> : p.late ? <span className="late">{p.late} late</span> : null}
+                                        </span>
+                                        <span className="bd">
+                                            <b>{p.name}</b>
+                                            <small>{p.client_name || (p.client_id ? 'Client project' : 'Internal')}</small>
+                                            <span className="bar" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
+                                            <span className="ft"><span>{p.total ? `${p.done} of ${p.total} done` : 'No tasks yet'}</span><span className="sb-num">{pct}%</span></span>
+                                        </span>
+                                    </button>
+                                );
+                            })}
                         </div>
-                    </>
+                    </section>
                 )}
 
-                <div className="sb-tabs-row">
-                    <div className="sb-tabs" role="tablist" aria-label="Projects">
+                <div className="nbw-bar">
+                    <div className="nbw-tabs" role="tablist" aria-label="Projects">
                         {tabs.map((t) => (
                             <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)}>
-                                {t.label}{t.count ? <span className="c">{t.count}</span> : null}
+                                <span className="l">{t.label}</span>{t.count ? <span className="c sb-num">{t.count}</span> : null}
                             </button>
                         ))}
                     </div>
-                    {tab !== 'done' && (
-                        <Segmented label="Group tasks" value={groupBy} onChange={setGroupBy}
-                            options={[{ value: 'due', label: 'By date' }, { value: 'person', label: 'By person' }]} />
-                    )}
-                    {current && canEditProjects() && (
-                        <Button variant="ghost" size="sm" iconOnly aria-label={`${current.name} options`} aria-expanded={menu} onClick={() => setMenu((v) => !v)}><IconMore /></Button>
-                    )}
+                    <div className="nbw-bar-r">
+                        {tab !== 'done' && (
+                            <Segmented label="Group tasks" value={groupBy} onChange={setGroupBy}
+                                options={[{ value: 'due', label: 'By date' }, { value: 'person', label: 'By person' }]} />
+                        )}
+                        {current && canEditProjects() && (
+                            <button type="button" className="nbw-btn icon" aria-label={`${current.name} options`} aria-expanded={menu} onClick={() => setMenu((v) => !v)}><IconMore /></button>
+                        )}
+                    </div>
                 </div>
                 {menu && current && (
-                    <Card style={{ padding: 12, marginBottom: 14, display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <span style={{ flex: 1, fontSize: 13, color: 'var(--muted)' }}>{current.code} · {current.name}</span>
-                        <Button size="sm" onClick={async () => {
+                    <div className="nbw-menu">
+                        <span className="t"><b>{current.name}</b>{current.code && <small>{current.code}</small>}</span>
+                        <button type="button" className="nbw-btn sm" onClick={async () => {
                             if (!(await confirmDialog({ title: 'Close project', message: `Mark ${current.name} as completed? Its tasks stay.`, confirmLabel: 'Close', tone: 'default' }))) return;
                             try { await closeProject(current.id, 'completed'); setMenu(false); setTab('all'); notify('Project closed.'); } catch (e) { notify(e.message); }
-                        }}>Close project</Button>
-                        <Button size="sm" variant="ghost" onClick={async () => {
+                        }}>Close project</button>
+                        <button type="button" className="nbw-btn sm" onClick={async () => {
                             try { await archiveProject(current.id); setMenu(false); setTab('all'); notify('Project archived.'); } catch (e) { notify(e.message); }
-                        }}>Archive</Button>
-                    </Card>
+                        }}>Archive</button>
+                    </div>
                 )}
 
                 {groups.every(([, l]) => !l.length) && (
-                    <Card><div className="sb-empty">{tab === 'done' ? 'Nothing finished yet.' : 'Nothing here. Ask your cofounder to add a task, for example “Riya to fix login by Friday”.'}</div></Card>
+                    <div className="nbw-empty">
+                        <span className="stk">{tab === 'done' ? 'Nothing done yet' : 'All clear'}</span>
+                        <p>{tab === 'done' ? 'Finished tasks land here.' : 'Nothing here. Ask your cofounder to add a task, for example “Riya to fix login by Friday”.'}</p>
+                        {tab !== 'done' && canCreate && (
+                            <button type="button" className="nbw-btn y" onClick={() => setEditing({ projectId: current?.id || null })}><IconPlus />Add a task</button>
+                        )}
+                    </div>
                 )}
                 {groups.map(([name, list]) => (list.length ? (
-                    <React.Fragment key={name}>
-                        <div className="sb-lh"><span>{name}</span><span>{list.length}</span></div>
-                        <Card list>
+                    <section key={name} className="nbw-group" aria-label={`${name}, ${list.length}`}>
+                        <div className="nbw-gh">
+                            <span className={`tag ${groupTone(name)}`}>
+                                {groupBy === 'person' && tab !== 'done' && name !== 'Unassigned' && <PixelAvatar spec={personAvatar(name)} round size={22} />}
+                                {name}
+                            </span>
+                            <span className="n sb-num">{list.length}</span>
+                            <i aria-hidden="true" />
+                        </div>
+                        <ul className="nbw-list">
                             {list.map((t) => {
-                                const owner = empById[t.assignedTo];
-                                const who = owner?.name || t.assignedName || '';
-                                const late = t.status !== 'done' && t.deadline && t.deadline < today;
+                                const who = whoOf(t);
+                                const done = t.status === 'done';
+                                const late = !done && t.deadline && t.deadline < today;
+                                const soon = !done && t.deadline && t.deadline >= today && t.deadline <= eow;
+                                const due = dueLabel(t.deadline, today, eow);
                                 return (
-                                    <div key={t.id} className={`sb-lr sb-task${t.status === 'done' ? ' dn' : ''}`}>
-                                        <button type="button" className={`sb-cbx${t.status === 'done' ? ' d' : ''}`} role="checkbox" aria-checked={t.status === 'done'}
-                                            aria-label={`${t.status === 'done' ? 'Reopen' : 'Complete'} ${t.title}`} disabled={!canEdit} onClick={() => toggle(t)} />
+                                    <li key={t.id} className={`nbw-task${done ? ' dn' : ''}${late ? ' late' : ''}`}>
+                                        <button type="button" className={`nbw-cbx${done ? ' d' : ''}`} role="checkbox" aria-checked={done}
+                                            aria-label={`${done ? 'Reopen' : 'Complete'} ${t.title}`} disabled={!canEdit} onClick={() => toggle(t)} />
                                         <button type="button" className="t" onClick={() => setEditing(t)}>
                                             <b>{t.title}</b>
-                                            <small>{t.projectId ? projectName[t.projectId] || 'Project' : 'General'}<span className="mdue"> · {dueLabel(t.deadline, today, eow)}</span></small>
+                                            <span className="meta">
+                                                <span className="proj" style={{ '--tint': t.projectId ? tint(t.projectId) : '#fff' }}>{t.projectId ? projectName[t.projectId] || 'Project' : 'General'}</span>
+                                                {!done && t.priority === 'high' && <span className="chip r">High</span>}
+                                                {t.status === 'in-progress' && <span className="chip b">Doing</span>}
+                                                <span className="mdue">{due}</span>
+                                            </span>
                                         </button>
-                                        <Badge tone={late ? 'r' : 'n'} plain className="hide-m">{dueLabel(t.deadline, today, eow)}</Badge>
-                                        {who && <span className="sb-who"><PixelAvatar spec={personAvatar(who)} round size={22} />{firstName(who)}</span>}
-                                    </div>
+                                        <span className={`nbw-due${late ? ' r' : soon ? ' y' : ''}`}>{due}</span>
+                                        {who && <span className="nbw-who" title={who}><PixelAvatar spec={personAvatar(who)} round size={26} /><span>{firstName(who)}</span></span>}
+                                    </li>
                                 );
                             })}
-                        </Card>
-                    </React.Fragment>
+                        </ul>
+                    </section>
                 ) : null))}
             </div>
 
@@ -221,7 +283,7 @@ export default function WorkScreen() {
                 onClose={() => { setEditing(null); clearParams('task'); }} notify={notify} />}
             {projectSeed && <ProjectSheet seed={projectSeed} notify={notify} onCreated={(id) => setTab(id)}
                 onClose={() => { setProjectSheet(null); clearParams('newProject', 'fromQuotation', 'client'); }} />}
-            {note && <div className="sb sb-toast" role="status">{note}</div>}
+            {note && <div className="sb sb-toast nbw-toast" role="status">{note}</div>}
         </div>
     );
 }
@@ -271,7 +333,7 @@ function TaskSheet({ task, employees, projects, onClose, notify }) {
     const pickable = projects;
 
     return (
-        <Sheet open onClose={onClose} title={isEdit ? 'Task' : 'New task'}
+        <Sheet open onClose={onClose} title={isEdit ? 'Task' : 'New task'} className="nbw-sheet"
             footer={canSave ? (
                 <>
                     {isEdit && orgStore.can('tasks', 'delete') && <Button variant="danger" onClick={remove}>Delete</Button>}
@@ -338,7 +400,7 @@ function ProjectSheet({ seed, onClose, notify, onCreated }) {
     };
 
     return (
-        <Sheet open onClose={onClose} title="New project"
+        <Sheet open onClose={onClose} title="New project" className="nbw-sheet"
             footer={<Button variant="primary" block onClick={save} disabled={saving}>{saving ? 'Starting…' : 'Start project'}</Button>}>
             {error && <div className="sb-err" role="alert">{error}</div>}
             {fromQuote && <div className="sb-note b">From the accepted quotation. Its value and lines come with it.</div>}

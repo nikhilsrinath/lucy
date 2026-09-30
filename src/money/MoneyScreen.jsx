@@ -21,6 +21,8 @@ import ItemSheet from './ItemSheet';
 import { statusOf, blankEntry } from './blanks';
 import '../chat/chat.css';
 import './money.css';
+import '../business/business.css';
+import '../business/business-tabs.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Money — the Business hub's money tabs: transactions, invoices & quotes,
@@ -97,7 +99,7 @@ export default function MoneyScreen() {
     const ask = (text) => { navigate('/chat'); a.send(text); };
 
     return (
-        <div className="sb-scroll">
+        <div className="sb-scroll nb nbx">
             <div className="sb-page">
                 <PageHeader title="Business" sub={`${TAB_SUB[tab] || 'Money'} · ${now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}`}
                     actions={(
@@ -138,7 +140,7 @@ export default function MoneyScreen() {
             {sheet?.kind === 'entry' && <EntrySheet entry={sheet.value} data={data} onClose={() => setSheet(null)} onSaved={notify} />}
             {sheet?.kind === 'bill' && <BillSheet bill={sheet.value} vendors={vendors} onClose={() => setSheet(null)} notify={notify} />}
             {sheet?.kind === 'item' && <ItemSheet item={sheet.value} onClose={() => setSheet(null)} notify={notify} />}
-            {note && <div className="sb sb-toast" role="status">{note}</div>}
+            {note && <div className="sb sb-toast nbx-toast" role="status">{note}</div>}
         </div>
     );
 }

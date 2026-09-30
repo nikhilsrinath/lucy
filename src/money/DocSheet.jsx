@@ -139,7 +139,7 @@ export default function DocSheet({ doc, activeOrg, onClose, notify }) {
     const adv = doc.type === 'proforma' ? advanceOf(doc) : null;
 
     return (
-        <Sheet open onClose={onClose} title={`${act.typeLabel(doc.type)} ${docNo(doc) || '(draft)'}`}>
+        <Sheet open onClose={onClose} className="nb-sheet" title={`${act.typeLabel(doc.type)} ${docNo(doc) || '(draft)'}`}>
             {error && <div className="sb-err" role="alert">{error}</div>}
 
             <Card className="sb-dsum">

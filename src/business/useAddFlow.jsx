@@ -7,6 +7,7 @@ import EntrySheet from '../money/EntrySheet';
 import BillSheet from '../money/BillSheet';
 import ItemSheet from '../money/ItemSheet';
 import { blankEntry, blankBill, blankItem } from '../money/blanks';
+import './business-tabs.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
    "Add to Business": every record the hub can start, in one list — the
@@ -36,7 +37,7 @@ export function useAddFlow({ data, notify }) {
 
     const element = (
         <>
-            <Sheet open={chooser} onClose={() => setChooser(false)} title="Add to Business">
+            <Sheet open={chooser} onClose={() => setChooser(false)} className="nb-sheet" title="Add to Business">
                 <Card list>
                     {actions.map((x) => {
                         const Icon = x.icon;

@@ -116,10 +116,12 @@
 .sb-top .mob { display: none; }
 .sb-scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .sb-page { max-width: 1040px; margin: 0 auto; padding: 28px 32px 48px; }
-.sb-ph { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 22px; flex-wrap: wrap; }
+.sb-ph { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 22px; }
+/* The title shrinks and wraps; the actions never drop onto their own line. */
+.sb-ph > div:first-child { flex: 1; min-width: 0; }
 .sb-ph h1 { font-size: 28px; font-weight: 650; letter-spacing: -.03em; line-height: 1.1; }
 .sb-ph p { font-size: 14px; color: var(--muted); margin-top: 4px; }
-.sb-ph .acts { margin-left: auto; display: flex; gap: 8px; }
+.sb-ph .acts { margin-left: auto; display: flex; gap: 8px; flex: none; }
 .sb-kpis { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 24px; }
 .sb-kpi { padding: 16px 18px; display: flex; flex-direction: column; gap: 6px; text-align: left; }
 .sb-kpi .kl { font-size: 13px; color: var(--muted); font-weight: 500; }
@@ -181,6 +183,7 @@ button.sb-lr:hover, a.sb-lr:hover { background: #FAFAF8; }
   .sb-top .mob { display: grid; }
   .sb-top .lbl { display: none; }
   .sb-page { padding: 20px 16px 36px; }
+  .sb-ph { align-items: flex-start; gap: 12px; }
   .sb-ph h1 { font-size: 24px; }
   .sb-ph .acts .sb-btn span.lbl { display: none; }
   .sb-kpis { grid-template-columns: 1fr 1fr; gap: 10px; }

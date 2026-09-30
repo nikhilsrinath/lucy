@@ -92,7 +92,7 @@ export default function EntrySheet({ entry, onClose, data, onSaved }) {
     const sym = e.currency === 'INR' ? '₹' : `${e.currency} `;
 
     return (
-        <Sheet open onClose={onClose} title={isNew ? 'Record money' : `Edit money ${e.direction === 'in' ? 'in' : 'out'}`}
+        <Sheet open onClose={onClose} className="nb-sheet" title={isNew ? 'Record money' : `Edit money ${e.direction === 'in' ? 'in' : 'out'}`}
             footer={(
                 <>
                     {canDelete && <Button variant="danger" onClick={remove}>Delete</Button>}

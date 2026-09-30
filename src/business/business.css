@@ -1,0 +1,179 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Business overview — soft neobrutalist.
+
+   Scoped under `.nb` (inside the shell's `.sb`) and prefixed `nb-`, so none of
+   it reaches Money or Clients, which share BusinessNav. Every selector starts
+   with `.nb` because the shell's `.sb :where(button)` reset has class-level
+   specificity and would otherwise clear a button's background and border.
+
+   The language, kept quiet:
+   · dark ink outlines at 1.5px and a small hard shadow (no blur) on things
+     you can press;
+   · pale tints that carry meaning — green is money coming in, amber is money
+     going out, red is late, blue is the pipeline; Buddy borrows a wash of the
+     cofounder's colour (--acc);
+   · Archivo, slightly widened, for headings and figures; Geist for the rest.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.nb {
+  --nb-ink: #1C1C1E;
+  --nb-sub: #5E5E62;
+  --nb-paper: #F6F6F3;
+  --nb-card: #fff;
+  --nb-mint: #DDF3E6;
+  --nb-sun: #FBF0CF;
+  --nb-red: #F9DCD8;
+  --nb-red-tx: #B3261E;
+  --nb-blue: #DFE7FA;
+  --nb-grey: #EDEDE9;
+  --nb-bw: 1.5px;
+  --nb-sh: 3px 3px 0 var(--nb-ink);
+  --nb-display: "Archivo", "Geist", ui-sans-serif, system-ui, sans-serif;
+
+  min-height: 100%;
+  background: var(--nb-paper);
+  color: var(--nb-ink);
+}
+.nb .sb-page { padding-bottom: 64px; }
+.nb :focus-visible { outline: 2px solid #2F5BFF; outline-offset: 3px; border-radius: 6px; }
+
+/* Anything you can press: lifts a little, sinks into its shadow on press. */
+.nb .nb-press { border: var(--nb-bw) solid var(--nb-ink); box-shadow: var(--nb-sh); transition: transform .12s ease, box-shadow .12s ease; cursor: pointer; }
+.nb .nb-press:hover { transform: translate(-1px, -1px); box-shadow: 4px 4px 0 var(--nb-ink); }
+.nb .nb-press:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--nb-ink); }
+
+.nb .nb-fig { font-family: var(--nb-display); font-stretch: 110%; font-weight: 750; font-variant-numeric: tabular-nums; letter-spacing: -.02em; line-height: 1.05; }
+
+/* ── Header ────────────────────────────────────────────────────────────── */
+.nb .nb-head { display: flex; align-items: flex-end; gap: 16px; margin-bottom: 18px; }
+.nb .nb-head h1 { font-family: var(--nb-display); font-stretch: 112%; font-weight: 800; font-size: 32px; letter-spacing: -.025em; line-height: 1.05; }
+.nb .nb-head .when { display: block; margin-top: 4px; font-size: 14px; color: var(--nb-sub); }
+.nb .nb-head .acts { margin-left: auto; display: flex; gap: 10px; }
+.nb .nb-btn { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; background: var(--nb-card); font-weight: 600; font-size: 14px; color: var(--nb-ink); white-space: nowrap; }
+.nb .nb-btn.p { background: var(--nb-ink); color: #fff; }
+
+/* ── Tabs: outlined pills, restyled only here ──────────────────────────── */
+.nb .sb-tabs { gap: 8px; border-bottom: 0; margin-bottom: 22px; padding: 2px 2px 4px; }
+.nb .sb-tabs > a { min-height: 36px; padding: 0 14px; border: var(--nb-bw) solid rgba(28,28,30,.22); border-radius: 999px; margin: 0; background: var(--nb-card); color: var(--nb-ink); font-weight: 550; font-size: 13.5px; transition: border-color .12s; }
+.nb .sb-tabs > a:hover { border-color: var(--nb-ink); }
+.nb .sb-tabs > a[aria-current="page"] { background: var(--nb-ink); border-color: var(--nb-ink); color: #fff; }
+.nb .sb-tabs .c { margin-left: 6px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--nb-red); color: var(--nb-red-tx); font-size: 11.5px; font-weight: 700; display: inline-grid; place-items: center; }
+
+/* ── The ledger: net cash, what's owed in, what's owed out ─────────────── */
+.nb .nb-ledger { display: grid; grid-template-columns: 1.5fr 1fr; gap: 16px; margin-bottom: 28px; }
+.nb .nb-ledger button.nb-press { text-align: left; color: var(--nb-ink); background: var(--nb-card); border-radius: 14px; display: flex; flex-direction: column; min-width: 0; }
+.nb .nb-ledger button.nb-cash { padding: 22px 24px; gap: 12px; justify-content: space-between; }
+.nb .nb-cash .lbl { font-size: 14px; font-weight: 600; color: var(--nb-sub); }
+.nb .nb-cash .big { font-size: clamp(38px, 6vw, 60px); letter-spacing: -.035em; overflow-wrap: anywhere; }
+.nb .nb-cash.neg .big { color: var(--nb-red-tx); }
+.nb .nb-cash .foot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; }
+.nb .nb-cash .pl { display: inline-flex; align-items: center; background: var(--nb-mint); border-radius: 999px; padding: 4px 11px; font-weight: 600; }
+.nb .nb-cash .pl.neg { background: var(--nb-red); }
+.nb .nb-cash .go { margin-left: auto; display: inline-flex; align-items: center; gap: 4px; font-weight: 600; color: var(--nb-sub); }
+.nb .nb-side { display: grid; grid-template-rows: 1fr 1fr; gap: 16px; min-width: 0; }
+.nb .nb-side > button.nb-press { padding: 16px 18px; gap: 8px; justify-content: space-between; }
+.nb .nb-side > button.nb-collect { background: var(--nb-mint); }
+.nb .nb-side > button.nb-pay { background: var(--nb-sun); }
+.nb .nb-side .top { display: flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; }
+.nb .nb-side .val { font-size: clamp(26px, 3.2vw, 34px); overflow-wrap: anywhere; }
+.nb .nb-side .note { font-size: 13px; color: var(--nb-sub); }
+.nb .nb-flag { margin-left: auto; background: var(--nb-card); color: var(--nb-red-tx); border: 1px solid currentColor; border-radius: 999px; padding: 1px 8px; font-size: 12px; font-weight: 700; }
+.nb .nb-flag.warn { color: #8A5A00; }
+
+/* ── Start something ───────────────────────────────────────────────────── */
+.nb .nb-sec-h { font-family: var(--nb-display); font-stretch: 110%; font-weight: 750; font-size: 17px; letter-spacing: -.015em; margin-bottom: 12px; }
+.nb .nb-quick { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-bottom: 30px; }
+.nb .nb-quick > button.nb-press { background: var(--nb-card); border-radius: 12px; padding: 12px 14px; display: flex; align-items: center; gap: 12px; color: var(--nb-ink); min-width: 0; }
+.nb .nb-quick > button > span:last-child { min-width: 0; }
+.nb .nb-quick b { display: block; font-size: 14px; font-weight: 600; }
+.nb .nb-quick small { display: block; font-size: 12px; color: var(--nb-sub); margin-top: 2px; line-height: 1.3; }
+.nb .nb-chip { width: 34px; height: 34px; border: 1px solid rgba(28,28,30,.18); border-radius: 9px; display: grid; place-items: center; flex: none; background: var(--nb-grey); color: var(--nb-ink); }
+.nb .nb-chip.g { background: var(--nb-mint); } .nb .nb-chip.a { background: var(--nb-sun); }
+.nb .nb-chip.b { background: var(--nb-blue); } .nb .nb-chip.r { background: var(--nb-red); }
+
+/* ── Panels ────────────────────────────────────────────────────────────── */
+.nb .nb-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; align-items: start; }
+.nb .nb-panel { background: var(--nb-card); border: var(--nb-bw) solid var(--nb-ink); border-radius: 14px; box-shadow: var(--nb-sh); overflow: hidden; }
+.nb .nb-panel > header { display: flex; align-items: center; gap: 10px; padding: 12px 16px; border-bottom: var(--nb-bw) solid var(--nb-ink); }
+.nb .nb-panel > header h2 { font-family: var(--nb-display); font-stretch: 108%; font-weight: 750; font-size: 15.5px; letter-spacing: -.01em; }
+.nb .nb-panel > header .n { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--nb-card); border: 1px solid rgba(28,28,30,.2); font-size: 12px; font-weight: 700; display: inline-grid; place-items: center; }
+.nb .nb-panel > header a { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; min-height: 32px; font-size: 13px; font-weight: 600; text-decoration: none; color: var(--nb-sub); }
+.nb .nb-panel > header a:hover { color: var(--nb-ink); text-decoration: underline; text-underline-offset: 3px; }
+.nb .nb-panel.t-mint > header { background: var(--nb-mint); }
+.nb .nb-panel.t-sun > header { background: var(--nb-sun); }
+.nb .nb-panel.t-blue > header { background: var(--nb-blue); }
+.nb .nb-panel.t-grey > header { background: var(--nb-grey); }
+
+.nb .nb-row { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 58px; padding: 10px 16px; border-top: 1px solid #ECECE8; color: var(--nb-ink); text-align: left; transition: background .1s; }
+.nb .nb-row:first-of-type { border-top: 0; }
+.nb .nb-row:hover { background: #FAFAF7; }
+.nb .nb-row .t { flex: 1; min-width: 0; }
+.nb .nb-row .t b { display: block; font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb .nb-row .t small { display: block; font-size: 12.5px; color: var(--nb-sub); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.nb .nb-row .amt { font-family: var(--nb-display); font-stretch: 105%; font-weight: 650; font-size: 14.5px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.nb .nb-row .amt.in { color: #1B7A45; }
+.nb .nb-row.late .amt { color: var(--nb-red-tx); }
+.nb .nb-row .tag { background: var(--nb-red); color: var(--nb-red-tx); border-radius: 999px; padding: 2px 8px; font-size: 11.5px; font-weight: 700; white-space: nowrap; }
+.nb .nb-row .chev { color: var(--nb-sub); }
+.nb .nb-ini { width: 34px; height: 34px; border: 1px solid rgba(28,28,30,.18); border-radius: 50%; display: grid; place-items: center; flex: none; font-size: 12px; font-weight: 700; background: var(--nb-grey); }
+.nb .nb-ini.c0 { background: var(--nb-mint); } .nb .nb-ini.c1 { background: var(--nb-sun); }
+.nb .nb-ini.c2 { background: var(--nb-blue); } .nb .nb-ini.c3 { background: #F4E1EC; }
+
+.nb .nb-empty { padding: 20px 16px 22px; font-size: 14px; color: var(--nb-sub); line-height: 1.5; }
+.nb .nb-foot { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-top: 1px solid #ECECE8; font-size: 13px; color: var(--nb-sub); }
+.nb .nb-foot > a, .nb .nb-foot > button { margin-left: auto; display: inline-flex; align-items: center; min-height: 32px; padding: 0 12px; border-radius: 8px; border: var(--nb-bw) solid var(--nb-ink); background: var(--nb-card); color: var(--nb-ink); font-weight: 600; font-size: 13px; text-decoration: none; }
+.nb .nb-foot > a:hover, .nb .nb-foot > button:hover { background: var(--nb-paper); }
+
+/* Pipeline: one cell per stage, the bar is the stage's share of the peak. */
+.nb .nb-stages { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-bottom: 1px solid #ECECE8; }
+.nb .nb-stages > a { display: flex; flex-direction: column; gap: 8px; padding: 14px 14px 16px; text-decoration: none; color: var(--nb-ink); border-left: 1px solid #ECECE8; min-width: 0; transition: background .1s; }
+.nb .nb-stages > a:first-child { border-left: 0; }
+.nb .nb-stages > a:hover { background: #FAFAF7; }
+.nb .nb-stages .sl { font-size: 12.5px; font-weight: 600; color: var(--nb-sub); }
+.nb .nb-stages .sv { font-size: 24px; }
+.nb .nb-stages .bar { height: 8px; border: 1px solid var(--nb-ink); border-radius: 999px; background: var(--nb-card); overflow: hidden; }
+.nb .nb-stages .bar i { display: block; height: 100%; }
+.nb .nb-stages .s-lead i { background: #A9BEF2; } .nb .nb-stages .s-contacted i { background: #EFD27C; }
+.nb .nb-stages .s-deal i { background: #93D6AF; } .nb .nb-stages .s-not_deal i { background: #CFCFC9; }
+
+/* ── Ask Buddy: a wash of the cofounder's colour ───────────────────────── */
+.nb .nb-ask { background: color-mix(in srgb, var(--acc) 22%, #fff); border: var(--nb-bw) solid var(--nb-ink); border-radius: 14px; box-shadow: var(--nb-sh); padding: 18px 20px; margin-top: 8px; }
+.nb .nb-ask .hd { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+.nb .nb-ask h2 { font-family: var(--nb-display); font-stretch: 110%; font-weight: 750; font-size: 19px; letter-spacing: -.02em; }
+.nb .nb-ask .hd a { margin-left: auto; display: inline-flex; align-items: center; gap: 2px; min-height: 32px; font-size: 13px; font-weight: 600; color: var(--nb-ink); text-decoration: none; }
+.nb .nb-ask .hd a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.nb .nb-prompts { display: flex; flex-wrap: wrap; gap: 10px; }
+.nb .nb-prompts > button.nb-press { display: inline-flex; align-items: center; gap: 8px; background: var(--nb-card); border-radius: 999px; padding: 8px 14px; font-size: 13.5px; font-weight: 550; color: var(--nb-ink); box-shadow: 2px 2px 0 var(--nb-ink); }
+.nb .nb-prompts > button.nb-press:hover { box-shadow: 3px 3px 0 var(--nb-ink); }
+.nb .nb-prompts > button.nb-press:active { box-shadow: 0 0 0 var(--nb-ink); }
+.nb .nb-ask .fine { display: flex; align-items: center; gap: 8px; margin-top: 14px; font-size: 12.5px; color: var(--nb-sub); }
+
+/* ── Small screens ─────────────────────────────────────────────────────── */
+@media (max-width: 860px) {
+  .nb .nb-ledger { grid-template-columns: 1fr; }
+  .nb .nb-side { grid-template-rows: none; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nb .nb-cols { grid-template-columns: 1fr; }
+}
+@media (max-width: 640px) {
+  .nb .sb-page { padding-left: 16px; padding-right: 16px; }
+  .nb .nb-head { align-items: center; }
+  .nb .nb-head h1 { font-size: 28px; }
+  .nb .nb-head .acts .lbl { display: none; }
+  .nb .nb-head .acts .nb-btn { width: 40px; padding: 0; justify-content: center; }
+  .nb .nb-ledger button.nb-cash { padding: 18px; }
+  .nb .nb-side > button.nb-press { padding: 14px; }
+  .nb .nb-quick { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .nb .nb-quick > button.nb-press { padding: 10px 12px; gap: 10px; }
+  .nb .nb-quick small { display: none; }
+  .nb .nb-stages { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .nb .nb-stages > a:nth-child(3) { border-left: 0; }
+  .nb .nb-stages > a:nth-child(n+3) { border-top: 1px solid #ECECE8; }
+  .nb .nb-row .tag { display: none; }
+}
+@media (max-width: 380px) {
+  .nb .nb-side { grid-template-columns: 1fr; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .nb *, .nb *::before, .nb *::after { transition: none !important; }
+  .nb .nb-press:hover, .nb .nb-press:active { transform: none; }
+}

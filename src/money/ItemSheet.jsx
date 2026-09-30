@@ -49,7 +49,7 @@ export default function ItemSheet({ item, onClose, notify }) {
     };
 
     return (
-        <Sheet open onClose={onClose} title={isNew ? 'New item' : p.name}
+        <Sheet open onClose={onClose} className="nb-sheet" title={isNew ? 'New item' : p.name}
             footer={(
                 <>
                     {!isNew && orgStore.can('catalog_items', 'edit') && <Button onClick={archive}>{p.archived_at ? 'Restore' : 'Archive'}</Button>}
