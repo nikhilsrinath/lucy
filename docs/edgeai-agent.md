@@ -70,6 +70,48 @@ Finance notes:
 - **Purchase bills** take the amount as said: "85k incl GST" backs out the subtotal at the vendor's last GST rate; the card shows the total the database will store.
 - **Cards** for documents show the lines and the CGST/SGST or IGST split; an invoice opens as the real `InvoicePreview` (scaled into the card by `DocPaper.jsx`), open by default when issuing.
 
+## Buddy as an operator (2026-09-30)
+
+Buddy is one action system reached from every surface. `api/_lib/agent/buddy.js` is the only entry point: `openSession`, `chat`, `resume`, `confirm`, `cancel`, `undo`, `retry`, `status`, `insights`, `activity`. `api/agent.js` (web chat and voice) is a thin HTTP adapter over it; a Telegram or email adapter would authenticate its person, call `openSession({ …, channel: 'telegram' })` and render the same events and cards its own way — no second prompt, tool set, approval flow or audit trail.
+
+```
+                 ┌──────────── channels (adapters) ────────────┐
+                 │ web chat · voice call · "Buddy noticed" tap │  (later: telegram, email)
+                 └──────────────────────┬──────────────────────┘
+                                buddy.js (sessions, modes)
+          ┌──────────────┬──────────────┼───────────────┬───────────────┐
+      loop.js        pipeline.js     plans.js       insights.js      actions.js
+   model ⇄ tools   propose/confirm   multi-step     rules over the   ai_actions log:
+   views, events   undo/retry        plans          company's rows   lifecycle, audit
+          └──────── registry.js: every tool (read · write · navigate · plan) ────────┘
+                         executor.js: plans applied as the user (RLS), email op
+```
+
+**Three kinds of request.**
+
+| Kind | What happens | Examples |
+| --- | --- | --- |
+| Read | Runs at once through the user's token; answer + optional view | "How much cash do we have?", "Who owes us money?", "What happened this week?" |
+| Draft / write (low risk) | A card: review, edit, Confirm; Undo for 10 minutes | tasks, clients, notes, projects, invoice/quote drafts |
+| Sensitive (high risk) | A detailed card with the exact output and a named button; often no Undo | money, deletes, issuing, **sending a payment reminder email** |
+| Plan | One card with several low-risk steps; untick/edit, Approve once | "We launch in two weeks", "Collect all overdue payments" |
+
+**Lifecycle.** Every action (and plan) is an `ai_actions` row. Status column as in 0068 (`proposed → confirmed → executed | failed`, `cancelled`, `expired`, `undone`); 0069 adds a timeline in `events` — `proposed, edited, approved, executing, completed | partial | failed, cancelled, undone, retried` — plus `kind` (action | plan), `channel`, `reason` (Buddy's why), `source` (e.g. the insight that prompted it), `edits`, `approval_required`, `parent_id` (retry of). Business rows written by a confirmed action carry `audit_log.via = 'edgeai'` and the action id. The API tolerates a database without 0069 (it logs without the new columns).
+
+**Never "done" without the database.** The client says "Done." only after `confirm` returns `executed`; a plan's summary counts steps that the executor reported as written. Failures keep their reason, the card offers **Try again** (a fresh, re-checked proposal via `retry`), and a partly-done plan offers **Retry failed steps**.
+
+**Plans** (`plans.js`, tool `propose_plan`). Steps are calls to ordinary low-risk write tools (`PLANNABLE`). At proposal every step runs its tool's `resolve → validate → preview`; any ambiguity or missing detail sends the whole plan back to the model to ask one question — a plan is never shown with a guess in it. A step may refer to something an earlier step creates (a task in the new project): a placeholder row (`tool.virtual()`) stands in until approval, when the real id is swapped in. At approval each ticked step is re-resolved against current data and applied through the executor; a failed step does not stop independent steps, dependants are skipped. Undo reverses executed steps newest first. Sending, money and deletes are never plan steps.
+
+**Views** (`views.js`). Read tools return a `view` (metrics, list, timeline, insights) built from their own result; the model shows one by writing `[[show:v2]]`. Figures on a view are always the tool's, never the model's.
+
+**Insights** (`insights.js`). Rules, no model: overdue invoices by client (with last reminder), deadlines by tomorrow, overdue tasks by owner, tasks whose deadline slipped 2+ times in 45 days (audit log), at-risk / off-track projects (`project_portfolio` health), leads quiet for 14+ days, quotes waiting 7+ days, spending 40%+ above the 3-month average, vendor bills due. Capped at 5, most severe first, each with a grounded reason and 1–2 actions (ask Buddy — which proposes a card or plan — or open the record). Shown as "Buddy noticed" in the brief and on Home (dismiss hides one for 3 days on that browser), and available to the model as `get_insights`.
+
+**Personas** change only wording (`personas.js`); all six use the same tools, rules and approvals.
+
+**Voice** uses the same `send()` → same loop. On a call, a low-risk card may be confirmed out loud (`confirm_proposal`) — the server now checks the stored risk, not the client's, and plans always need a tap.
+
+New tools: `list_clients`, `list_projects`, `list_team`, `list_documents`, `recent_activity`, `buddy_activity`, `get_insights` (read); `create_project` (low); `send_payment_reminder` (high, not undoable, sent through `api/_lib/mailer.js` — the same credentials, quota and validation as `/api/email`); `propose_plan`. Every write tool also takes `reason`, shown on its card as "Why".
+
 ## Adding a tool
 
 1. Pick (or create) a file in `api/_lib/agent/tools/` and export an array of tool objects. List the file in `registry.js` if it is new.
@@ -139,5 +181,5 @@ Runs each case through the real loop and model over the fixture company in `scri
 ## Deploying
 
 1. Run `supabase/checks/agent_preflight.sql` on the live project; check section 86 (the `write_audit` fingerprint matches 0020: `lf_md5` `ee442a926db778edd095d1f4fe5c7bcb`, 2491 chars — the raw `md5` differs if the file was applied with Windows line endings), 18/133 (no collisions) and the permission keys the tools name. If the body differs, run `supabase/checks/write_audit_live.sql` and fold the live differences into 0068 section 4.
-2. Apply `0068_ai_actions.sql` (it also adds tasks, clients, cash, invoice, payment, bill and vendor tables to the realtime publication). Until it is applied the agent still answers and reads, and says it cannot make changes yet.
+2. Apply `0068_ai_actions.sql`, then `0069_buddy_operator.sql` (or run `supabase/full_schema.sql` on a fresh project) (it also adds tasks, clients, cash, invoice, payment, bill and vendor tables to the realtime publication). Until it is applied the agent still answers and reads, and says it cannot make changes yet.
 3. Environment: nothing new. Optional `AGENT_MODEL`, `AGENT_REASONING_EFFORT` (default `low`).
