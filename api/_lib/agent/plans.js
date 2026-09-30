@@ -42,7 +42,7 @@ import {
  */
 
 export const PLANNABLE = [
-  'create_project', 'create_task', 'update_task', 'complete_task',
+  'create_project', 'create_task', 'update_task', 'complete_task', 'add_task_note',
   'create_client', 'update_client', 'move_client_stage', 'add_client_note',
   'create_invoice_draft', 'create_quotation_draft',
 ];

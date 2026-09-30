@@ -15,6 +15,7 @@ import { useCofounder } from '../design/useCofounder';
 import { useShell } from '../shell/shellContext';
 import { Button, Badge, Card, PageHeader, Sheet, Field, Segmented, PixelAvatar } from '../design/ui';
 import CofounderCarousel from '../design/CofounderCarousel';
+import TelegramSettings from './TelegramSettings';
 import { introGreeting } from '../call/greeting';
 import '../money/money.css';
 
@@ -246,6 +247,7 @@ export default function SettingsScreen() {
                 </section>
 
                 <Members orgId={orgId} admin={admin} me={user?.id} />
+                <TelegramSettings orgId={orgId} />
                 <Knowledge orgId={orgId} />
                 <Plan orgId={orgId} plan={plan} />
 

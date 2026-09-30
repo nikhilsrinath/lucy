@@ -30,3 +30,18 @@ export async function logAiUsage({
 }
 
 const toCount = (v) => (Number.isFinite(Number(v)) && v !== null ? Math.max(0, Math.round(Number(v))) : null);
+
+/**
+ * Counts one AI message against the org's plan limit (usage_counters, via
+ * bump_ai_usage) and returns the new total. Every Buddy surface — the web
+ * agent, Telegram — meters through here, before the model is called.
+ * A failure to count is logged and treated as 0, as before.
+ */
+export async function bumpAiUsage(orgId, tag = 'agent') {
+  const { data, error } = await supabaseAdmin().rpc('bump_ai_usage', { p_org: orgId });
+  if (error) {
+    console.warn(`[${tag}] AI usage not counted:`, error.message);
+    return 0;
+  }
+  return Number(data) || 0;
+}

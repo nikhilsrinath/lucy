@@ -559,6 +559,43 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
         return true;
     }, [streaming, activeId, send, setChats]);
 
+    /**
+     * A change proposed on another channel — a Telegram "Review in
+     * StartupBuddy" link (/chat?action=<id>) — opened here as its card, in a
+     * chat of its own, so it is reviewed, edited and approved through the
+     * same card and confirm path as any other. The server returns it only if
+     * it is this person's, in this company. null = not ready (no company yet).
+     */
+    const openAction = useCallback(async (actionId) => {
+        if (!orgId) return null;
+        if (!/^[0-9a-f-]{36}$/i.test(String(actionId || ''))) return false;
+        const known = chatsRef.current.find((c) => c.messages.some((m) => m.actionId === actionId));
+        if (known) { setActiveId(known.id); setView('chat'); return true; }
+        try {
+            const { cards } = await actionStatus(orgId, [actionId]);
+            const card = cards?.[0];
+            if (!card) { setNote('That change is no longer available.'); return false; }
+            const where = card.channel === 'telegram' ? 'Telegram' : null;
+            const c = {
+                ...newChat(),
+                title: `${where ? `From ${where}: ` : ''}${card.title || 'Change to review'}`.slice(0, 60),
+                titled: true,
+                messages: [
+                    { id: uid('m'), role: 'assistant', content: where ? `You asked for this on ${where}. Review it here:` : 'Review this change:' },
+                    { id: uid('m'), role: 'assistant', kind: 'action', actionId: card.action_id, card, content: cardLine(card) },
+                ],
+            };
+            setChats((cs) => [c, ...cs]);
+            chatsRef.current = [c, ...chatsRef.current];
+            setActiveId(c.id);
+            setView('chat');
+            return true;
+        } catch (err) {
+            setNote(err?.message || 'Could not open that change.');
+            return false;
+        }
+    }, [orgId, setChats]);
+
     const pickChat = useCallback((id) => {
         setActiveId(id);
         setDraft('');
@@ -635,14 +672,14 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
         draft, setDraft, streaming, working, send, askNew, regenerate,
         startChat, pickChat, removeChat, clearHistory, renameChat, togglePin, shareChat,
         answer, takeOffer, dismissQuestion, pendingQuestion,
-        confirmCard, cancelCard, undoCard, retryCard,
+        confirmCard, cancelCard, undoCard, retryCard, openAction,
         open, setOpen, view, setView, docked: docks > 0, registerDock,
         note, setNote, speech, addLocal,
     }), [
         chats, active, draft, streaming, working, send, askNew, regenerate,
         startChat, pickChat, removeChat, clearHistory, renameChat, togglePin, shareChat,
         answer, takeOffer, dismissQuestion, pendingQuestion,
-        confirmCard, cancelCard, undoCard, retryCard,
+        confirmCard, cancelCard, undoCard, retryCard, openAction,
         open, view, docks, registerDock, note, speech, addLocal,
     ]);
 

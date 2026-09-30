@@ -81,6 +81,16 @@ export default function ChatScreen() {
         if (q.get('files')) { shell.openFiles(); navigate('/chat', { replace: true }); }
     }, [location.search, shell, navigate]);
 
+    // /chat?action=<id> — "Review in StartupBuddy" from Telegram: open that card.
+    const openAction = a.openAction;
+    useEffect(() => {
+        const id = new URLSearchParams(location.search).get('action');
+        if (!id || !openAction) return undefined;
+        let gone = false;
+        openAction(id).then((done) => { if (!gone && done !== null) navigate('/chat', { replace: true }); });
+        return () => { gone = true; };
+    }, [location.search, openAction, navigate]);
+
     // New messages scroll into view; a fresh brief shows from the top.
     useLayoutEffect(() => {
         const el = scrollRef.current;

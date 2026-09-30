@@ -76,7 +76,7 @@ Buddy is one action system reached from every surface. `api/_lib/agent/buddy.js`
 
 ```
                  ┌──────────── channels (adapters) ────────────┐
-                 │ web chat · voice call · "Buddy noticed" tap │  (later: telegram, email)
+                 │ web chat · voice call · "Buddy noticed" tap │  · telegram (docs/telegram.md) · later: email
                  └──────────────────────┬──────────────────────┘
                                 buddy.js (sessions, modes)
           ┌──────────────┬──────────────┼───────────────┬───────────────┐
@@ -111,6 +111,8 @@ Buddy is one action system reached from every surface. `api/_lib/agent/buddy.js`
 **Voice** uses the same `send()` → same loop. On a call, a low-risk card may be confirmed out loud (`confirm_proposal`) — the server now checks the stored risk, not the client's, and plans always need a tap.
 
 New tools: `list_clients`, `list_projects`, `list_team`, `list_documents`, `recent_activity`, `buddy_activity`, `get_insights` (read); `create_project` (low); `send_payment_reminder` (high, not undoable, sent through `api/_lib/mailer.js` — the same credentials, quota and validation as `/api/email`); `propose_plan`. Every write tool also takes `reason`, shown on its card as "Why".
+
+**Channels.** Telegram (2026-09-30) is the first external channel: see [telegram.md](telegram.md). It adds nothing to the brain: a channel-neutral bridge (`channelSession.js`: verify the person on every request, act with a short-lived token of their own) and an `audience` on the context — in a shared space (a team group) the permission map is narrowed to work resources and `privateOnly` tools are withheld. `add_task_note` (notes and blockers) and `team_pulse` (Daily Pulse, `pulse.js`) are ordinary tools every channel gets.
 
 ## Adding a tool
 

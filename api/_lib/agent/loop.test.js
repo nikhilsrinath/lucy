@@ -99,7 +99,7 @@ describe('nothing is written without a confirm', () => {
     const { ALL_TOOLS } = await import('./registry.js');
     const argsFor = {
       create_task: { title: 'X' }, update_task: { task: 'pricing', priority: 'high' }, complete_task: { task: 'pricing' },
-      reopen_task: { task: 'pricing' }, delete_task: { task: 'pricing' }, create_client: { name: 'New Co' },
+      reopen_task: { task: 'pricing' }, add_task_note: { task: 'pricing', note: 'waiting on API access', blocker: true }, delete_task: { task: 'pricing' }, create_client: { name: 'New Co' },
       update_client: { client: 'x', email: 'a@b.co' }, move_client_stage: { client: 'x', stage: 'lost' },
       add_client_note: { client: 'x', note: 'n' }, delete_client: { client: 'x' },
       create_cash_entry: { direction: 'out', amount: '500', description: 'Tea', category: 'furniture', source_text: 'paid 500 for tea' },

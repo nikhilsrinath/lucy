@@ -12,7 +12,7 @@
  *   activity { limit? }                        → what Buddy proposed and did, newest first
  *
  * Everything goes through api/_lib/agent/buddy.js, the channel-neutral entry
- * point a future Telegram or email adapter calls the same way.
+ * point the Telegram adapter (api/telegram.js) calls the same way.
  *
  * One function with modes rather than one per verb: the Vercel function count
  * is finite and every mode shares the same authentication and context.
@@ -23,8 +23,7 @@
  * in the UI. The service role is used only for ai_actions and the AI meter.
  */
 import { requireUser, HttpError, sendError, methodIs, readJsonBody } from './_lib/auth.js';
-import { supabaseAdmin } from './_lib/supabaseAdmin.js';
-import { logAiUsage } from './_lib/aiUsage.js';
+import { logAiUsage, bumpAiUsage } from './_lib/aiUsage.js';
 import { bearerToken } from './_lib/agent/db.js';
 import * as buddy from './_lib/agent/buddy.js';
 import { AGENT_MODEL, newUsage, describeUsage } from './_lib/agent/model.js';
@@ -80,7 +79,7 @@ export default async function handler(req, res) {
     }
 
     // Metered per message, before the model is called — see api/nvidia.js.
-    const used = await meter(ctx.orgId);
+    const used = await bumpAiUsage(ctx.orgId);
     if (used > ctx.aiLimit) {
       await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', outcome: 'blocked' });
       emit('notice', { text: `Your plan's AI message limit (${ctx.aiLimit}) has been reached.` });
@@ -113,11 +112,3 @@ export default async function handler(req, res) {
   }
 }
 
-async function meter(orgId) {
-  const { data, error } = await supabaseAdmin().rpc('bump_ai_usage', { p_org: orgId });
-  if (error) {
-    console.warn('[agent] AI usage not counted:', error.message);
-    return 0;
-  }
-  return Number(data) || 0;
-}

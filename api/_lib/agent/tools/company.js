@@ -297,6 +297,7 @@ const recent_activity = {
   module: 'core',
   kind: 'read',
   permission: null,
+  privateOnly: true,
   description: 'What happened in the company over a period (default the last 7 days): tasks created and completed, clients added and moved, documents, payments, expenses — from the audit trail, with counts and the notable items. Use it for "what happened this week?".',
   params: {
     type: 'object',
@@ -369,6 +370,7 @@ const buddy_activity = {
   module: 'core',
   kind: 'read',
   permission: null,
+  privateOnly: true,
   description: 'What you (Buddy) proposed and did for this user recently — each action or plan, its status (done, failed, cancelled, undone, waiting) and result. Use it for "what did you do today?", "did that invoice go through?", "what failed?".',
   params: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: 30 } } },
   status: 'Checking what I did…',

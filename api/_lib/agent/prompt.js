@@ -6,7 +6,7 @@ import { PERSONAS, cleanPersona } from './personas.js';
  * version that proposed it, so a change in behaviour can be traced to a
  * change here. Bump it whenever the wording changes.
  */
-export const AGENT_PROMPT_VERSION = 'agent-2026-09-30.2-startupbuddy-operator';
+export const AGENT_PROMPT_VERSION = 'agent-2026-09-30.3-startupbuddy-telegram';
 
 const WEEKDAY = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
@@ -62,6 +62,21 @@ ${list.map((a) => `- ${a.tool}: ${a.title} — ${WORD[a.status] || a.status}${a.
 `;
 }
 
+/**
+ * A reply to Buddy's Daily Pulse check-in (pulse.js). The turn says so, so
+ * the model reads "finished the proposal, stuck on payments" as updates to
+ * propose — through the same tools and cards as any other message.
+ */
+function pulseBlock(ctx) {
+  if (!ctx.source?.startsWith('pulse:')) return '';
+  return `
+DAILY CHECK-IN: this message answers the check-in you sent ("How did your day go?"). Turn what they report into proposals with your tools:
+finished work → complete_task on that task; stuck or blocked → add_task_note with blocker true; progress or a detail → add_task_note, or update_task (status in_progress, a new date);
+something new they will do → create_task for them; client news → add_client_note. Look their tasks up first (list_tasks assignee "me").
+Several changes → ONE propose_plan. Only what they actually said; if you cannot tell which task they mean, ask one question. Nothing actionable → thank them in one short line.
+`;
+}
+
 /** The per-message facts, as one data block placed just before the user's message. */
 export function buildTurnContext(ctx) {
   const today = new Date(`${ctx.today}T00:00:00Z`);
@@ -73,14 +88,24 @@ USER'S PAGE: ${page}
 
 ENTITIES ALREADY IN THIS CONVERSATION (newest first):
 ${recent || '(none yet)'}
-${pendingBlock(ctx)}${cardsBlock(ctx)}${actionsBlock(ctx)}</data>`;
+${pendingBlock(ctx)}${cardsBlock(ctx)}${actionsBlock(ctx)}${pulseBlock(ctx)}</data>`;
 }
 
 export function buildSystemPrompt(ctx, tools) {
   const names = tools.map((t) => t.name).join(', ');
   const confirmRule = ctx.voice
     ? 'On this voice call, if they clearly agree to a low-risk one, call confirm_proposal with its id; a high-risk one they must tap.'
-    : 'Only the user can confirm a card, by tapping it — tell them so if they say "yes".';
+    : ctx.channel === 'telegram'
+      ? 'Only the user can confirm a card, by tapping its Confirm button in Telegram; a high-risk card is approved only in the StartupBuddy app (its "Review in StartupBuddy" button). Tell them so if they just type "yes".'
+      : 'Only the user can confirm a card, by tapping it — tell them so if they say "yes".';
+  const channelNote = ctx.channel === 'voice'
+    ? ' — replies are spoken: no lists, no view markers, two sentences at most.'
+    : ctx.channel === 'telegram'
+      ? ' — replies are Telegram messages: short and conversational, plain text (**bold** at most), a short list only when listing 3+ items. Cards arrive as messages with buttons.'
+      : '';
+  const audienceNote = ctx.audience === 'shared'
+    ? `\nSHARED SPACE: this is a team group chat — everyone in it reads your replies. Only work data (tasks, projects, the team) is available here. Never mention money, invoices, salaries, clients' commercial terms, leave or anything personal about a teammate; if asked, say you can only discuss that in a private chat with you.`
+    : '';
 
   const persona = PERSONAS[cleanPersona(ctx.persona)];
 
@@ -91,7 +116,7 @@ HOW YOU SPEAK: ${persona.speech} Keep this voice in every reply and on voice cal
 
 THEIR PERMISSIONS: ${permissionSummary(ctx)}
 TOOLS YOU HAVE: ${names}
-YOU ARE CONNECTED THROUGH: ${ctx.channel || 'chat'}${ctx.channel === 'voice' ? ' — replies are spoken: no lists, no view markers, two sentences at most.' : ''}
+YOU ARE CONNECTED THROUGH: ${ctx.channel || 'chat'}${channelNote}${audienceNote}
 
 HOW YOU WORK
 1. Understand what the user means, find the records, and use a tool. Reads run at once. Every change is PROPOSED: the user sees a card and confirms it themselves. You never write anything directly.
@@ -103,6 +128,7 @@ HOW YOU WORK
    - "spent 4,500 on chairs yesterday" → create_cash_entry out
    - "Acme paid us 50k advance by UPI" (no invoice mentioned) → create_cash_entry in
    - "finished the deck" → complete_task
+   - "I'm blocked on the payment integration, need API access" → add_task_note with blocker true
    - "Priya from Kite says budget is frozen till March" → add_client_note
    - "Acme paid the invoice" / "INV-0042 is settled" → mark_invoice_paid (the whole balance)
    - "Acme paid 20k against their invoice" → record_payment

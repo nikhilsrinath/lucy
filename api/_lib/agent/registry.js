@@ -8,6 +8,7 @@ import companyTools from './tools/company.js';
 import projectTools from './tools/projects.js';
 import reminderTools from './tools/reminders.js';
 import planTools from './tools/plan.js';
+import pulseTools from './tools/pulse.js';
 
 /**
  * The one catalogue of what EdgeAI can do.
@@ -34,6 +35,7 @@ export const ALL_TOOLS = [
   ...projectTools,
   ...reminderTools,
   ...planTools,
+  ...pulseTools,
 ];
 
 const BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]));
@@ -45,6 +47,9 @@ export const isWrite = (tool) => tool?.kind === 'write';
 /** May this user, on this plan, use this tool at all? */
 export function allowed(tool, ctx) {
   if (!tool) return false;
+  // A shared space (a team group) never gets the tools that read one
+  // person's history or the company-wide audit trail — context.js.
+  if (tool.privateOnly && ctx.audience === 'shared') return false;
   if (tool.available && !tool.available(ctx)) return false;
   if (tool.planFeature && !ctx.hasPlanFeature(tool.planFeature)) return false;
   if (!tool.permission) return true;

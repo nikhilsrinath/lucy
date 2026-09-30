@@ -485,6 +485,75 @@ const create_task = {
   },
 };
 
+/* ── notes and blockers ───────────────────────────────────────────────────── */
+
+const add_task_note = {
+  name: 'add_task_note',
+  module: 'tasks',
+  kind: 'write',
+  risk: 'low',
+  permission: { resource: 'tasks', action: 'edit' },
+  description: 'Add a dated note to a task, or flag it as blocked: "I\'m blocked on the payment integration, need API access" '
+    + '(blocker: true), "note on the homepage task: client wants a darker header", "halfway through the deck". '
+    + 'Appends; never replaces earlier notes. Use update_task for status, dates or owners.',
+  params: {
+    type: 'object',
+    properties: {
+      ...TARGET_PARAMS,
+      note: { type: 'string', description: 'The note, in the user\'s words (for a blocker: what is blocking it).' },
+      blocker: { type: 'boolean', description: 'True when the user says they are blocked or stuck on this task.' },
+    },
+    required: ['note'],
+  },
+  undoable: true,
+
+  async resolve(args, ctx) {
+    const note = String(args.note ?? '').trim();
+    if (!note) return needsInput('note', args.blocker ? 'What is blocking it?' : 'What should the note say?');
+    // `tasks` is the canonical form a card is re-resolved from on confirm.
+    const target = await resolveTargets({ task: args.task, tasks: args.tasks }, ctx);
+    if (target.needs || target.error) return target;
+    if (target.rows.length > 1) return { error: 'A note goes on one task at a time. Name the one task.' };
+    const row = target.rows[0];
+    return {
+      args: { tasks: [row.id], note: note.slice(0, 2000), blocker: args.blocker === true },
+      targets: [{ table: 'tasks', id: row.id, version: row.updated_at }],
+      entities: [entityOf('task', row)],
+    };
+  },
+
+  validate() { return []; },
+
+  async preview(args, ctx) {
+    const [row] = await rowsOf(args, ctx);
+    return {
+      title: args.blocker ? 'Flag task as blocked' : 'Add note to task',
+      target: entityOf('task', row),
+      diff: [change('notes', args.blocker ? 'Blocker' : 'New note', null, noteLine(args, ctx))],
+      fields: [{ key: 'note', label: args.blocker ? 'Blocker' : 'Note', type: 'textarea', value: args.note }],
+    };
+  },
+
+  async plan(args, ctx) {
+    const [row] = await rowsOf(args, ctx);
+    // notes is not in the shared task load; read it fresh, as the user.
+    const { data } = await ctx.db.from('tasks').select('notes').eq('id', row.id).maybeSingle();
+    const before = data?.notes ?? null;
+    const line = noteLine(args, ctx);
+    const notes = before ? `${before.replace(/\s+$/, '')}\n${line}` : line;
+    return [{ op: 'update', table: 'tasks', id: row.id, version: row.updated_at, patch: { notes }, before: { notes: before }, label: row.title }];
+  },
+
+  summary(outcome, args) {
+    const r = outcome.results[0];
+    if (r?.ok === false) return `Note not added: ${r.error}`;
+    const t = q(r?.after?.title || 'the task');
+    return args.blocker ? `Flagged ${t} as blocked: ${args.note}` : `Added the note to ${t}.`;
+  },
+};
+
+const noteLine = (args, ctx) => `${formatDate(ctx.today)} — ${args.blocker ? 'Blocked: ' : ''}${args.note}`;
+
 /* ── delete ───────────────────────────────────────────────────────────────── */
 
 const delete_task = {
@@ -539,4 +608,4 @@ const delete_task = {
   },
 };
 
-export default [create_task, update_task, complete_task, reopen_task, delete_task];
+export default [create_task, update_task, complete_task, reopen_task, add_task_note, delete_task];

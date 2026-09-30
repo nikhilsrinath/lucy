@@ -18,6 +18,18 @@ import { cleanPersona } from './personas.js';
 
 const ACTIONS = ['view', 'create', 'edit', 'delete'];
 
+/**
+ * Where the reply will be read. 'private' is the person alone (the web app, a
+ * call, a Telegram DM). 'shared' is a space other people read too — a team's
+ * Telegram group, later a Slack channel — so Buddy there sees only what is
+ * fine for the whole room: the permission map is narrowed to these resources
+ * before any tool is offered, and tools marked `privateOnly` are withheld.
+ * Narrowing only ever removes access; RLS still decides the rest.
+ */
+export const SHARED_RESOURCES = new Set([
+  'tasks', 'projects', 'project_milestones', 'project_members', 'employees', 'announcements',
+]);
+
 export async function buildAgentContext({ user, token, orgId, body = {}, actionId = null }) {
   if (!orgId) throw new HttpError(400, 'Missing org_id');
   const membership = await requireOrgRole(user.id, orgId, 'viewer');
@@ -37,8 +49,10 @@ export async function buildAgentContext({ user, token, orgId, body = {}, actionI
       .eq('org_id', orgId).eq('role', membership.role);
     permRows = fb.data || [];
   }
+  const audience = body.audience === 'shared' ? 'shared' : 'private';
   const perms = {};
   for (const r of permRows || []) {
+    if (audience === 'shared' && !SHARED_RESOURCES.has(r.resource)) continue;
     perms[r.resource] = { view: !!r.can_view, create: !!r.can_create, edit: !!r.can_edit, delete: !!r.can_delete };
   }
 
@@ -70,11 +84,14 @@ export async function buildAgentContext({ user, token, orgId, body = {}, actionI
     pending: cleanPending(body.pending),
     openCards: cleanCards(body.context?.openCards),
     voice: body.voice === true,
-    // Which surface asked (chat, voice, insight, api — later telegram, email).
+    // Which surface asked (chat, voice, insight, api, telegram — later email).
     // Recorded on every action; it changes nothing about what is allowed.
     channel: cleanChannel(body.channel, body.voice === true),
-    // What prompted this message, e.g. a tapped "Buddy noticed" card.
-    source: typeof body.context?.source === 'string' && /^insight:[\w:.-]{1,150}$/.test(body.context.source) ? body.context.source : null,
+    // private | shared — see SHARED_RESOURCES. Only ever narrows.
+    audience,
+    // What prompted this message: a tapped "Buddy noticed" card, or a reply
+    // to a Daily Pulse check-in (pulse.js).
+    source: typeof body.context?.source === 'string' && /^(?:insight|pulse):[\w:.-]{1,150}$/.test(body.context.source) ? body.context.source : null,
     // What Buddy has already done or tried in this chat, for "undo that",
     // "send the same reminder again", "did it work?".
     recentActions: cleanActions(body.context?.recentActions),
@@ -107,7 +124,7 @@ function cleanPage(page) {
   return { route, recordType: recordId ? recordType : null, recordId: recordType ? recordId : null };
 }
 
-const CHANNELS = new Set(['chat', 'voice', 'insight', 'api']);
+const CHANNELS = new Set(['chat', 'voice', 'insight', 'api', 'telegram']);
 function cleanChannel(c, voice) {
   if (typeof c === 'string' && CHANNELS.has(c)) return c;
   return voice ? 'voice' : 'chat';
