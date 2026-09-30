@@ -278,7 +278,7 @@ select pg_temp.check((select not app.is_signed_in() from (select pg_temp.be_pers
 select pg_temp.check(not exists (
     select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace
      where n.nspname in ('app', 'public') and p.prosrc ~* 'auth\.uid\(\)\s+is\s+(not\s+)?null'
-       and p.proname not in ('person_principal', 'is_signed_in', 'has_permission', 'my_permissions')),
+       and p.proname not in ('person_principal', 'buddy_principal', 'is_signed_in', 'has_permission', 'my_permissions')),
   'no guard still reads "auth.uid() is null" as a trusted write');
 
 rollback;

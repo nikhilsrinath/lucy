@@ -323,7 +323,7 @@ const recent_activity = {
     let byBuddy = 0;
     const name = (d) => d?.title || d?.name || d?.full_name || d?.doc_number || null;
     for (const r of rows) {
-      if (r.via === 'edgeai') byBuddy += 1;
+      if (r.via === 'edgeai' || r.via === 'edgeai_auto') byBuddy += 1;
       const known = ACTIVITY[r.action];
       if (known) {
         counts[known[2]] = (counts[known[2]] || 0) + 1;
@@ -371,17 +371,23 @@ const buddy_activity = {
   kind: 'read',
   permission: null,
   privateOnly: true,
-  description: 'What you (Buddy) proposed and did for this user recently — each action or plan, its status (done, failed, cancelled, undone, waiting) and result. Use it for "what did you do today?", "did that invoice go through?", "what failed?".',
-  params: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: 30 } } },
+  description: 'What you (Buddy) proposed and did for this user recently — each action or plan, its status (done, failed, cancelled, undone, waiting) and result. Use it for "what did you do today?", "did that invoice go through?", "what failed?". '
+    + 'With autonomous: true (owners and admins), what you did ON YOUR OWN for the whole company — reminders, follow-ups, escalations, and anything waiting for approval: "what did you do while I was away?", "what did Buddy do overnight?".',
+  params: { type: 'object', properties: { days: { type: 'integer', minimum: 1, maximum: 30 }, autonomous: { type: 'boolean' } } },
   status: 'Checking what I did…',
   async run(args, ctx) {
     const since = new Date(Date.now() - clamp(args.days, 1, 30, 1) * 86400000).toISOString();
-    const rows = await recentFor(ctx, { limit: 30, since });
+    // Buddy's own work is company-wide: owners/admins read it through RLS
+    // (ai_actions_select lets them see every row of their company).
+    const rows = args.autonomous && ['owner', 'admin'].includes(ctx.role)
+      ? await autonomousRows(ctx, since)
+      : await recentFor(ctx, { limit: 30, since });
     const items = rows.map((r) => {
       const status = effectiveStatus(r);
       return {
         what: r.preview?.title || r.tool, kind: r.kind || 'action', status: STATUS_WORD[status] || status,
         result: r.result?.summary || null, error: r.error || null, when: r.proposed_at, channel: r.channel || 'chat',
+        ...(r.autonomous || r.actor_kind === 'buddy' ? { by: r.autonomous ? 'on its own (company policy)' : 'waiting for approval', rule: r.policy_decision?.rule || null } : {}),
       };
     });
     return {
@@ -393,6 +399,13 @@ const buddy_activity = {
     };
   },
 };
+
+async function autonomousRows(ctx, since) {
+  const { data, error } = await ctx.db.from('ai_actions').select('*').eq('org_id', ctx.orgId)
+    .or('autonomous.eq.true,actor_kind.eq.buddy').gte('proposed_at', since)
+    .order('proposed_at', { ascending: false }).limit(50);
+  return error ? [] : data || [];
+}
 
 /* ── what Buddy noticed ───────────────────────────────────────────────────── */
 

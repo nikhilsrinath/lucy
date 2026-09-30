@@ -10,6 +10,12 @@
  *   retry    { action_id }                     → a failed action proposed afresh (a new card)
  *   insights { skip?, limit? }                 → "Buddy noticed" cards (no model, not metered)
  *   activity { limit? }                        → what Buddy proposed and did, newest first
+ *   autonomy                                   → the company's autonomy policy + catalogue
+ *   autonomy_update { enabled?, rules?, settings? }  owner/admin only
+ *   autonomy_activity { limit? }               → owner/admin: Buddy's own jobs and actions
+ *
+ * GET (a scheduler, CRON_SECRET) runs the Buddy worker: the durable job queue
+ * of the Autonomous Buddy Engine (api/_lib/autonomy/worker.js).
  *
  * Everything goes through api/_lib/agent/buddy.js, the channel-neutral entry
  * point the Telegram adapter (api/telegram.js) calls the same way.
@@ -22,13 +28,31 @@
  * RLS, the permission matrix and every app.* guard apply exactly as they do
  * in the UI. The service role is used only for ai_actions and the AI meter.
  */
-import { requireUser, HttpError, sendError, methodIs, readJsonBody } from './_lib/auth.js';
+import { requireUser, requireOrgRole, HttpError, sendError, methodIs, readJsonBody } from './_lib/auth.js';
 import { logAiUsage, bumpAiUsage } from './_lib/aiUsage.js';
 import { bearerToken } from './_lib/agent/db.js';
 import * as buddy from './_lib/agent/buddy.js';
+import { toCard } from './_lib/agent/actions.js';
 import { AGENT_MODEL, newUsage, describeUsage } from './_lib/agent/model.js';
+import { cronAuthorized } from './_lib/cron.js';
+import { runWorker, recentJobs } from './_lib/autonomy/worker.js';
+import { loadPolicy, savePolicy, catalogue } from './_lib/autonomy/policy.js';
+
+export const config = { maxDuration: 60 };
 
 export default async function handler(req, res) {
+  if (req.method === 'GET') {
+    // The worker. Only a scheduler holding CRON_SECRET may wake it; it takes
+    // no input — what to do comes from the database, not the request.
+    if (!cronAuthorized(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
+    try {
+      const out = await runWorker({ budgetMs: 45_000 });
+      return res.status(200).json({ success: true, worker: { claimed: out.claimed, processed: out.processed, byStatus: out.byStatus, legacy: !!out.legacy } });
+    } catch (err) {
+      console.error('[agent] worker', err?.message || err);
+      return res.status(500).json({ success: false, error: 'Worker run failed' });
+    }
+  }
   if (!methodIs(req, res, 'POST')) return undefined;
   let streaming = false;
   try {
@@ -54,6 +78,28 @@ export default async function handler(req, res) {
         return res.status(200).json({ success: true, insights: await buddy.insights(ctx, { limit: Number(body.limit) || 5, skip: body.skip }) });
       case 'activity':
         return res.status(200).json({ success: true, actions: await buddy.activity(ctx, { limit: Number(body.limit) || 20 }) });
+      case 'autonomy': {
+        const policy = await loadPolicy(ctx.orgId);
+        return res.status(200).json({ success: true, policy: publicPolicy(policy), tools: catalogue(policy) });
+      }
+      case 'autonomy_update': {
+        // Governance: owners and admins only, checked here; the row is
+        // written with the service role (no client may write it).
+        await requireOrgRole(user.id, ctx.orgId, 'admin');
+        const policy = await savePolicy(ctx.orgId, { enabled: body.enabled, rules: body.rules, settings: body.settings }, user.id);
+        return res.status(200).json({ success: true, policy: publicPolicy(policy), tools: catalogue(policy) });
+      }
+      case 'autonomy_activity': {
+        await requireOrgRole(user.id, ctx.orgId, 'admin');
+        const limit = Number(body.limit) || 30;
+        // Read with the admin's own token: RLS lets owners/admins see their company's.
+        const [jobsList, actionsRes] = await Promise.all([
+          recentJobs(ctx.db, ctx.orgId, { limit }),
+          ctx.db.from('ai_actions').select('*').eq('org_id', ctx.orgId).or('autonomous.eq.true,actor_kind.eq.buddy')
+            .order('proposed_at', { ascending: false }).limit(Math.min(100, limit)),
+        ]);
+        return res.status(200).json({ success: true, jobs: jobsList, actions: (actionsRes.data || []).map(toCard) });
+      }
       case 'chat':
         break;
       default:
@@ -112,3 +158,7 @@ export default async function handler(req, res) {
   }
 }
 
+/** The policy as the app sees it (no internals). */
+function publicPolicy(p) {
+  return { enabled: p.enabled, rules: p.rules, settings: p.settings, version: p.version, source: p.source, ready: p.ready };
+}

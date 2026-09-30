@@ -1,6 +1,6 @@
 import { resolveEntity, entityOf, normalize } from '../resolvers.js';
 import { needsChoice, needsInput, notFound } from '../helpers.js';
-import { recipientChannel, recipientAccess, withheldFor, MAX_MESSAGE } from '../../telegram/outbound.js';
+import { recipientChannel, recipientAccess, withheldFor, routineIssue, MAX_MESSAGE } from '../../telegram/outbound.js';
 
 /**
  * A private Telegram message to one person in the team: "text Swetha about
@@ -21,6 +21,12 @@ import { recipientChannel, recipientAccess, withheldFor, MAX_MESSAGE } from '../
  * It goes to that person's private chat with the bot, never to a group, and
  * the tool is not offered in a group at all (privateOnly). A message must not
  * carry what the recipient could not read in StartupBuddy (outbound.withheldFor).
+ *
+ * Autonomy (0072): in a conversation it is always the card above. Buddy's
+ * own scheduled work (a reminder, a follow-up, an escalation) may send it
+ * without a tap when the company policy allows and the text is routine —
+ * short, and about no money, pay or secrets (outbound.routineIssue);
+ * anything else becomes an approval request. Sent by Buddy, it says so.
  */
 
 const firstName = (row) => String(row?.full_name || 'them').trim().split(/\s+/)[0] || 'them';
@@ -37,6 +43,14 @@ const send_telegram_message = {
   // Never drafted in a team group, where everyone would read the draft.
   privateOnly: true,
   available: (ctx) => ctx.can('employees', 'view'),
+  autonomy: {
+    class: 'autonomous',
+    interactive: 'review',
+    // A scheduled check's report to the very person who asked for it is
+    // theirs to read (withheldFor still applies); anything else must be routine.
+    when: (args, ctx) => (ctx?.autonomy?.selfReport && ctx.autonomy.selfReport === args.recipient_person_id
+      ? null : routineIssue(args.message)),
+  },
   description: 'Send a PRIVATE Telegram message to one person in the team, from Buddy on the user\'s behalf, after the user taps Send on the card: '
     + '"text Swetha about tomorrow\'s task", "message Madheswaran that the sponsor replied", "tell Swetha I\'ll review it tomorrow", "ping Ravi on Telegram". '
     + 'Pass the person as the user named them. Write `message` as the text that will be sent — first person, as the user, addressed to the recipient, '
@@ -135,6 +149,7 @@ const send_telegram_message = {
       text: args.message,
       senderName: ctx.user?.name || null,
       orgName: ctx.orgName || null,
+      fromBuddy: ctx.actor?.kind === 'buddy',
       label: 'Telegram',
     }];
   },

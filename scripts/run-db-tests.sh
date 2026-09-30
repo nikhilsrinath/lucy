@@ -9,6 +9,9 @@
 #   CONTAINER=other-pg bash scripts/run-db-tests.sh
 #   UPTO=0025 bash scripts/run-db-tests.sh      # stop after this migration
 #
+# Without Docker, against any local Postgres 15+ (a scratch cluster is fine):
+#   PGHOST=/var/run/postgresql PGPORT=5432 LOCAL=1 bash scripts/run-db-tests.sh
+#
 # Assertion files print PASS/FAIL lines and raise on the first failure.
 # 02_access_matrix.sql prints the effective access matrix instead; it is diffed
 # against tests/expected/day_one_access.out.
@@ -17,9 +20,13 @@ cd "$(dirname "$0")/.."
 C=${CONTAINER:-edgeos-pg}
 DB=edgeos_test
 UPTO=${UPTO:-9999}
-psql_c() { docker exec -i "$C" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
-
-docker exec "$C" pg_isready -U postgres -q
+if [ -n "${LOCAL:-}" ]; then
+  psql_c() { psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
+  pg_isready -U postgres -q
+else
+  psql_c() { docker exec -i "$C" psql -U postgres -v ON_ERROR_STOP=1 -q "$@"; }
+  docker exec "$C" pg_isready -U postgres -q
+fi
 psql_c -d postgres -c "drop database if exists $DB" -c "create database $DB" >/dev/null
 
 psql_c -d "$DB" < supabase/tests/00_harness.sql >/dev/null

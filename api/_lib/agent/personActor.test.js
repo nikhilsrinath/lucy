@@ -36,6 +36,13 @@ vi.mock('./actions.js', async (importOriginal) => {
       return { ...row };
     },
     loadAction: async (id, ctx) => { const r = actions.get(id); return real.isOwner(r, ctx) ? { ...r } : null; },
+    // 0072: only a request Buddy raised on its own can be adopted by an admin.
+    adoptForApproval: async (id, ctx) => {
+      const r = actions.get(id);
+      if (!r || r.actor_kind !== 'buddy' || r.status !== 'proposed' || r.org_id !== ctx.orgId || !['owner', 'admin'].includes(ctx.role)) return null;
+      Object.assign(r, { user_id: ctx.user.id, actor_kind: 'user', approved_by: ctx.user.id });
+      return { ...r };
+    },
     transition: async (id, from, patch) => {
       const r = actions.get(id);
       if (!r || r.status !== from) return null;

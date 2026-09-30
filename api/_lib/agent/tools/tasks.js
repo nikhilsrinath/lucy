@@ -14,7 +14,15 @@ import {
  * tool with several targets. The model names tasks the way the person did;
  * resolveEntity turns that into ids, and anything ambiguous comes back as a
  * choice instead of a guess.
+ *
+ * Autonomy (0072): creating, updating, completing, reopening and noting a
+ * task are routine, reversible operational work — Buddy may do them on its
+ * own in a scheduled job when the company policy allows. In a conversation
+ * they stay cards, exactly as before. Deleting never happens autonomously.
  */
+
+// Routine work Buddy may do on its own in a job; a card in a conversation.
+const ROUTINE = Object.freeze({ class: 'autonomous', interactive: 'review' });
 
 const STATUS_WORDS = [
   ['done', /^(?:done|complete[d]?|finish(?:ed)?|closed?|resolved)$/i],
@@ -219,6 +227,7 @@ function updateTool({ name, description, fixed = null, extraParams = {}, require
     kind: 'write',
     risk: 'low',
     permission: { resource: 'tasks', action: 'edit' },
+    autonomy: ROUTINE,
     description,
     params: {
       type: 'object',
@@ -394,6 +403,7 @@ const create_task = {
   kind: 'write',
   risk: 'low',
   permission: { resource: 'tasks', action: 'create' },
+  autonomy: ROUTINE,
   description: 'Create a task: "remind me to call Acme on Friday", "add a task for Ravi to send the deck by the 5th", '
     + '"we need to renew the domain next week". Dates as said; assignee by name.',
   params: {
@@ -493,6 +503,7 @@ const add_task_note = {
   kind: 'write',
   risk: 'low',
   permission: { resource: 'tasks', action: 'edit' },
+  autonomy: ROUTINE,
   description: 'Add a dated note to a task, or flag it as blocked: "I\'m blocked on the payment integration, need API access" '
     + '(blocker: true), "note on the homepage task: client wants a darker header", "halfway through the deck". '
     + 'Appends; never replaces earlier notes. Use update_task for status, dates or owners.',

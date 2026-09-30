@@ -140,6 +140,20 @@ export function topicsOf(text) {
   return TOPICS.filter((t) => t.test.test(s));
 }
 
+/**
+ * Why a message is not routine enough for Buddy to send without a person
+ * approving it (0072), or null. Routine = short, and about nothing on the
+ * list above: no money, pay or secrets. Anything else waits for approval.
+ */
+export const ROUTINE_MAX = 600;
+export function routineIssue(text) {
+  const s = String(text || '').trim();
+  if (!s) return 'empty';
+  if (s.length > ROUTINE_MAX) return 'long_message';
+  if (topicsOf(s).length) return 'sensitive_topic';
+  return null;
+}
+
 /** The first reason this person may not be sent this text, or null. */
 export function withheldFor(text, access, name = 'They') {
   for (const t of topicsOf(text)) {
@@ -158,8 +172,13 @@ export function withheldFor(text, access, name = 'They') {
 
 export const MAX_MESSAGE = 3500;
 
-/** What the recipient reads: who it is from, then the approved text exactly. */
-export function formatMessage(text, { senderName, orgName }) {
+/**
+ * What the recipient reads: who it is from, then the approved text exactly.
+ * Buddy's own messages (a reminder, a follow-up — sent autonomously, 0072)
+ * say they come from Buddy, never from a person who did not write them.
+ */
+export function formatMessage(text, { senderName, orgName, fromBuddy = false }) {
+  if (fromBuddy) return `🤖 <b>Buddy</b>${orgName ? ` · ${bot.esc(orgName)}` : ''}\n\n${bot.esc(text)}`;
   const from = senderName && senderName !== 'you' ? senderName : 'A teammate';
   return `💬 <b>${bot.esc(from)}</b>${orgName ? ` · ${bot.esc(orgName)}` : ''} sent you a message via Buddy:\n\n${bot.esc(text)}`;
 }
@@ -169,7 +188,7 @@ export function formatMessage(text, { senderName, orgName }) {
  * sending — nothing from when the card was drawn is trusted. Resolves with
  * what the audit keeps; throws DeliveryError with a message for the person.
  */
-export async function deliverPrivate({ orgId, employeeId, text, senderName = null, orgName = null }, { send = bot.sendMessage } = {}) {
+export async function deliverPrivate({ orgId, employeeId, text, senderName = null, orgName = null, fromBuddy = false }, { send = bot.sendMessage } = {}) {
   const body = String(text || '').trim();
   if (!body) throw new DeliveryError('empty', 'The message is empty.');
   if (body.length > MAX_MESSAGE) throw new DeliveryError('too_long', `The message is too long for Telegram (${MAX_MESSAGE} characters at most).`);
@@ -180,7 +199,7 @@ export async function deliverPrivate({ orgId, employeeId, text, senderName = nul
 
   let sent;
   try {
-    sent = await send(r.chatId, formatMessage(body, { senderName, orgName }));
+    sent = await send(r.chatId, formatMessage(body, { senderName, orgName, fromBuddy }));
   } catch (err) {
     const why = String(err?.description || '');
     console.warn('[telegram] private message failed', { orgId, linkId: r.link.id, status: err?.status ?? null });
@@ -203,6 +222,7 @@ export async function deliverPrivate({ orgId, employeeId, text, senderName = nul
     telegram_message_id: sent.message_id,
     chat: 'private',
     characters: body.length,
+    from: fromBuddy ? 'buddy' : 'person',
     delivered_at: new Date().toISOString(),
   };
 }

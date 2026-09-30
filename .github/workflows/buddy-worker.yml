@@ -1,0 +1,50 @@
+# Wakes Buddy's worker more often than the Vercel Hobby plan's daily cron.
+#
+# The Autonomous Buddy Engine (docs/autonomy.md) keeps its jobs in Postgres;
+# a job runs at the first worker wake-up after its run_at. vercel.json wakes
+# the worker once a day (Hobby's limit). This workflow wakes it every 15
+# minutes, so reminders and follow-ups land within ~15 minutes of their time.
+# GitHub runs scheduled workflows on a best-effort basis (delays of several
+# minutes happen), and a double wake-up is harmless: jobs are claimed once.
+#
+# Required repository secrets (Settings → Secrets and variables → Actions):
+#   BUDDY_WORKER_URL  https://<your-app>.vercel.app   (no trailing slash)
+#   CRON_SECRET       the same value as the Vercel env var
+# Without them this workflow does nothing (and says so), rather than failing.
+#
+# On Vercel Pro, set the cron in vercel.json to "*/5 * * * *" instead and
+# delete this file.
+
+name: Buddy worker
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+concurrency:
+  group: buddy-worker
+  cancel-in-progress: false
+
+jobs:
+  wake:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      BUDDY_WORKER_URL: ${{ secrets.BUDDY_WORKER_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
+    steps:
+      - name: Wake the worker
+        run: |
+          if [ -z "$BUDDY_WORKER_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "::notice::BUDDY_WORKER_URL / CRON_SECRET not set — skipping (the daily Vercel cron still runs)."
+            exit 0
+          fi
+          code=$(curl -sS -o /tmp/out.json -w '%{http_code}' --max-time 90 \
+            -H "Authorization: Bearer $CRON_SECRET" "$BUDDY_WORKER_URL/api/agent")
+          echo "HTTP $code"
+          cat /tmp/out.json; echo
+          test "$code" = "200"

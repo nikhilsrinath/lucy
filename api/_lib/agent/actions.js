@@ -31,6 +31,9 @@ const EXTENDED = ['kind', 'channel', 'reason', 'source', 'approval_required', 'e
 // 0071: who acted when it was not a user. Only ever sent when set, so a user
 // on a database without 0071 is unaffected; a person needs 0071 anyway.
 const IDENTITY = ['employee_id', 'channel_actor'];
+// 0072: autonomous actions. Never stripped: an autonomous action must be
+// recorded as one or not at all (nothing autonomous runs without 0072).
+const AUTONOMY = ['actor_kind', 'autonomous', 'policy_decision', 'job_id', 'workflow_id', 'idempotency_key', 'approved_by'];
 let extended = true;
 let identity = true;
 const missingColumn = (error) => error && (error.code === 'PGRST204' || error.code === '42703'
@@ -43,6 +46,7 @@ const narrow = (row) => {
 };
 async function tolerant(write, row) {
   let res = await write(narrow(row));
+  if (res.error && missingColumn(res.error) && AUTONOMY.some((k) => k in row)) return res;
   while (res.error && missingColumn(res.error) && (identity || extended)) {
     if (identity && IDENTITY.some((k) => k in row)) {
       identity = false;
@@ -63,6 +67,8 @@ async function tolerant(write, row) {
 export function ownedBy(q, ctx) {
   const a = ctx.actor;
   if (a?.kind === 'person') return q.is('user_id', null).eq('employee_id', a.employeeId);
+  // Buddy's own actions (0072) belong to the company's Buddy principal.
+  if (a?.kind === 'buddy') return q.is('user_id', null).is('employee_id', null).eq('actor_kind', 'buddy').eq('org_id', ctx.orgId);
   return q.eq('user_id', ctx.user.id);
 }
 
@@ -71,6 +77,7 @@ export function isOwner(row, ctx) {
   if (!row) return false;
   const a = ctx.actor;
   if (a?.kind === 'person') return !row.user_id && !!row.employee_id && row.employee_id === a.employeeId;
+  if (a?.kind === 'buddy') return row.actor_kind === 'buddy' && !row.user_id && !row.employee_id && row.org_id === ctx.orgId;
   return !!row.user_id && row.user_id === ctx.user.id;
 }
 
@@ -90,11 +97,22 @@ export async function countPending(ctx, chatId) {
   return count || 0;
 }
 
-export async function insertProposal(ctx, { chatId, messageId, tool, args, targets, preview, kind = 'action', reason = null, source = null, parentId = null }) {
+export async function insertProposal(ctx, { chatId, messageId, tool, args, targets, preview, kind = 'action', reason = null, source = null, parentId = null, autonomy = null }) {
   const now = Date.now();
+  const buddy = ctx.actor?.kind === 'buddy';
+  // Only an autonomy decision (or Buddy's own actor) adds 0072's columns, so
+  // a manual proposal is written exactly as before.
+  const auto = autonomy || buddy ? {
+    actor_kind: ctx.actor?.kind || 'user',
+    autonomous: !!autonomy?.autonomous,
+    policy_decision: autonomy?.decision || null,
+    job_id: autonomy?.jobId || null,
+    workflow_id: autonomy?.workflowId || null,
+    idempotency_key: autonomy?.idempotencyKey || null,
+  } : {};
   const { data, error } = await tolerant((row) => db().from('ai_actions').insert(row).select().single(), {
     org_id: ctx.orgId,
-    user_id: ctx.actor?.kind === 'person' ? null : ctx.user.id,
+    user_id: ctx.actor?.kind === 'person' || buddy ? null : ctx.user.id,
     ...(ctx.actor?.kind === 'person' ? { employee_id: ctx.actor.employeeId } : {}),
     ...(ctx.actor?.channelActor ? { channel_actor: ctx.actor.channelActor } : {}),
     chat_id: String(chatId || '').slice(0, 64) || null,
@@ -108,20 +126,53 @@ export async function insertProposal(ctx, { chatId, messageId, tool, args, targe
     status: 'proposed',
     prompt_version: AGENT_PROMPT_VERSION,
     proposed_at: new Date(now).toISOString(),
-    expires_at: new Date(now + PROPOSAL_TTL_MS).toISOString(),
+    // An approval request Buddy raised on its own waits longer than a card
+    // someone is looking at (policy approval_ttl_hours).
+    expires_at: new Date(now + (autonomy?.ttlMs || PROPOSAL_TTL_MS)).toISOString(),
     kind,
     channel: ctx.channel || 'chat',
     reason: reason ? String(reason).slice(0, 400) : null,
     source: source ? String(source).slice(0, 200) : null,
-    approval_required: true,
-    events: [event('proposed', parentId ? 'retry' : null)],
+    approval_required: !autonomy?.autonomous,
+    events: [event('proposed', parentId ? 'retry' : autonomy?.jobId ? `job ${autonomy.jobId}` : null)],
     parent_id: parentId,
+    ...auto,
   });
   if (error) {
     if (isMissingTable(error)) throw Object.assign(new Error('Your cofounder cannot make changes yet: the ai_actions table (migration 0068) is not on this database.'), { code: 'no_table' });
     throw error;
   }
   return data;
+}
+
+/**
+ * The latest attempt of an idempotent autonomous action: the row with this
+ * key, or with a retry suffix (key#1, key#2…), newest first.
+ */
+export async function latestByKey(orgId, key, { attempts = 20 } = {}) {
+  const keys = [key, ...Array.from({ length: attempts }, (_, i) => `${key}#${i + 1}`)];
+  const { data, error } = await db().from('ai_actions').select('*').eq('org_id', orgId).in('idempotency_key', keys)
+    .order('proposed_at', { ascending: false }).limit(1);
+  if (error) throw error;
+  return data?.[0] || null;
+}
+
+/**
+ * An approval request Buddy raised on its own (no human actor) is approved by
+ * an owner or admin of that company: approving adopts it — it becomes their
+ * action, carried out with their own permissions and attributed to them.
+ * One conditional UPDATE, so it is adopted at most once. Null otherwise.
+ */
+export async function adoptForApproval(id, ctx) {
+  if (ctx.actor?.kind !== 'user' || !['owner', 'admin'].includes(ctx.role)) return null;
+  const { data: row } = await db().from('ai_actions').select('*').eq('id', id).eq('org_id', ctx.orgId)
+    .eq('actor_kind', 'buddy').eq('status', 'proposed').maybeSingle();
+  if (!row) return null;
+  const { data, error } = await db().from('ai_actions')
+    .update({ user_id: ctx.user.id, actor_kind: 'user', approved_by: ctx.user.id, events: withEvent(row, 'adopted', 'raised by Buddy; approval taken by an admin') })
+    .eq('id', id).eq('org_id', ctx.orgId).eq('actor_kind', 'buddy').eq('status', 'proposed').select().maybeSingle();
+  if (error) throw error;
+  return data || null;
 }
 
 /** The action, if it is this actor's. */
@@ -201,5 +252,10 @@ export function toCard(row) {
     step_results: row.result?.steps || null,
     retry_of: row.parent_id || null,
     events: Array.isArray(row.events) ? row.events : [],
+    // 0072: done by Buddy on its own, under which rule, for which job.
+    autonomous: !!row.autonomous,
+    actor_kind: row.actor_kind || (row.user_id ? 'user' : row.employee_id ? 'person' : null),
+    policy_rule: row.policy_decision?.rule || null,
+    job_id: row.job_id || null,
   };
 }
