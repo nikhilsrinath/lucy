@@ -10,7 +10,7 @@ import { supabase } from '../lib/supabase';
  * routing it through the server keeps one place to audit.
  */
 
-export const PLATFORM_ADMIN_EMAIL = 'portal.agentrive@gmail.com';
+export const PLATFORM_ADMIN_EMAIL = 'nikhil@buddy.com';
 
 async function call(action, args = {}) {
   const { data: { session } } = await supabase.auth.getSession();
