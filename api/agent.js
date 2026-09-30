@@ -7,6 +7,12 @@
  *   cancel   { action_id }
  *   undo     { action_id }                     → within 10 minutes
  *   status   { ids }                           → the latest state of these cards
+ *   retry    { action_id }                     → a failed action proposed afresh (a new card)
+ *   insights { skip?, limit? }                 → "Buddy noticed" cards (no model, not metered)
+ *   activity { limit? }                        → what Buddy proposed and did, newest first
+ *
+ * Everything goes through api/_lib/agent/buddy.js, the channel-neutral entry
+ * point a future Telegram or email adapter calls the same way.
  *
  * One function with modes rather than one per verb: the Vercel function count
  * is finite and every mode shares the same authentication and context.
@@ -20,10 +26,7 @@ import { requireUser, HttpError, sendError, methodIs, readJsonBody } from './_li
 import { supabaseAdmin } from './_lib/supabaseAdmin.js';
 import { logAiUsage } from './_lib/aiUsage.js';
 import { bearerToken } from './_lib/agent/db.js';
-import { buildAgentContext } from './_lib/agent/context.js';
-import { runChat, runResume } from './_lib/agent/loop.js';
-import { confirm, cancel, undo } from './_lib/agent/pipeline.js';
-import { loadMany, toCard } from './_lib/agent/actions.js';
+import * as buddy from './_lib/agent/buddy.js';
 import { AGENT_MODEL, newUsage, describeUsage } from './_lib/agent/model.js';
 
 export default async function handler(req, res) {
@@ -32,21 +35,26 @@ export default async function handler(req, res) {
   try {
     const body = await readJsonBody(req);
     const user = await requireUser(req);
-    const ctx = await buildAgentContext({ user, token: bearerToken(req), orgId: body.org_id, body });
+    const ctx = await buddy.openSession({ user, token: bearerToken(req), orgId: body.org_id, body });
 
     switch (body.mode) {
       case 'confirm': {
         if (!body.action_id) throw new HttpError(400, 'Missing action_id');
-        return res.status(200).json({ success: true, ...(await confirm(ctx, body.action_id, { selected: body.selected, edits: body.edits })) });
+        return res.status(200).json({ success: true, ...(await buddy.confirm(ctx, body.action_id, { selected: body.selected, edits: body.edits })) });
       }
       case 'cancel':
-        return res.status(200).json({ success: true, ...(await cancel(ctx, body.action_id)) });
+        return res.status(200).json({ success: true, ...(await buddy.cancel(ctx, body.action_id)) });
       case 'undo':
-        return res.status(200).json({ success: true, ...(await undo(ctx, body.action_id)) });
-      case 'status': {
-        const rows = await loadMany(body.ids, user.id);
-        return res.status(200).json({ success: true, cards: rows.filter((r) => r.org_id === ctx.orgId).map(toCard) });
-      }
+        return res.status(200).json({ success: true, ...(await buddy.undo(ctx, body.action_id)) });
+      case 'retry':
+        if (!body.action_id) throw new HttpError(400, 'Missing action_id');
+        return res.status(200).json({ success: true, ...(await buddy.retry(ctx, body.action_id)) });
+      case 'status':
+        return res.status(200).json({ success: true, cards: await buddy.status(ctx, body.ids) });
+      case 'insights':
+        return res.status(200).json({ success: true, insights: await buddy.insights(ctx, { limit: Number(body.limit) || 5, skip: body.skip }) });
+      case 'activity':
+        return res.status(200).json({ success: true, actions: await buddy.activity(ctx, { limit: Number(body.limit) || 20 }) });
       case 'chat':
         break;
       default:
@@ -66,7 +74,7 @@ export default async function handler(req, res) {
 
     // A tapped chip goes straight back into its tool: no model, no quota.
     if (body.resume) {
-      await runResume(ctx, body.resume, emit, ids);
+      await buddy.resume(ctx, body.resume, emit, ids);
       emit('done', {});
       return res.end();
     }
@@ -85,7 +93,7 @@ export default async function handler(req, res) {
     const usage = newUsage();
     const tokens = () => (usage.calls ? { promptTokens: usage.prompt, completionTokens: usage.output } : {});
     try {
-      await runChat(ctx, { message, history: body.history, chatId: body.chat_id, messageId: body.message_id }, emit, { usage });
+      await buddy.chat(ctx, { message, history: body.history, chatId: body.chat_id, messageId: body.message_id }, emit, { usage });
       console.info(`[agent] tokens: ${describeUsage(usage)}`);
       await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
     } catch (err) {

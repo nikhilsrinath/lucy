@@ -12,15 +12,25 @@ export function useBriefActions({ build }) {
     const navigate = useNavigate();
     const { pathname } = useLocation();
 
-    const ask = useCallback((text) => {
+    const ask = useCallback((text, opts) => {
         if (!pathname.startsWith('/chat')) navigate('/chat');
-        a.send(text);
+        a.send(text, opts);
     }, [a, navigate, pathname]);
 
     const onKpi = useCallback((k) => { if (k.ask) ask(k.ask); else if (k.to) navigate(k.to); }, [ask, navigate]);
 
+    /* One action of a "Buddy noticed" card: ask Buddy (the message names the
+       records, and anything proposed is logged as prompted by that insight),
+       or open the record. */
+    const runInsightAction = useCallback((insight, action) => {
+        if (!action) return;
+        if (action.kind === 'open' && action.href) { navigate(action.href); return; }
+        if (action.prompt) ask(action.prompt, { source: `insight:${insight.id}`.slice(0, 158) });
+    }, [ask, navigate]);
+
     const onSuggestion = useCallback((s) => {
         if (s.build) { build?.(); return; }
+        if (s.insight) { runInsightAction(s.insight, s.insight.actions?.[0]); return; }
         if (s.notification) {
             const to = notificationTarget(s.notification);
             documentStore.deleteNotification(s.notification.id);
@@ -30,7 +40,7 @@ export function useBriefActions({ build }) {
         // An overdue invoice opens it, where Send reminder lives.
         if (s.doc) { navigate(`/money/invoices?doc=${s.doc}`); return; }
         if (s.to) navigate(s.to);
-    }, [build, navigate]);
+    }, [build, navigate, runInsightAction]);
 
-    return { ask, onKpi, onSuggestion };
+    return { ask, onKpi, onSuggestion, runInsightAction };
 }

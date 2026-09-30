@@ -4,8 +4,9 @@ import { AssistantCtx } from './assistantStore';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import { VOICE_INSTRUCTION } from '../../services/voice';
 import {
-    streamAgent, confirmAction, cancelAction, undoAction, actionStatus,
+    streamAgent, confirmAction, cancelAction, undoAction, actionStatus, retryAction,
 } from '../../services/agentService';
+import { ACTIONS_CHANGED } from '../../chat/useInsights';
 import { amountHints } from '../../shared/cashIntent';
 import { cardLine } from './cardText';
 import { orgStore } from '../../services/orgStore';
@@ -41,7 +42,21 @@ function refreshScreens(tables) {
             try { window.dispatchEvent(new CustomEvent('edgeos:tasks-changed')); } catch { /* ignore */ }
         }
     }
+    // "Buddy noticed" re-checks: a chased invoice or finished task drops off.
+    try { window.dispatchEvent(new CustomEvent(ACTIONS_CHANGED)); } catch { /* ignore */ }
 }
+
+/** What a finished card says in the conversation, under the card. */
+function doneLine(card) {
+    if (card?.kind === 'plan') {
+        return card.partial
+            ? `${card.summary} You can retry the ones that failed from the card.`
+            : card.summary || 'Done.';
+    }
+    return ['Done.', card?.followUp].filter(Boolean).join(' ');
+}
+
+const viewLine = (m) => `[Shown: ${m.view?.title || 'details'}]`;
 
 /* ══════════════════════════════════════════════════════════════════════════
    The assistant's state, held once for the whole app.
@@ -83,8 +98,8 @@ const titleFor = (text) => {
 /** The conversation as the model should read it: words, and one line per card. */
 function historyOf(messages) {
     return messages
-        .filter((m) => !m.error && (m.content || m.card))
-        .map((m) => ({ role: m.role, content: m.kind === 'action' ? cardLine(m.card) : m.content }));
+        .filter((m) => !m.error && (m.content || m.card || m.view))
+        .map((m) => ({ role: m.role, content: m.kind === 'action' ? cardLine(m.card) : m.kind === 'view' ? viewLine(m) : m.content }));
 }
 
 /** The record open on the current page, when the URL names one. */
@@ -227,7 +242,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
      * Runs a turn. `body` carries what the server needs besides the chat:
      * `message`, or `resume` (a tapped chip), and `pending` (an open question).
      */
-    const runTurn = useCallback((chatId, body, leading = [], { voice = false } = {}) => {
+    const runTurn = useCallback((chatId, body, leading = [], { voice = false, source = null } = {}) => {
         const replyId = uid('m');
         const chatNow = chatsRef.current.find((c) => c.id === chatId);
         append(chatId, [...leading, { id: replyId, role: 'assistant', content: '' }], leading[0]?.content);
@@ -263,6 +278,9 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
                     break;
                 }
                 case 'notice': add({ kind: 'notice', content: data.text, offer: data.offer || null }); break;
+                // A figures / list / timeline / insights block, built by the
+                // server from a read — display only, summarised in history.
+                case 'view': if (data.view) add({ kind: 'view', view: data.view, content: '' }); break;
                 case 'navigate':
                     navigate(data.href);
                     // The full-screen workspace would hide the page just opened.
@@ -302,9 +320,19 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
                 openCards: (chatNow?.messages || [])
                     .filter((m) => m.kind === 'action' && m.card?.status === 'proposed')
                     .slice(-5)
-                    .map((m) => ({ action_id: m.actionId, title: m.card.title, risk: m.card.risk })),
+                    // A plan is always tapped, never agreed to out loud.
+                    .map((m) => ({ action_id: m.actionId, title: m.card.title, risk: m.card.kind === 'plan' ? 'high' : m.card.risk })),
+                // What Buddy did or tried in this chat — the server's record,
+                // so "did it work?" and "send the same one again" are answered
+                // from fact.
+                recentActions: (chatNow?.messages || [])
+                    .filter((m) => m.kind === 'action' && m.card && m.card.status !== 'proposed' && m.card.status !== 'executing')
+                    .slice(-6)
+                    .map((m) => ({ action_id: m.actionId, tool: m.card.tool, title: m.card.title, status: m.card.status, summary: m.card.summary || m.card.error || '' })),
+                source: source || undefined,
             },
             voice,
+            channel: voice ? 'voice' : source ? 'insight' : 'chat',
             ...body,
         }, onEvent).then(finish).catch((err) => {
             said = err?.message || 'x';
@@ -334,7 +362,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
         if (card.status === 'executed') {
             refreshScreens(card.tables);
             remember(chatId, msg.id, entities || card.entities);
-            append(chatId, [{ id: uid('m'), role: 'assistant', content: ['Done.', card.followUp].filter(Boolean).join(' ') }]);
+            append(chatId, [{ id: uid('m'), role: 'assistant', content: doneLine(card) }]);
         }
     };
 
@@ -357,7 +385,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
             if (res.status === 'executed') {
                 refreshScreens(res.card?.tables);
                 remember(chatId, messageId, res.entities || res.card?.entities);
-                append(chatId, [{ id: uid('m'), role: 'assistant', content: ['Done.', res.card?.followUp].filter(Boolean).join(' ') }]);
+                append(chatId, [{ id: uid('m'), role: 'assistant', content: doneLine(res.card) }]);
             }
         } catch (err) {
             setCard(chatId, messageId, { ...msg.card, status: 'proposed', error: err?.message || 'Could not reach the server.' });
@@ -386,6 +414,23 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
             setCard(chatId, messageId, { ...msg.card, error: err?.message || 'Could not undo.' });
         }
     }, [orgId, setCard]);
+
+    /** Try again on a failed card (or a plan's failed steps): a fresh proposal below it. */
+    const retryCard = useCallback(async (chatId, messageId) => {
+        const msg = chatsRef.current.find((c) => c.id === chatId)?.messages.find((m) => m.id === messageId);
+        if (!msg?.card) return;
+        try {
+            const res = await retryAction(orgId, msg.actionId);
+            if (res.card) {
+                append(chatId, [{ id: uid('m'), role: 'assistant', kind: 'action', actionId: res.card.action_id, card: res.card, content: cardLine(res.card) }]);
+                remember(chatId, messageId, res.entities || res.card.entities);
+            } else {
+                append(chatId, [{ id: uid('m'), role: 'assistant', kind: 'notice', content: res.message || 'That cannot be prepared again right now.' }]);
+            }
+        } catch (err) {
+            setNote(err?.message || 'Could not reach the server.');
+        }
+    }, [orgId, append, remember]);
 
     // A reopened thread: cards that were still open get their real state.
     useEffect(() => {
@@ -427,7 +472,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
         runTurn(chatId, {
             message: opts.voice ? `${content}\n\n${VOICE_INSTRUCTION}` : content,
             pending,
-        }, [userMsg], { voice: !!opts.voice });
+        }, [userMsg], { voice: !!opts.voice, source: opts.source || null });
     }, [draft, streaming, active, patchMessage, runTurn]);
 
     /** A tapped chip on a question or a choice. */
@@ -590,14 +635,14 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, assistantNa
         draft, setDraft, streaming, working, send, askNew, regenerate,
         startChat, pickChat, removeChat, clearHistory, renameChat, togglePin, shareChat,
         answer, takeOffer, dismissQuestion, pendingQuestion,
-        confirmCard, cancelCard, undoCard,
+        confirmCard, cancelCard, undoCard, retryCard,
         open, setOpen, view, setView, docked: docks > 0, registerDock,
         note, setNote, speech, addLocal,
     }), [
         chats, active, draft, streaming, working, send, askNew, regenerate,
         startChat, pickChat, removeChat, clearHistory, renameChat, togglePin, shareChat,
         answer, takeOffer, dismissQuestion, pendingQuestion,
-        confirmCard, cancelCard, undoCard,
+        confirmCard, cancelCard, undoCard, retryCard,
         open, view, docks, registerDock, note, speech, addLocal,
     ]);
 

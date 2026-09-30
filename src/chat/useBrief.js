@@ -6,6 +6,8 @@ import { getStatus as brainStatus, buildBrain } from '../services/brainService';
 import { useSectionList } from '../shell/useSectionList';
 import { useShell } from '../shell/shellContext';
 import { buildBrief } from './brief';
+import { useInsights } from './useInsights';
+import { useAuth } from '../context/AuthContext';
 
 /* The brief's inputs, all live: orgStore sections (Realtime-backed), plus two
    one-off checks — whether Gmail is connected (owner/admin only, as the
@@ -24,6 +26,8 @@ async function gmailConfigured(orgId) {
 export function useBrief({ persona, name }) {
     const { activeOrg } = useOrg();
     const orgId = activeOrg?.id || null;
+    const { user } = useAuth();
+    const noticed = useInsights(orgId, user?.id || null);
     const docs = useSectionList('fin_docs', orgId);
     const income = useSectionList('income_entries', orgId);
     const expenses = useSectionList('expenses', orgId);
@@ -86,7 +90,8 @@ export function useBrief({ persona, name }) {
         persona, name,
         gmail: fresh ? checks.gmail : null,
         brain: fresh ? checks.brain : null,
-    }), [docs, income, expenses, purchases, vendors, tasks, notifications, persona, name, fresh, checks]);
+        insights: noticed.insights,
+    }), [docs, income, expenses, purchases, vendors, tasks, notifications, persona, name, fresh, checks, noticed.insights]);
 
-    return { brief, build, building, buildError };
+    return { brief, build, building, buildError, dismissInsight: noticed.dismiss, insightsLoading: noticed.loading && !noticed.insights };
 }

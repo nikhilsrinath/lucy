@@ -2,7 +2,10 @@ import { toolsFor, toModelTools, getTool, allowed } from './registry.js';
 import { buildSystemPrompt, buildTurnContext } from './prompt.js';
 import { callModel, addUsage } from './model.js';
 import { propose, modelView, confirm, cancel } from './pipeline.js';
+import { loadAction } from './actions.js';
 import { buildContext as brainContext } from '../brainRetrieval.js';
+import { proposePlan } from './plans.js';
+import { addView, takeViews } from './views.js';
 
 /**
  * One user message, start to finish.
@@ -22,9 +25,13 @@ import { buildContext as brainContext } from '../brainRetrieval.js';
  *   notice    { text, offer? }         nothing matched / not allowed
  *   navigate  { href, label }          open this screen
  *   entities  { entities }             records this turn referred to
+ *   view      { view }                 a figures/list/timeline/insights block
+ *                                      the model chose to show ([[show:vN]])
+ *
+ * A plan (propose_plan) is proposed like a write — one card, the turn ends.
  */
 
-export const MAX_STEPS = 8;
+export const MAX_STEPS = 10;
 const MAX_HISTORY = 12;
 
 function cleanHistory(history) {
@@ -41,6 +48,14 @@ function parseArgs(raw) {
 }
 
 /** Emits a proposal's outcome. Returns what the model is told. */
+/** The assistant's words, then the views it referenced, in that order. */
+export function emitReply(text, ctx, emit) {
+  const { text: words, views } = takeViews(text, ctx);
+  if (words) emit('text', { text: words });
+  for (const view of views) emit('view', { view });
+  return { words, views };
+}
+
 export function emitOutcome(out, emit) {
   if (out.kind === 'card') {
     emit('card', { card: out.card });
@@ -102,7 +117,11 @@ async function runControl(name, args, ctx, emit) {
   }
   // confirm_proposal: the server's own guards, not the model's word.
   if (!ctx.voice) return { status: 'error', message: 'Confirming needs the user to tap the card.' };
-  if (card.risk !== 'low') return { status: 'error', message: 'A high-risk change needs the user to tap the card.' };
+  // Risk and kind from the stored action, never from what the client listed.
+  const row = await loadAction(card.action_id, ctx.user.id).catch(() => null);
+  if (!row || row.org_id !== ctx.orgId) return { status: 'error', message: 'That is not one of the open cards.' };
+  if (row.kind === 'plan' || row.tool === 'plan') return { status: 'error', message: 'A plan needs the user to tap Approve on its card.' };
+  if (row.risk !== 'low') return { status: 'error', message: 'A high-risk change needs the user to tap the card.' };
   const res = await confirm(ctx, card.action_id);
   if (res.card) emit('card_update', { card: res.card, entities: res.entities || [] });
   return { status: res.status, summary: res.card?.summary || res.message || null };
@@ -159,7 +178,8 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
     messages.push(reply);
     const calls = reply.tool_calls || [];
     if (!calls.length) {
-      emit('text', { text: reply.content || '' });
+      const { words, views } = emitReply(reply.content || '', ctx, emit);
+      if (!words && !views.length) emit('text', { text: '' });
       return { steps: step + 1 };
     }
 
@@ -167,18 +187,20 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
     for (const call of calls) {
       const name = call.function?.name;
       const tool = getTool(name);
-      const args = parseArgs(call.function?.arguments);
+      const { reason, ...args } = parseArgs(call.function?.arguments);
       let content;
       if (controls.includes(name)) {
         content = await runControl(name, args, ctx, emit).catch(() => ({ status: 'error', message: 'That did not work.' }));
         halt = true;
       } else if (!tool || !allowed(tool, ctx)) {
         content = { status: 'error', message: `${name} is not available to this user.` };
-      } else if (tool.kind === 'write') {
+      } else if (tool.kind === 'write' || tool.kind === 'plan') {
         if (halt) {
-          content = { status: 'skipped', note: 'One change at a time; ask the user after this one.' };
+          content = { status: 'skipped', note: 'One change or plan at a time; ask the user after this one.' };
         } else {
-          const out = await propose(tool, args, ctx, ids);
+          const out = tool.kind === 'plan'
+            ? await proposePlan(args, ctx, { ...ids, reason })
+            : await propose(tool, args, ctx, { ...ids, reason });
           content = emitOutcome(out, emit);
           if (out.stops) halt = true;
         }
@@ -188,7 +210,8 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
           const res = await tool.run(args, ctx);
           if (res.entities?.length) emit('entities', { entities: res.entities });
           if (res.navigate) emit('navigate', res.navigate);
-          content = { status: 'ok', data: res.data };
+          const viewId = res.view ? addView(ctx, res.view) : null;
+          content = { status: 'ok', data: res.data, ...(viewId ? { view_id: viewId } : {}) };
         } catch (err) {
           console.error(`[agent] ${name}.run`, err);
           content = { status: 'error', message: 'That lookup failed.' };
@@ -197,7 +220,7 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
       messages.push({ role: 'tool', tool_call_id: call.id, content: `<data tool="${name}">${JSON.stringify(content)}</data>` });
     }
     if (halt) {
-      if (reply.content?.trim()) emit('text', { text: reply.content });
+      if (reply.content?.trim()) emitReply(reply.content, ctx, emit);
       return { steps: step + 1 };
     }
   }

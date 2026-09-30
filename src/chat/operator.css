@@ -1,0 +1,100 @@
+/* ══════════════════════════════════════════════════════════════════════════
+   Buddy as an operator — views (figures, lists, timeline), "Buddy noticed"
+   rows, plan cards, and the why / email blocks on action cards.
+   Scoped with sb- prefixes; colours only from the design tokens (sb.css),
+   so the dark theme and the rest of the chat stay in step.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.sb-dot.b { background: var(--b-tx); }
+
+/* ── views ─────────────────────────────────────────────────────────────── */
+.sb-view { overflow: hidden; animation: sbRise .2s ease-out both; }
+.sb-vh { display: flex; align-items: center; gap: 8px; padding: 12px 16px 8px; font-size: 13px; font-weight: 600; color: var(--ink2); }
+.sb-vh .c { margin-left: auto; font-weight: 500; font-size: 12px; color: var(--faint); }
+.sb-vempty { padding: 0 16px 14px; margin: 0; font-size: 13.5px; color: var(--muted); }
+
+.sb-vmet { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); border-top: 1px solid var(--line2); position: relative; }
+.sb-vmet.n1 { grid-template-columns: 1fr; }
+@media (min-width: 640px) {
+  .sb-vmet.n3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .sb-vmet.n4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+.sb-vm { display: flex; flex-direction: column; gap: 3px; padding: 12px 16px; border-right: 1px solid var(--line2); border-bottom: 1px solid var(--line2); min-width: 0; }
+.sb-vm .kl { font-size: 12.5px; color: var(--muted); font-weight: 500; }
+.sb-vm .kv { font-size: 19px; font-weight: 650; color: var(--ink); letter-spacing: -.01em; overflow-wrap: anywhere; }
+.sb-vm .ks { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); }
+.sb-vlink { display: inline-flex; align-items: center; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--ink2); min-height: 32px; padding: 0 2px; }
+.sb-vmet .sb-vlink { position: absolute; top: -34px; right: 12px; }
+.sb-vlink:hover { text-decoration: underline; text-underline-offset: 3px; }
+
+.sb-vwarn { display: flex; align-items: center; gap: 6px; margin: 0 16px 8px; padding: 7px 10px; border-radius: 8px; background: var(--a-bg); color: var(--a-tx); font-size: 12.5px; font-weight: 550; }
+.sb-vlist { list-style: none; margin: 0; padding: 0; border-top: 1px solid var(--line2); }
+.sb-vlist li + li { border-top: 1px solid var(--line2); }
+.sb-vlist li > button, .sb-vlist li > div { display: flex; align-items: center; gap: 12px; width: 100%; padding: 10px 16px; text-align: left; min-height: 52px; }
+.sb-vlist li > button:hover { background: var(--soft); }
+.sb-vlist .t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.sb-vlist .t b { font-size: 14px; font-weight: 550; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-vlist .t small { font-size: 12.5px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sb-vlist .r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex: none; max-width: 45%; }
+.sb-vlist .v { font-size: 13.5px; font-weight: 600; color: var(--ink2); white-space: nowrap; }
+.sb-vfoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 16px 8px; border-top: 1px solid var(--line2); font-size: 12.5px; color: var(--faint); }
+.sb-vfoot .sb-vlink { margin-left: auto; }
+
+.sb-vtime { list-style: none; margin: 0; padding: 4px 16px 12px; border-top: 1px solid var(--line2); }
+.sb-vtime li { display: grid; grid-template-columns: 10px 1fr auto; align-items: baseline; gap: 10px; padding: 8px 0; font-size: 13.5px; }
+.sb-vtime li + li { border-top: 1px dashed var(--line); }
+.sb-vtime span { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.sb-vtime small { color: var(--muted); font-size: 12.5px; overflow-wrap: anywhere; }
+.sb-vtime time { font-size: 12px; color: var(--faint); white-space: nowrap; }
+
+.sb-vins { border-top: 1px solid var(--line2); }
+.sb-vins .sb-ins + .sb-ins { border-top: 1px solid var(--line2); }
+
+/* ── "Buddy noticed" ───────────────────────────────────────────────────── */
+.sb-ins { position: relative; display: flex; align-items: flex-start; gap: 12px; padding: 14px 16px; }
+.sb-todo .sb-ins + .sb-ins, .hm-panel .sb-ins + .sb-ins, .sb-todo .sb-ins + .sb-lr, .sb-todo .sb-lr + .sb-ins { border-top: 1px solid var(--line2); }
+.sb-ins-b { flex: 1; min-width: 0; padding-right: 22px; }
+.sb-ins-t { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 8px; }
+.sb-ins-t b { font-size: 14.5px; font-weight: 600; color: var(--ink); line-height: 1.35; }
+.sb-ins-r { margin: 4px 0 0; font-size: 13px; line-height: 1.5; color: var(--muted); overflow-wrap: anywhere; }
+.sb-ins.compact .sb-ins-r { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sb-ins-a { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.sb-ins-x { position: absolute; top: 10px; right: 10px; width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center; color: var(--faint); }
+.sb-ins-x:hover { background: var(--soft); color: var(--ink); }
+.sb-checking { animation: sbPulse 1.4s ease-in-out infinite; }
+@keyframes sbPulse { 50% { opacity: .5; } }
+
+/* ── why / email on a card ─────────────────────────────────────────────── */
+.sb-why { display: flex; gap: 8px; margin: 6px 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--soft); font-size: 13px; line-height: 1.45; color: var(--ink2); }
+.sb-why b { flex: none; font-weight: 600; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; padding-top: 1px; }
+.sb-mail { border: 1px solid var(--line); border-radius: 10px; margin: 6px 0 10px; overflow: hidden; }
+.sb-mail .mh { display: flex; align-items: center; gap: 6px; padding: 8px 12px; font-size: 12.5px; color: var(--muted); border-bottom: 1px solid var(--line2); background: var(--soft); overflow-wrap: anywhere; }
+.sb-mail .ms { padding: 8px 12px 0; font-size: 13.5px; font-weight: 600; color: var(--ink); }
+.sb-mail .mb { margin: 0; padding: 6px 12px 12px; font: inherit; font-size: 13px; line-height: 1.5; color: var(--ink2); white-space: pre-wrap; overflow-wrap: anywhere; max-height: 220px; overflow-y: auto; }
+.sb-acdone.warn { background: var(--a-bg); color: var(--a-tx); border-color: var(--line2); }
+
+/* ── plan card ─────────────────────────────────────────────────────────── */
+.sb-steps { list-style: none; margin: 4px 0 0; padding: 0; counter-reset: none; }
+.sb-steps li { display: flex; align-items: flex-start; gap: 10px; padding: 10px 0; border-top: 1px dashed var(--line); }
+.sb-steps li:first-child { border-top: 0; }
+.sb-steps li.off .sb-step { opacity: .45; }
+.sb-steps input[type="checkbox"] { width: 18px; height: 18px; margin-top: 2px; flex: none; accent-color: var(--ink); }
+.sb-steps .mk { width: 18px; flex: none; display: grid; place-items: center; margin-top: 1px; color: var(--faint); }
+.sb-steps li.st-ok .mk { color: var(--g-tx); }
+.sb-steps li.st-bad .mk { color: var(--r-tx); }
+.sb-step { flex: 1; min-width: 0; }
+.sb-step .h { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; font-size: 14px; }
+.sb-step .num { font-size: 12px; color: var(--faint); font-weight: 600; min-width: 12px; }
+.sb-step .h b { font-weight: 600; color: var(--ink2); }
+.sb-step .nm { color: var(--ink); overflow-wrap: anywhere; }
+.sb-step .d { margin-top: 3px; font-size: 13px; color: var(--ink2); overflow-wrap: anywhere; }
+.sb-step .d.bad { color: var(--r-tx); }
+.sb-step .d.skip { color: var(--faint); }
+.sb-step .w { margin-top: 3px; font-size: 12.5px; color: var(--muted); font-style: italic; }
+.sb-step .sb-acedit { margin-top: 8px; }
+.sb-plan .sb-acf { flex-wrap: wrap; }
+
+@media (max-width: 480px) {
+  .sb-vlist .r { max-width: 40%; }
+  .sb-ins { padding: 12px 14px; }
+}

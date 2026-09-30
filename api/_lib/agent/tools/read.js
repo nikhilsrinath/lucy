@@ -195,6 +195,21 @@ const list_tasks = {
         tasks: out,
       },
       entities: shown.slice(0, 10).map((r) => entityOf('task', r)),
+      view: {
+        type: 'list',
+        title: status === 'overdue' ? 'Overdue tasks' : status === 'done' ? 'Done tasks' : 'Tasks',
+        total: rows.length,
+        href: '/work',
+        warning: status !== 'overdue' && rows.filter(overdue).length ? `${rows.filter(overdue).length} overdue` : null,
+        items: out.map((t) => ({
+          title: t.title,
+          sub: [t.assignee, t.project].filter(Boolean).join(' · '),
+          value: t.deadline,
+          badge: t.overdue ? 'Overdue' : t.status,
+          tone: t.overdue ? 'r' : t.status === 'done' ? 'g' : 'n',
+          href: `/tasks?task=${t.id}`,
+        })),
+      },
     };
   },
 };
@@ -262,6 +277,22 @@ const list_invoices = {
         })),
       },
       entities: shown.slice(0, 10).map((d) => entityOf('invoice', d)),
+      view: {
+        type: 'list',
+        title: args.overdue ? `Overdue ${type}s` : args.unpaid ? `Unpaid ${type}s` : `${type[0].toUpperCase()}${type.slice(1)}s`,
+        total: rows.length,
+        href: type === 'invoice' ? '/money/invoices' : type === 'quotation' ? '/quotations' : '/proforma',
+        warning: rows.some((d) => balance(d) > 0.005 && OPEN_STATUSES.includes(d.status))
+          ? `${money(rows.reduce((sum, d) => sum + (OPEN_STATUSES.includes(d.status) ? Math.max(0, balance(d)) : 0), 0))} still to collect` : null,
+        items: shown.map((d) => ({
+          title: d.bill_to_name || 'No client',
+          sub: [d.doc_number || 'Draft', d.due_date && (isOverdue(d) ? `${Math.round((Date.parse(ctx.today) - Date.parse(d.due_date)) / 86400000)} days late` : `due ${formatDate(d.due_date)}`)].filter(Boolean).join(' · '),
+          value: money(OPEN_STATUSES.includes(d.status) ? balance(d) : d.grand_total, d.currency || 'INR'),
+          badge: isOverdue(d) ? 'Overdue' : String(d.status || '').replace(/_/g, ' '),
+          tone: isOverdue(d) ? 'r' : d.status === 'paid' ? 'g' : 'n',
+          href: type === 'invoice' ? `/money/invoices?doc=${d.id}` : null,
+        })),
+      },
     };
   },
 };
@@ -352,6 +383,60 @@ const get_attendance = {
 
 /* ── the company's figures ────────────────────────────────────────────────── */
 
+/**
+ * Cash, receivables and payables computed from the rows, for an org whose
+ * EdgeBrain has not been built. The rules follow financeAnalytics.cashPosition
+ * (confirmed document payments, cash-book income not already counted as a
+ * document payment, paid expenses, vendor bill payments), and a figure is
+ * given only when the person can read every table behind it — a partial sum
+ * would be a wrong number, not a smaller one.
+ */
+async function liveFigures(ctx) {
+  const need = ['financial_documents', 'income_entries', 'expenses', 'purchase_invoices'];
+  if (!need.every((r) => ctx.can(r, 'view'))) return null;
+  const [docs, pays, income, expenses, bills] = await Promise.all([
+    ctx.db.from('financial_documents').select('id, type, status, grand_total, amount_paid, due_date').limit(5000),
+    ctx.db.from('payments').select('document_id, amount, confirmed_at, paid_on').limit(10000),
+    ctx.db.from('income_entries').select('amount, document_id, received_on').limit(10000),
+    ctx.db.from('expenses').select('amount, status, incurred_on').limit(10000),
+    ctx.db.from('purchase_invoices').select('total, amount_paid, status, due_date').limit(5000),
+  ]);
+  if ([docs, pays, income, expenses, bills].some((r) => r.error)) return null;
+  const n = (v) => Number(v) || 0;
+  const paidDocs = new Set();
+  let received = 0;
+  for (const p of pays.data || []) {
+    if (!p.confirmed_at) continue;
+    paidDocs.add(p.document_id);
+    received += n(p.amount);
+  }
+  for (const e of income.data || []) if (!(e.document_id && paidDocs.has(e.document_id))) received += n(e.amount);
+  let paidOut = 0;
+  for (const e of expenses.data || []) if ((e.status || 'paid') !== 'pending') paidOut += n(e.amount);
+  for (const b of bills.data || []) if (b.status !== 'void') paidOut += n(b.amount_paid);
+  const open = (docs.data || []).filter((d) => d.type === 'invoice' && OPEN_STATUSES.includes(d.status));
+  const bal = (d) => Math.max(0, n(d.grand_total) - n(d.amount_paid));
+  const owed = open.reduce((s, d) => s + bal(d), 0);
+  const overdue = open.filter((d) => d.due_date && d.due_date < ctx.today).reduce((s, d) => s + bal(d), 0);
+  const payable = (bills.data || []).filter((b) => ['unpaid', 'partially_paid'].includes(b.status)).reduce((s, b) => s + Math.max(0, n(b.total) - n(b.amount_paid)), 0);
+  const net = received - paidOut;
+  return {
+    data: {
+      net_cash: money(net), money_received_all_time: money(received), money_paid_out_all_time: money(paidOut),
+      owed_to_us: money(owed), overdue_receivables: money(overdue), open_invoices: open.length, we_owe_vendors: money(payable),
+    },
+    view: {
+      type: 'metrics', title: 'Money · live', href: '/business',
+      items: [
+        { label: 'Net cash', value: money(net), sub: 'Received less paid out', tone: net >= 0 ? 'g' : 'r' },
+        { label: 'Owed to you', value: money(owed), sub: `${open.length} open invoice${open.length === 1 ? '' : 's'}`, tone: 'n' },
+        { label: 'Overdue', value: money(overdue), tone: overdue > 0 ? 'r' : 'g' },
+        { label: 'You owe', value: money(payable), sub: 'Vendor bills', tone: payable > 0 ? 'a' : 'g' },
+      ],
+    },
+  };
+}
+
 const finance_summary = {
   name: 'finance_summary',
   module: 'finance',
@@ -363,9 +448,26 @@ const finance_summary = {
   async run(_args, ctx) {
     const metrics = await getMetrics(ctx.orgId, ctx.allowed).catch(() => []);
     const block = headlineSection(metrics);
-    if (!block) return { data: { unavailable: 'No headline figures have been computed yet (EdgeBrain has not been built or synced), or your role cannot see them.' } };
+    if (!block) {
+      // No EdgeBrain yet: the same figures straight from the records.
+      const live = await liveFigures(ctx).catch(() => null);
+      if (!live) return { data: { unavailable: 'No headline figures have been computed yet (EdgeBrain has not been built or synced), or your role cannot see them.' } };
+      return { data: { source: 'computed live from the records just now', figures: live.data }, view: live.view };
+    }
     const asOf = metrics.find((m) => m.as_of)?.as_of;
-    return { data: { as_of: asOf ? formatDate(asOf) : null, figures: block, rules: CONTEXT_RULES } };
+    const byKey = new Map(metrics.filter((m) => !m.bucket).map((m) => [m.key, m]));
+    const tile = (key, label, tone) => (byKey.has(key) ? { label, value: money(byKey.get(key).value), tone: tone(Number(byKey.get(key).value) || 0) } : null);
+    const items = [
+      tile('cash.net', 'Net cash', (v) => (v >= 0 ? 'g' : 'r')),
+      tile('revenue.outstanding', 'Owed to you', () => 'n'),
+      tile('revenue.overdue', 'Overdue', (v) => (v > 0 ? 'r' : 'g')),
+      tile('revenue.total', 'Revenue', () => 'n'),
+      tile('cash.paid_out', 'Paid out', () => 'n'),
+    ].filter(Boolean);
+    return {
+      data: { as_of: asOf ? formatDate(asOf) : null, figures: block, rules: CONTEXT_RULES },
+      view: items.length ? { type: 'metrics', title: `Money${asOf ? ` · as of ${formatDate(asOf)}` : ''}`, items, href: '/business' } : null,
+    };
   },
 };
 

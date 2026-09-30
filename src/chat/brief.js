@@ -12,6 +12,11 @@ import { cashPosition, taxSummary, paymentPosition, issuedInvoices, isOverdue, d
    partial sum would be a wrong number, not a smaller one.
    ══════════════════════════════════════════════════════════════════════════ */
 
+const INSIGHT_ICON = {
+    overdue_invoices: 'doc', stale_quotes: 'doc', bills_due: 'doc', spend_spike: 'bolt',
+    due_soon: 'task', overdue_tasks: 'task', slipping_task: 'task', project_risk: 'task', inactive_leads: 'mail',
+};
+
 const inr0 = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 0 });
 export const inr = (v) => inr0.format(Math.round(Number(v) || 0));
 
@@ -69,6 +74,9 @@ const LEDES = {
  *   gmail   { configured } | null (null: unknown or not an admin)
  *   brain   { built, canBuild } | null
  *   notifications — unread portal notifications
+ *   insights — "Buddy noticed" from the server (useInsights), or null while
+ *              unknown; when present they replace the local invoice and task
+ *              suggestions, which cover the same ground with fewer rules
  */
 export function buildBrief(p) {
     const now = p.now || new Date();
@@ -97,9 +105,18 @@ export function buildBrief(p) {
     if (tb) kpis.push({ id: 'week', label: 'This week', value: `${tb.dueByWeekEnd} ${tb.dueByWeekEnd === 1 ? 'task' : 'tasks'}`, sub: tb.overdue.length ? `${tb.overdue.length} overdue` : 'None overdue', tone: tb.overdue.length ? 'a' : 'g', to: '/work' });
     if (gst !== null) kpis.push({ id: 'gst', label: 'GST payable', value: inr(Math.max(0, gst)), sub: gst < 0 ? `${inr(-gst)} input credit` : now.toLocaleDateString('en-IN', { month: 'long' }), tone: 'n', to: '/money/reports' });
 
-    /* Suggested for today: 0–3, from real signals, most pressing first. */
+    /* Suggested for today: from real signals, most pressing first. */
     const sug = [];
-    if (seeDocs) {
+    const noticed = Array.isArray(p.insights) ? p.insights : null;
+    for (const i of (noticed || []).slice(0, 4)) {
+        const primary = i.actions?.[0] || null;
+        sug.push({
+            id: `ins-${i.id}`, tone: i.tone || 'n', icon: INSIGHT_ICON[i.kind] || 'bolt',
+            title: i.title, sub: i.reason, action: primary?.label || 'Review',
+            insight: i, noticed: true,
+        });
+    }
+    if (!noticed && seeDocs) {
         const late = issuedInvoices(p.docs || [])
             .filter((d) => isOverdue(d, today))
             .sort((a, b) => daysOverdue(b, today) - daysOverdue(a, today));
@@ -116,7 +133,7 @@ export function buildBrief(p) {
     for (const n of (p.notifications || []).filter((x) => !x.read).slice(0, 2)) {
         sug.push({ id: `note-${n.id}`, tone: 'b', icon: 'bell', title: n.title, sub: n.message, action: 'Open', notification: n });
     }
-    if (tb?.overdue.length) {
+    if (!noticed && tb?.overdue.length) {
         sug.push({ id: 'tasks', tone: 'a', icon: 'task', title: `${tb.overdue.length} overdue ${tb.overdue.length === 1 ? 'task' : 'tasks'}`,
             sub: tb.overdue.slice(0, 2).map((t) => t.title).join(', '), action: 'Open Work', to: '/work' });
     }
@@ -132,7 +149,8 @@ export function buildBrief(p) {
         greeting: `${greetingWord(now)}, ${p.name || 'there'}.`,
         lede,
         kpis,
-        suggestions: sug.slice(0, 3),
+        suggestions: sug.slice(0, noticed ? 5 : 3),
+        noticed: !!noticed,
         facts,
     };
 }

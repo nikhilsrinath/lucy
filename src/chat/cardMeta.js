@@ -1,4 +1,4 @@
-import { IconDoc, IconOut, IconTask, IconClients } from '../design/icons';
+import { IconDoc, IconOut, IconTask, IconClients, IconMail, IconSparkle } from '../design/icons';
 
 /* How each agent tool's card is labelled: the type line in the card's header
    and its icon. Risk is not decided here — it comes on the card itself. */
@@ -14,8 +14,10 @@ const TOOL = {
     convert_quotation: ['Quote to invoice', 'doc', 'b'], issue_document: ['Issue document', 'doc', 'a'],
     cancel_financial_document: ['Cancel document', 'doc', 'r'], delete_financial_document: ['Delete document', 'doc', 'r'],
     create_vendor: ['New vendor', 'client', 'n'], create_purchase_bill: ['Vendor bill', 'doc', 'a'],
+    create_project: ['New project', 'task', 'b'], send_payment_reminder: ['Payment reminder', 'mail', 'a'],
+    plan: ['Plan', 'plan', 'b'],
 };
-const ICON = { task: IconTask, client: IconClients, cash: IconOut, doc: IconDoc };
+const ICON = { task: IconTask, client: IconClients, cash: IconOut, doc: IconDoc, mail: IconMail, plan: IconSparkle };
 
 export const cardMeta = (card) => {
     const [label, icon, tone] = TOOL[card.tool] || ['Proposed change', 'doc', 'n'];

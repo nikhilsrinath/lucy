@@ -10,6 +10,7 @@ import { useMe } from '../shell/useMe';
 import { useCofounder } from '../design/useCofounder';
 import { useBrief } from '../chat/useBrief';
 import { useBriefActions } from '../chat/useBriefActions';
+import { InsightRow } from '../chat/ViewBlock';
 import { isoDay, inr } from '../chat/brief';
 import { docClient } from '../money/useMoneyData';
 import { useAssistant } from '../components/assistant/assistantStore';
@@ -53,8 +54,8 @@ export default function HomeScreen() {
     const shell = useShell();
     const me = useMe();
     const { persona } = useCofounder();
-    const { brief, build, building, buildError } = useBrief({ persona, name: me.name });
-    const { onKpi, onSuggestion } = useBriefActions({ build });
+    const { brief, build, building, buildError, dismissInsight } = useBrief({ persona, name: me.name });
+    const { onKpi, onSuggestion, runInsightAction } = useBriefActions({ build });
     const assistant = useAssistant();
     const ask = (text) => { navigate('/chat'); assistant.send(text); };
     const [day, setDay] = useState(null);
@@ -204,6 +205,7 @@ export default function HomeScreen() {
                             {brief.suggestions.length === 0 ? (
                                 <div className="pe"><IconCheckCircle size={16} /><p>Nothing needs you today. Late invoices, signed offers and overdue tasks show up here first.</p></div>
                             ) : brief.suggestions.map((s) => {
+                                if (s.insight) return <InsightRow key={s.id} insight={s.insight} onAction={runInsightAction} onDismiss={dismissInsight} />;
                                 const Icon = SUG_ICONS[s.icon] || IconDoc;
                                 const isBuild = s.build;
                                 return (

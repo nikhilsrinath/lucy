@@ -4,6 +4,10 @@ import taskTools from './tools/tasks.js';
 import clientTools from './tools/clients.js';
 import cashTools from './tools/cash.js';
 import financeTools from './tools/finance.js';
+import companyTools from './tools/company.js';
+import projectTools from './tools/projects.js';
+import reminderTools from './tools/reminders.js';
+import planTools from './tools/plan.js';
 
 /**
  * The one catalogue of what EdgeAI can do.
@@ -26,6 +30,10 @@ export const ALL_TOOLS = [
   ...clientTools,
   ...cashTools,
   ...financeTools,
+  ...companyTools,
+  ...projectTools,
+  ...reminderTools,
+  ...planTools,
 ];
 
 const BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]));
@@ -37,6 +45,7 @@ export const isWrite = (tool) => tool?.kind === 'write';
 /** May this user, on this plan, use this tool at all? */
 export function allowed(tool, ctx) {
   if (!tool) return false;
+  if (tool.available && !tool.available(ctx)) return false;
   if (tool.planFeature && !ctx.hasPlanFeature(tool.planFeature)) return false;
   if (!tool.permission) return true;
   return ctx.can(tool.permission.resource, tool.permission.action);
@@ -47,17 +56,30 @@ export function toolsFor(ctx) {
   return ALL_TOOLS.filter((t) => allowed(t, ctx));
 }
 
+const REASON_PARAM = {
+  type: 'string',
+  description: 'One short line on why, from the company data or the user\'s words (e.g. "18 days overdue, no reminder yet"). Shown on the card.',
+};
+
 export function toModelTools(tools, ctx = null) {
-  return tools.map((t) => ({
-    type: 'function',
-    function: {
-      name: t.name,
-      description: t.risk === 'high' ? `${t.description} (Needs the user's confirmation on a detailed card.)` : t.description,
-      // A tool may describe its parameters from the org's own data (the cash
-      // tool lists the real categories, so the model picks one by meaning).
-      parameters: t.modelParams && ctx ? t.modelParams(ctx) : t.params,
-    },
-  }));
+  return tools.map((t) => {
+    // A tool may describe its parameters from the org's own data (the cash
+    // tool lists the real categories, so the model picks one by meaning).
+    let parameters = t.modelParams && ctx ? t.modelParams(ctx) : t.params;
+    // Every write carries Buddy's one-line why, shown on the card and kept in
+    // the audit log. It is stripped before the tool sees its arguments.
+    if (t.kind === 'write') {
+      parameters = { ...parameters, properties: { ...parameters.properties, reason: REASON_PARAM } };
+    }
+    return {
+      type: 'function',
+      function: {
+        name: t.name,
+        description: t.risk === 'high' ? `${t.description} (Needs the user's confirmation on a detailed card.)` : t.description,
+        parameters,
+      },
+    };
+  });
 }
 
 /** Is Undo on offer for this executed action? */
@@ -79,7 +101,7 @@ export function registryProblems(tools = ALL_TOOLS) {
     names.add(t.name);
     if (!t.description) problems.push(`${t.name}: no description`);
     if (t.params?.type !== 'object') problems.push(`${t.name}: params must be an object schema`);
-    if (!['read', 'write', 'navigate'].includes(t.kind)) problems.push(`${t.name}: kind must be read|write|navigate`);
+    if (!['read', 'write', 'navigate', 'plan'].includes(t.kind)) problems.push(`${t.name}: kind must be read|write|navigate|plan`);
     if (t.kind === 'write') {
       if (!['low', 'high'].includes(t.risk)) problems.push(`${t.name}: a write tool needs risk low|high`);
       if (!t.permission?.resource || !['create', 'edit', 'delete'].includes(t.permission?.action)) {

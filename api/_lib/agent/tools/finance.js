@@ -1249,6 +1249,10 @@ const list_bills = {
         total_matching: rows.length, total_owed: money(rows.reduce((s, b) => s + owed(b), 0)),
         overdue_among_them: rows.filter(overdue).length, showing: out.length, bills: out,
       },
+      view: {
+        type: 'list', title: args.status === 'overdue' ? 'Overdue vendor bills' : 'Vendor bills', total: rows.length, href: '/purchases',
+        items: out.map((b) => ({ title: b.vendor || 'Vendor', sub: [b.bill, b.due && `due ${b.due}`].filter(Boolean).join(' · '), value: b.owed, badge: b.overdue ? 'Overdue' : b.status.replace(/_/g, ' '), tone: b.overdue ? 'r' : b.status === 'paid' ? 'g' : 'n' })),
+      },
     };
   },
 };

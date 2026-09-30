@@ -42,7 +42,7 @@ export default function ChatScreen() {
     const { activeOrg } = useOrg();
     const { persona, chosen, setCofounder } = useCofounder();
     const me = useMe();
-    const { brief, build, building, buildError } = useBrief({ persona, name: me.name });
+    const { brief, build, building, buildError, dismissInsight, insightsLoading } = useBrief({ persona, name: me.name });
     const [chatsOpen, setChatsOpen] = useState(false);
     // Existing users who never picked a cofounder are asked once, here.
     const chooserKey = user?.id ? `startupbuddy.chooser.seen.${user.id}` : null;
@@ -90,7 +90,7 @@ export default function ChatScreen() {
 
     const open = (href) => navigate(href);
 
-    const { onKpi, onSuggestion } = useBriefActions({ build });
+    const { onKpi, onSuggestion, runInsightAction } = useBriefActions({ build });
 
     // "/" in the composer opens the command palette.
     const openCommands = () => {
@@ -124,6 +124,7 @@ export default function ChatScreen() {
                     <div className="sb-feed" aria-live="polite">
                         {isBriefChat && (
                             <Brief brief={brief} persona={persona} onKpi={onKpi} onSuggestion={onSuggestion}
+                                onInsight={runInsightAction} onDismiss={dismissInsight} checking={insightsLoading}
                                 building={building} buildError={buildError} />
                         )}
                         {!isBriefChat && a.messages.length === 0 && (
@@ -132,7 +133,7 @@ export default function ChatScreen() {
                                 <div className="mb">
                                     <div className="sb-mh"><b>{persona.name}</b></div>
                                     <h2 className="sb-greet" style={{ fontSize: 26 }}>What's on your mind, {me.name}?</h2>
-                                    <p className="sb-lede2">Ask a question, or tell me something that happened and I'll prepare the change for you to confirm.</p>
+                                    <p className="sb-lede2">Ask about the company, tell me what happened, or give me a goal — I'll look at the data and prepare the changes or a plan for you to approve.</p>
                                 </div>
                             </div>
                         )}

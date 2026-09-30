@@ -87,3 +87,12 @@ export const undoAction = (orgId, actionId) => json({ mode: 'undo', org_id: orgI
 
 /** The latest state of these cards — for a thread reopened after a reload. */
 export const actionStatus = (orgId, ids) => json({ mode: 'status', org_id: orgId, ids });
+
+/** A failed action (or a plan's failed steps) proposed again, as a new card. Nothing runs until it is confirmed. */
+export const retryAction = (orgId, actionId) => json({ mode: 'retry', org_id: orgId, action_id: actionId });
+
+/** "Buddy noticed": situations found in the company's data. No model call, not metered. */
+export const getInsights = (orgId, { skip = [], limit = 5 } = {}) => json({ mode: 'insights', org_id: orgId, skip, limit });
+
+/** What Buddy proposed and did for this person, newest first. */
+export const getActivity = (orgId, { limit = 20 } = {}) => json({ mode: 'activity', org_id: orgId, limit });

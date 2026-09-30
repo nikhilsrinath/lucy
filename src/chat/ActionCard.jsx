@@ -1,7 +1,8 @@
 import React, { Suspense, lazy, useEffect, useId, useMemo, useState } from 'react';
 import { Badge, Button, IconTile } from '../design/ui';
-import { IconDoc, IconCheckCircle, IconClock, IconAlert, IconUndo, IconExternal } from '../design/icons';
+import { IconDoc, IconCheckCircle, IconClock, IconAlert, IconUndo, IconExternal, IconRefresh, IconMail } from '../design/icons';
 import { cardMeta } from './cardMeta';
+import './operator.css';
 
 const DocPaper = lazy(() => import('../components/assistant/DocPaper'));
 
@@ -19,7 +20,11 @@ const DocPaper = lazy(() => import('../components/assistant/DocPaper'));
                 Cancel. Ctrl/⌘+Enter confirms, Escape cancels.
      executing  the primary button says Working…
      executed   green strip: summary, Undo while the window is open, Open
-     failed / cancelled / expired / undone   one quiet strip
+     failed     what went wrong, and Try again (a fresh proposal, re-checked)
+     cancelled / expired / undone   one quiet strip
+
+   Every proposal carries Buddy's one-line why (card.reason) and, for an
+   email, the exact message that will go out.
    ══════════════════════════════════════════════════════════════════════════ */
 
 /** **bold** inside a summary line. */
@@ -39,7 +44,7 @@ function useNow(active) {
     return now;
 }
 
-export default function ActionCard({ card, onConfirm, onCancel, onUndo, onOpen, compact = false }) {
+export default function ActionCard({ card, onConfirm, onCancel, onUndo, onRetry, onOpen, compact = false }) {
     const headingId = useId();
     const statusId = useId();
     const [editing, setEditing] = useState(false);
@@ -55,7 +60,7 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onOpen, 
     const lapsed = minutesLeft === 0;
     const fields = card.fields || [];
     const hasItems = (card.items || []).length > 0;
-    const busy = status === 'executing';
+    const busy = status === 'executing' || status === 'confirmed';
 
     const confirm = () => {
         if (status !== 'proposed' || lapsed) return;
@@ -74,7 +79,7 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onOpen, 
 
     const statusText = useMemo(() => ({
         proposed: lapsed ? 'Expired. Nothing was changed.' : 'Waiting for your confirmation. Nothing has changed yet.',
-        executing: 'Working…', executed: 'Done.', failed: 'Not done.',
+        executing: 'Working…', confirmed: 'Working…', executed: 'Done.', failed: 'Not done.',
         cancelled: 'Cancelled. Nothing was changed.', expired: 'Expired. Nothing was changed.', undone: 'Undone.',
     }[status] || ''), [status, lapsed]);
 
@@ -86,7 +91,7 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onOpen, 
                 {minutesLeft !== null && !lapsed && !compact && (
                     <span className="exp" title="Minutes left to confirm"><IconClock size={12} />{minutesLeft} min</span>
                 )}
-                {(status === 'proposed' || status === 'executing') && (high
+                {(status === 'proposed' || busy) && (high
                     ? <Badge tone="a">Review first</Badge>
                     : <Badge tone="n">Undo in 10 min</Badge>)}
             </span>
@@ -114,8 +119,11 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onOpen, 
                 <div className="sb-acb"><h4 id={headingId}>{card.title}</h4></div>
                 <div className="sb-acdone bad" role="alert">
                     <IconAlert />
-                    <span className="txt">{card.error || 'The change could not be saved.'} Ask again and it will be prepared fresh.</span>
+                    <span className="txt">{card.error || 'The change could not be saved.'} Nothing was changed.</span>
                 </div>
+                {onRetry && !compact && (
+                    <div className="sb-acf"><Button size="sm" onClick={onRetry}><IconRefresh /> Try again</Button></div>
+                )}
             </section>
         );
     }
@@ -145,6 +153,15 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onOpen, 
             {header}
             <div className="sb-acb">
                 <h4 id={headingId}>{card.title}</h4>
+                {card.reason && !editing && <p className="sb-why"><b>Why</b>{card.reason}</p>}
+
+                {!editing && card.email && (
+                    <div className="sb-mail" aria-label="The email that will be sent">
+                        <div className="mh"><IconMail size={13} /><span>To <b>{card.email.to}</b></span></div>
+                        <div className="ms">{card.email.subject}</div>
+                        <pre className="mb">{card.email.text}</pre>
+                    </div>
+                )}
 
                 {!editing && (card.diff || []).length > 0 && (
                     <dl>
@@ -278,7 +295,7 @@ function DocTable({ doc, full }) {
     );
 }
 
-function EditField({ field, value, onChange }) {
+export function EditField({ field, value, onChange }) {
     const id = useId();
     let control;
     if (field.type === 'select') {

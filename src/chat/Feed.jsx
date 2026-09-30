@@ -4,12 +4,15 @@ import { confirmDialog } from '../services/confirm';
 import { PixelAvatar, Button, IconTile, Badge } from '../design/ui';
 import { IconChevronRight, IconRefresh, IconSpeaker, IconCall } from '../design/icons';
 import ActionCard from './ActionCard';
+import PlanCard from './PlanCard';
+import ViewBlock from './ViewBlock';
 import { speakSample } from '../design/speakLocal';
 
 /* ══════════════════════════════════════════════════════════════════════════
    The conversation. A turn from the cofounder is one block — avatar, name,
-   time — holding everything that turn produced: words, cards, a choice, a
-   question with chips, a notice. The person's own lines are bubbles.
+   time — holding everything that turn produced: words, figures and lists
+   (views), cards, a plan, a choice, a question with chips, a notice. The
+   person's own lines are bubbles.
    ══════════════════════════════════════════════════════════════════════════ */
 
 const MD = { text: 'var(--ink)', raised: 'var(--soft)' };
@@ -55,15 +58,25 @@ function Item({ a, m, i, replying, working, activeId, onOpen, persona }) {
 
     if (m.kind === 'call' && m.call) return <CallSummary call={m.call} persona={persona} />;
 
+    if (m.kind === 'view' && m.view) {
+        const onInsight = (insight, action) => {
+            if (action.kind === 'open' && action.href) onOpen(action.href);
+            else if (action.prompt) a.send(action.prompt, { source: `insight:${insight.id}`.slice(0, 158) });
+        };
+        return <ViewBlock view={m.view} onOpen={onOpen} onInsight={onInsight} busy={streaming} />;
+    }
+
     if (m.kind === 'action' && m.card) {
+        const Card = m.card.kind === 'plan' ? PlanCard : ActionCard;
         return (
             <div id={`msg-${m.id}`} style={{ display: 'contents' }}>
                 <ContextChips card={m.card} onOpen={onOpen} />
-                <ActionCard
+                <Card
                     card={m.card}
                     onConfirm={(opts) => a.confirmCard(activeId, m.id, opts)}
                     onCancel={() => a.cancelCard(activeId, m.id)}
                     onUndo={() => a.undoCard(activeId, m.id)}
+                    onRetry={() => a.retryCard(activeId, m.id)}
                     onOpen={onOpen}
                 />
             </div>

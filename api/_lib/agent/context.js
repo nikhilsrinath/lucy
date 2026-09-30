@@ -70,6 +70,14 @@ export async function buildAgentContext({ user, token, orgId, body = {}, actionI
     pending: cleanPending(body.pending),
     openCards: cleanCards(body.context?.openCards),
     voice: body.voice === true,
+    // Which surface asked (chat, voice, insight, api — later telegram, email).
+    // Recorded on every action; it changes nothing about what is allowed.
+    channel: cleanChannel(body.channel, body.voice === true),
+    // What prompted this message, e.g. a tapped "Buddy noticed" card.
+    source: typeof body.context?.source === 'string' && /^insight:[\w:.-]{1,150}$/.test(body.context.source) ? body.context.source : null,
+    // What Buddy has already done or tried in this chat, for "undo that",
+    // "send the same reminder again", "did it work?".
+    recentActions: cleanActions(body.context?.recentActions),
     // The chosen cofounder's voice for the prompt — tone only (personas.js).
     persona: cleanPersona(body.context?.persona),
     cache: new Map(),
@@ -97,6 +105,27 @@ function cleanPage(page) {
   const recordType = KINDS[page.recordType] ? page.recordType : null;
   const recordId = isUuid(page.recordId) ? page.recordId : null;
   return { route, recordType: recordId ? recordType : null, recordId: recordType ? recordId : null };
+}
+
+const CHANNELS = new Set(['chat', 'voice', 'insight', 'api']);
+function cleanChannel(c, voice) {
+  if (typeof c === 'string' && CHANNELS.has(c)) return c;
+  return voice ? 'voice' : 'chat';
+}
+
+function cleanActions(list) {
+  if (!Array.isArray(list)) return [];
+  const STATUSES = ['executed', 'failed', 'undone', 'cancelled', 'expired', 'proposed'];
+  return list
+    .filter((a) => a && isUuid(a.action_id) && STATUSES.includes(a.status))
+    .slice(-6)
+    .map((a) => ({
+      action_id: a.action_id,
+      tool: String(a.tool || '').slice(0, 64),
+      title: String(a.title || '').slice(0, 120),
+      status: a.status,
+      summary: String(a.summary || a.error || '').slice(0, 200),
+    }));
 }
 
 function cleanPending(p) {

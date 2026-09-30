@@ -1,12 +1,13 @@
 import React from 'react';
 import { PixelAvatar, Button, IconTile, ListRow } from '../design/ui';
 import { IconDoc, IconMail, IconTask, IconBolt, IconCheckCircle } from '../design/icons';
+import { InsightRow } from './ViewBlock';
 
 const ICONS = { doc: IconDoc, mail: IconMail, task: IconTask, bolt: IconBolt, bell: IconCheckCircle };
 
 /* The top of the day's chat: greeting, four figures, what needs doing.
    Everything comes from buildBrief (brief.js); this only lays it out. */
-export default function Brief({ brief, persona, onKpi, onSuggestion, building, buildError }) {
+export default function Brief({ brief, persona, onKpi, onSuggestion, onInsight, onDismiss, building, buildError, checking }) {
     const n = brief.kpis.length;
     return (
         <div className="sb-m">
@@ -29,10 +30,16 @@ export default function Brief({ brief, persona, onKpi, onSuggestion, building, b
                 )}
 
                 <div className="sb-cd sb-todo sb-list">
-                    <div className="th">Suggested for today<span>{brief.suggestions.length || ''}</span></div>
-                    {brief.suggestions.length === 0 ? (
-                        <p className="sb-say quiet" style={{ padding: '4px 16px 16px' }}>Nothing needs you today.</p>
+                    <div className="th">{brief.noticed ? `${persona.name} noticed` : 'Suggested for today'}<span>{brief.suggestions.length || ''}</span></div>
+                    {checking && brief.suggestions.length === 0 && (
+                        <p className="sb-say quiet sb-checking" style={{ padding: '4px 16px 16px' }} role="status">Looking through the company…</p>
+                    )}
+                    {!checking && brief.suggestions.length === 0 ? (
+                        <p className="sb-say quiet" style={{ padding: '4px 16px 16px' }}>Nothing needs you today. Overdue invoices, slipping work and quiet leads show up here first.</p>
                     ) : brief.suggestions.map((s) => {
+                        if (s.insight) {
+                            return <InsightRow key={s.id} insight={s.insight} onAction={onInsight} onDismiss={onDismiss} />;
+                        }
                         const Icon = ICONS[s.icon] || IconDoc;
                         const isBuild = s.build;
                         return (
