@@ -1,4 +1,5 @@
 import { AgentError, friendlyDbError } from './db.js';
+import { sendOrgMail } from '../mailer.js';
 
 /**
  * Applies a write plan as the user.
@@ -20,6 +21,11 @@ import { AgentError, friendlyDbError } from './db.js';
  *   { op: 'update', table, id, version, patch, before }
  *   { op: 'delete', table, id, version, before }
  *   { op: 'rpc',    fn, params }
+ *   { op: 'email',  orgId, userId, to, subject, text, fromName }
+ *
+ * An email leaves the building: it cannot be undone, so an action whose plan
+ * sent one has no Undo. Put it first in a plan, so a failed send stops the
+ * bookkeeping that would claim it went out.
  *
  * `then` runs follow-ups that need the new row's id (a project allocation for
  * a cash entry). A follow-up failing leaves the main write standing and is
@@ -106,6 +112,14 @@ async function applyOp(db, op) {
       if (!data) await explainMiss(db, op);
       return { op: 'delete', table: op.table, id: op.id, before: op.before || data, after: null, ok: true };
     }
+    case 'email': {
+      try {
+        const sent = await sendOrgMail(op);
+        return { op: 'email', table: null, id: null, before: null, after: { to: op.to, subject: op.subject, messageId: sent.messageId }, ok: true };
+      } catch (err) {
+        throw new AgentError(err?.message || 'The email could not be sent.', { code: 'email' });
+      }
+    }
     case 'rpc': {
       const { data, error } = await db.rpc(op.fn, op.params);
       if (error) throw error;
@@ -165,7 +179,7 @@ export function undoPlan(results) {
       plan.push({ op: 'update', table: r.table, id: r.id, version: r.after?.updated_at || null, patch: r.before || {}, before: pick(r.after, Object.keys(r.before || {})) });
     } else if (r.op === 'insert') {
       plan.push({ op: 'delete', table: r.table, id: r.id, version: r.after?.updated_at || null, before: r.after });
-    } else if (r.op === 'delete') {
+    } else if (r.op === 'delete' || r.op === 'email') {
       return null;
     }
   }

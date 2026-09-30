@@ -1,7 +1,6 @@
 import nodemailer from 'nodemailer';
-import { supabaseAdmin } from './_lib/supabaseAdmin.js';
 import { requireUser, requireOrgRole, sendError, methodIs, readJsonBody, HttpError } from './_lib/auth.js';
-import { decryptSecret } from './_lib/crypto.js';
+import { loadOrgCredentials, claimQuota } from './_lib/mailer.js';
 
 /**
  * POST /api/email
@@ -96,52 +95,6 @@ export default async function handler(req, res) {
   } catch (err) {
     return sendError(res, err, 'api/email');
   }
-}
-
-/** Reads and decrypts the org's Gmail credentials. Service role only. */
-async function loadOrgCredentials(orgId) {
-  const { data, error } = await supabaseAdmin()
-    .from('org_secrets')
-    .select('gmail_user, gmail_cipher, gmail_iv, gmail_tag')
-    .eq('org_id', orgId)
-    .maybeSingle();
-
-  if (error) throw new HttpError(500, error.message);
-  if (!data?.gmail_user || !data?.gmail_cipher) {
-    throw new HttpError(412, 'Email is not configured. Open Profile → Email Configuration to set up Gmail.');
-  }
-
-  let appPassword;
-  try {
-    appPassword = decryptSecret({ cipher: data.gmail_cipher, iv: data.gmail_iv, tag: data.gmail_tag });
-  } catch (err) {
-    console.error('[api/email] decrypt failed:', err?.message);
-    throw new HttpError(500, 'Stored email credentials could not be decrypted. Re-save them in Profile → Email Configuration.');
-  }
-
-  return { gmailUser: data.gmail_user, appPassword };
-}
-
-/** Claims quota for `units` messages, or 429s. */
-async function claimQuota(orgId, userId, kind, units) {
-  let remaining = null;
-  for (let i = 0; i < units; i++) {
-    const { data, error } = await supabaseAdmin()
-      .rpc('claim_email_quota', { p_org: orgId, p_kind: kind, p_user: userId });
-
-    if (error) {
-      // 23514 is the check_violation the function raises at the limit. Anything
-      // else is a real fault and must not be reported as a rate limit.
-      if (error.code === '23514' || /rate limit reached/i.test(error.message || '')) {
-        throw new HttpError(429, kind === 'test'
-          ? 'Too many connection tests today. Try again tomorrow.'
-          : 'This organization has reached its hourly email limit. Try again later.');
-      }
-      throw new HttpError(500, error.message);
-    }
-    remaining = data;
-  }
-  return remaining;
 }
 
 // RFC 5321 is more permissive than this, but every address the app actually
