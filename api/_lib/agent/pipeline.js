@@ -8,6 +8,7 @@ import {
   MAX_PENDING_PER_CHAT, UNDO_WINDOW_MS,
 } from './actions.js';
 import { confirmPlan, undoPlanAction, proposePlan, failedSteps } from './plans.js';
+import { decide } from '../autonomy/policy.js';
 
 /**
  * The write path, from a tool call to a row on screen.
@@ -28,6 +29,17 @@ import { confirmPlan, undoPlanAction, proposePlan, failedSteps } from './plans.j
  *
  * Nothing in here writes to a business table except confirm() and undo(),
  * and both only after loading an ai_actions row that belongs to the caller.
+ *
+ * Autonomy (0072) is one step inside propose(), not a second path: when the
+ * session carries an autonomy context (ctx.autonomy — Buddy's scheduled
+ * work, or a chat that asked for exactly a follow-through tool), the server
+ * decides deterministically (autonomy/policy.js decide) whether this call may
+ * skip the person's tap. If it may, the proposal is recorded as autonomous
+ * with the rule that allowed it and immediately goes through the SAME
+ * confirm() a tap runs — re-resolved, re-validated, permission re-checked,
+ * executed through the actor's own token, audited as 'edgeai_auto'. If not,
+ * it stays an ordinary proposal a person approves. Deletes and anything the
+ * actor may not do are refused outright.
  */
 
 const TABLE_KIND = Object.fromEntries(Object.entries(KINDS).map(([k, d]) => [d.table, k]));
@@ -43,7 +55,7 @@ const TABLE_KIND = Object.fromEntries(Object.entries(KINDS).map(([k, d]) => [d.t
  *   { kind: 'error',  message }                      — the model should rethink
  * `stops` says whether the turn ends here (everything but 'error').
  */
-export async function propose(tool, rawArgs, ctx, { chatId, messageId, reason = null, parentId = null } = {}) {
+export async function propose(tool, rawArgs, ctx, { chatId, messageId, reason = null, parentId = null, autonomy = null } = {}) {
   if (!tool || tool.kind !== 'write') return { kind: 'error', message: 'Not a write tool.' };
   if (!allowed(tool, ctx)) {
     if (ctx.canDelete === false && deletes(tool)) return { kind: 'none', stops: true, message: deleteRefusal(tool) };
@@ -67,9 +79,17 @@ export async function propose(tool, rawArgs, ctx, { chatId, messageId, reason = 
   const problems = await tool.validate(r.args, ctx);
   if (problems.length) return { kind: 'none', stops: true, message: problems[0], problems };
 
+  // The autonomy decision, from the resolved arguments — server-side and
+  // recorded on the action. Without an autonomy context nothing changes.
+  const auto = autonomyFor(tool, r.args, ctx, autonomy);
+  if (auto?.decision.decision === 'forbidden') {
+    return { kind: 'none', stops: true, message: 'That is not something I may do on my own.', decision: auto.decision };
+  }
+  const autonomous = auto?.decision.decision === 'autonomous';
+
   // ctx.actionStore lets the eval harness capture proposals without a database.
   const store = ctx.actionStore || actionLog;
-  if (chatId && await store.countPending(ctx, chatId) >= MAX_PENDING_PER_CHAT) {
+  if (chatId && !autonomous && !autonomy && await store.countPending(ctx, chatId) >= MAX_PENDING_PER_CHAT) {
     return { kind: 'none', stops: true, message: `There are already ${MAX_PENDING_PER_CHAT} changes waiting for your confirmation in this chat — confirm or cancel those first.` };
   }
 
@@ -83,14 +103,50 @@ export async function propose(tool, rawArgs, ctx, { chatId, messageId, reason = 
   try {
     const row = await store.insertProposal(ctx, {
       chatId, messageId, tool, args: r.args, targets: r.targets, preview,
-      reason: why || null, source: ctx.source || null, parentId,
+      reason: why || null, source: ctx.source || autonomy?.source || null, parentId,
+      autonomy: auto?.record || null,
     });
-    return { kind: 'card', stops: true, card: toCard(row), entities: r.entities || [] };
+    if (autonomous) {
+      // The policy allowed it: the same confirm() a tap runs, now.
+      const done = await confirm(ctx, row.id, { auto: auto.decision });
+      return { kind: 'card', stops: true, card: done.card || toCard(row), entities: done.entities || r.entities || [], auto: true, status: done.status };
+    }
+    return { kind: 'card', stops: true, card: toCard(row), entities: r.entities || [], ...(auto ? { status: 'proposed', awaitingApproval: true } : {}) };
   } catch (err) {
     if (err.code === 'no_table') return { kind: 'none', stops: true, message: err.message };
     console.error('[agent] insertProposal', err);
     return { kind: 'none', stops: true, message: 'I could not prepare that change just now. Try again in a moment.' };
   }
+}
+
+/**
+ * The autonomy decision for this call and what the proposal records, or null
+ * when the session has no autonomy context and the call is a plain proposal.
+ * A decision passed in (a job that already decided) is used as is.
+ * An interactive call that stays a card records nothing new: a manual
+ * proposal is written exactly as before 0072.
+ */
+function autonomyFor(tool, args, ctx, given) {
+  const policy = ctx.autonomy?.policy;
+  if (!given && !ctx.autonomy) return null;
+  const trigger = given?.trigger || ctx.autonomy?.trigger || 'job';
+  const decision = given?.decision || decide({ tool, args, ctx, policy, trigger });
+  const autonomous = decision.decision === 'autonomous';
+  // In a conversation, anything that is not autonomous is the ordinary card
+  // (including deletes for those allowed to delete — the person taps).
+  if (!autonomous && trigger === 'interactive' && !given) return null;
+  const ttlHours = policy?.settings?.approval_ttl_hours;
+  return {
+    decision,
+    record: {
+      autonomous,
+      decision,
+      jobId: given?.jobId || ctx.autonomy?.job?.id || null,
+      workflowId: given?.workflowId || null,
+      idempotencyKey: given?.idempotencyKey || null,
+      ttlMs: !autonomous && trigger === 'job' && ttlHours ? ttlHours * 3600_000 : null,
+    },
+  };
 }
 
 const DELETE_NOUN = { tasks: 'tasks', clients: 'clients', financial_documents: 'invoices and quotations' };
@@ -109,7 +165,13 @@ function verbOf(tool) {
 /** What the model is told about a proposal. It must not claim the change is done. */
 export function modelView(out) {
   switch (out.kind) {
-    case 'card': return out.card.kind === 'plan'
+    case 'card': if (out.auto) {
+      // Carried out under the company's autonomy policy, not waiting on a tap.
+      return out.status === 'executed'
+        ? { status: 'done', card: out.card.title, summary: out.card.summary, followUp: out.card.followUp || null, note: 'Already carried out (the company allows this without a confirmation). Say what was done in one line, from the summary.' }
+        : { status: out.status || 'failed', card: out.card.title, error: out.card.error || null, note: 'It was tried and did not go through. Say so in one line.' };
+    }
+    return out.card.kind === 'plan'
       ? { status: 'proposed', plan: out.card.title, steps: (out.card.steps || []).length, note: 'Shown to the user as a plan card to review, edit and approve. NOTHING is done yet — do not say it is done. At most one short line.' }
       : { status: 'proposed', card: out.card.title, note: 'Shown to the user as a confirmation card. NOT done yet — do not say it is done.' };
     case 'choice': return { status: 'needs_choice', note: 'The user is being shown the matching records to pick from. Stop here.' };
@@ -153,9 +215,13 @@ function stale(targetRef, freshTargets) {
  * The user's tap. Idempotent on the action id: whatever state the action is
  * already past, that state is returned rather than acted on again.
  */
-export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
-  const row = await loadAction(id, ctx);
+export async function confirm(ctx, id, { selected = null, edits = null, auto = null } = {}) {
+  // An owner/admin may approve a request Buddy raised on its own (0072):
+  // approving makes it theirs, carried out with their permissions.
+  const row = await loadAction(id, ctx) || (auto ? null : await actionLog.adoptForApproval(id, ctx));
   if (!row || row.org_id !== ctx.orgId) return { status: 'not_found', message: 'That change is no longer available.' };
+  // Only a proposal recorded as autonomous is ever confirmed without a tap.
+  if (auto && !row.autonomous) return { status: 'invalid', message: 'This change needs a person to approve it.' };
 
   const status = effectiveStatus(row);
   if (status === 'expired' && row.status === 'proposed') {
@@ -195,11 +261,14 @@ export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
     return { status: 'repreviewed', card: toCard(fresh), replaces: id };
   }
 
-  const edited = !!(edits && Object.keys(edits).length) || (Array.isArray(selected) && key && selected.length !== (row.args[key] || []).length);
+  const edited = !auto && (!!(edits && Object.keys(edits).length) || (Array.isArray(selected) && key && selected.length !== (row.args[key] || []).length));
   const claimed = await transition(id, 'proposed', {
     status: 'confirmed', decided_at: new Date().toISOString(), args: r.args,
     edits: edited ? { fields: edits || null, selected: selected || null } : null,
-    events: withEvent({ events: withEvent({ events: edited ? withEvent(row, 'edited') : row.events }, 'approved') }, 'executing'),
+    // 'auto_approved' names the policy rule; a person's tap is 'approved'.
+    events: withEvent({ events: auto
+      ? withEvent(row, 'auto_approved', auto.rule)
+      : withEvent({ events: edited ? withEvent(row, 'edited') : row.events }, 'approved') }, 'executing'),
   });
   if (!claimed) {
     const now = await loadAction(id, ctx);
@@ -238,6 +307,9 @@ export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
       // Which tables moved, so the confirming tab refreshes exactly those.
       tables: [...new Set(outcome.results.filter((x) => x.ok !== false && x.table).map((x) => x.table))],
       results: outcome.results,
+      // Whether trying again could succeed (a Telegram or network hiccup) —
+      // what a job's retry reads; a refusal or a gone record is permanent.
+      ...(anyDone ? {} : { transient: transientFailure(outcome.results) }),
     },
     error: anyDone ? null : firstError?.error || 'The change could not be saved.',
     events: withEvent(claimed, anyDone ? (firstError ? 'partial' : 'completed') : 'failed', firstError?.error || null),
@@ -245,8 +317,16 @@ export async function confirm(ctx, id, { selected = null, edits = null } = {}) {
   return { status: saved.status, card: toCard(saved), entities };
 }
 
+/** Failures a retry could fix: Telegram's generic failure, or an unexplained error (network). */
+export function transientFailure(results) {
+  const f = (results || []).find((x) => x.ok === false);
+  if (!f) return false;
+  if (f.code === 'telegram') return !f.detail || f.detail === 'telegram';
+  return f.code === 'failed';
+}
+
 export async function cancel(ctx, id) {
-  const row = await loadAction(id, ctx);
+  const row = await loadAction(id, ctx) || await actionLog.adoptForApproval(id, ctx);
   if (!row || row.org_id !== ctx.orgId) return { status: 'not_found' };
   const done = await transition(id, 'proposed', { status: 'cancelled', decided_at: new Date().toISOString(), events: withEvent(row, 'cancelled') });
   const now = done || await loadAction(id, ctx);

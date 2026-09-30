@@ -11,7 +11,7 @@
     ],
     "crons": [
         {
-            "path": "/api/telegram",
+            "path": "/api/agent",
             "schedule": "30 12 * * *"
         }
     ]

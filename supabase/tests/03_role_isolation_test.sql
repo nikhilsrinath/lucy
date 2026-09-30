@@ -185,6 +185,14 @@ begin
     insert into pulse_checkins (org_id, user_id, pulse_date, channel)
     select o, m.user_id, current_date, 'telegram' from memberships m where m.org_id = o limit 1;
 
+    -- Autonomous Buddy (0072): the policy (readable by the company), a
+    -- follow-through and a job (readable by owners/admins), all written only
+    -- by the API.
+    insert into buddy_autonomy_policies (org_id) values (o);
+    insert into buddy_workflows (org_id, kind, task_id, assignee_employee_id, initiator_kind)
+    select o, 'task_followup', t.id, e, 'buddy' from tasks t where t.org_id = o limit 1;
+    insert into buddy_jobs (org_id, kind, dedupe_key) values (o, 'task_due_soon', 'fixture:' || s);
+
     -- Document library (0063): a stored file and one passage read from it.
     insert into library_documents (org_id, title, file_name, mime_type, size_bytes, storage_path)
       values (o, 'Handbook ' || s, 'handbook.pdf', 'application/pdf', 1024, o || '/handbook-' || s || '.pdf')
@@ -405,6 +413,14 @@ begin
   -- (the founder's view of the team pulse); it is written only by the API.
   -- The fixture row belongs to neither of the other roles' callers.
   if p_tbl = 'pulse_checkins' then
+    return p_verb = 'S' and p_role in ('owner', 'admin');
+  end if;
+  -- 0072: the company reads its autonomy policy; owners/admins read what
+  -- Buddy scheduled and followed up. Only the API writes any of it.
+  if p_tbl = 'buddy_autonomy_policies' then
+    return p_verb = 'S';
+  end if;
+  if p_tbl in ('buddy_workflows', 'buddy_jobs') then
     return p_verb = 'S' and p_role in ('owner', 'admin');
   end if;
 

@@ -68,7 +68,7 @@ Telegram ──webhook──▶ api/telegram.js ─▶ _lib/telegram/handler.js 
    node scripts/telegram-setup.js --info      # check: url set, no last_error_message
    ```
    This registers `https://…/api/telegram` with the secret token, limits updates to `message`, `callback_query` and `my_chat_member`, drops old queued updates, and publishes the command menus. Telegram requires HTTPS on port 443, 80, 88 or 8443, so a Vercel domain works but localhost does not. To test locally, use a tunnel (e.g. `cloudflared`) and point the script at it.
-5. **Vercel Cron:** `vercel.json` schedules `GET /api/telegram` daily at **12:30 UTC (18:00 IST)**. Hobby plans allow one daily run. With the default hour (6 pm), check-ins go out at 6 pm IST. A company that picks a later hour only gets check-ins if the cron runs at or after that hour, so on Pro switch the schedule to hourly (`0 * * * *`). **Send now** in Settings always works.
+5. **Vercel Cron:** `vercel.json` schedules the Buddy worker (`GET /api/agent`; `GET /api/telegram` still works as an alias) daily at **12:30 UTC (18:00 IST)**. The Daily Pulse is now one of the worker's jobs (`pulse_due`, one per company per day at its pulse hour — [autonomy.md](autonomy.md)); on a database without 0072 the worker falls back to the old pulse run. Hobby plans allow one daily run. With the default hour (6 pm), check-ins go out at 6 pm IST. A company that picks a later hour only gets check-ins if the cron runs at or after that hour, so on Pro switch the schedule to hourly (`0 * * * *`). **Send now** in Settings always works.
 6. **In the app** (owner/admin): Settings → Telegram → switch **Buddy on Telegram** on → **Link my Telegram** → **Connect a group** → invite members → optionally turn on **Daily Pulse**.
 
 ## Connection and identity
@@ -146,6 +146,10 @@ propose → confirm → executor → `ai_actions` path as everything else. Nothi
   keeps no message text, and no Telegram user id or chat id.
 - The tool is not offered in team groups (`privateOnly`), and a voice call cannot confirm it by
   voice (high risk).
+
+## Buddy messaging on its own (0072)
+
+Reminders before a deadline, follow-ups after one, escalations to the founder and follow-through workflows are sent by Buddy itself through the same `send_telegram_message` tool and checks, when the company's autonomy policy allows and the text is routine (no money, pay or secrets; ≤ 600 characters). They arrive as **🤖 Buddy · Company**, only in private chats, never in groups; at most `max_messages_per_person_per_day`, and not in quiet hours. A reply to one is an ordinary Buddy turn. See [autonomy.md](autonomy.md).
 
 ## Groups vs private chats
 

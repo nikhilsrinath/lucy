@@ -10,6 +10,7 @@ import reminderTools from './tools/reminders.js';
 import planTools from './tools/plan.js';
 import pulseTools from './tools/pulse.js';
 import messageTools from './tools/messages.js';
+import autonomyTools from './tools/autonomy.js';
 
 /**
  * The one catalogue of what EdgeAI can do.
@@ -23,6 +24,14 @@ import messageTools from './tools/messages.js';
  *   high  a card rendering exactly what will happen, a button naming it,
  *         and a note when it cannot be undone. Money, anything leaving the
  *         org, deletes, people and permissions are high.
+ *
+ * Autonomy is decided here too (0072), as tool metadata the policy reads
+ * (api/_lib/autonomy/policy.js) — never a second catalogue:
+ *   autonomy: { class: 'autonomous' | 'approval',  default 'approval'
+ *               interactive: 'auto' | 'review',    default 'review' (a card)
+ *               when?(args, ctx) → reason | null,  sends one call to approval
+ *               widen?: false }                    the company may not widen it
+ * Deletes are never autonomous, whatever the metadata says.
  */
 
 export const ALL_TOOLS = [
@@ -38,6 +47,7 @@ export const ALL_TOOLS = [
   ...planTools,
   ...pulseTools,
   ...messageTools,
+  ...autonomyTools,
 ];
 
 const BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]));
@@ -138,6 +148,14 @@ export function registryProblems(tools = ALL_TOOLS) {
       }
       if (t.undoable === undefined) problems.push(`${t.name}: say whether it can be undone`);
       if (t.run) problems.push(`${t.name}: a write tool must not have run() — writes go through plan()`);
+      if (t.autonomy !== undefined) {
+        const a = t.autonomy;
+        if (!['autonomous', 'approval'].includes(a?.class)) problems.push(`${t.name}: autonomy.class must be autonomous|approval`);
+        if (a?.interactive !== undefined && !['auto', 'review'].includes(a.interactive)) problems.push(`${t.name}: autonomy.interactive must be auto|review`);
+        if (a?.when !== undefined && typeof a.when !== 'function') problems.push(`${t.name}: autonomy.when must be a function`);
+        if (a?.class === 'autonomous' && t.permission?.action === 'delete') problems.push(`${t.name}: a delete can never be autonomous`);
+        if (a?.class === 'autonomous' && t.approval === 'app') problems.push(`${t.name}: an app-approval tool can never be autonomous`);
+      }
     } else if (typeof t.run !== 'function') {
       problems.push(`${t.name}: a ${t.kind} tool needs run()`);
     }

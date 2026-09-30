@@ -11,11 +11,15 @@
 let clock = Date.parse('2026-09-26T06:00:00.000Z');
 const tick = () => new Date(clock += 1000).toISOString().replace('Z', '+00:00');
 
-export function fakeDb(seed = {}, { deny = {}, rpc = {} } = {}) {
+export function fakeDb(seed = {}, { deny = {}, rpc = {}, unique = {}, defaults = {} } = {}) {
   const tables = {};
   for (const [t, rows] of Object.entries(seed)) tables[t] = rows.map((r) => ({ ...r }));
   const writes = [];
   let seq = 0;
+  // unique: { table: [['col', 'col2'], …] } — an insert that collides is a 23505,
+  // an upsert on those columns updates or (ignoreDuplicates) skips.
+  const collides = (table, row, cols) => (tables[table] || []).find((r) => cols.every((c) => r[c] !== undefined && r[c] !== null && r[c] === row[c]));
+  const clash = (table, row) => (unique[table] || []).some((cols) => collides(table, row, cols));
 
   function builder(table) {
     const state = { op: 'select', filters: [], order: null, limit: null, single: false, payload: null, head: false, count: false, embeds: [] };
@@ -48,13 +52,34 @@ export function fakeDb(seed = {}, { deny = {}, rpc = {} } = {}) {
       }
       if (state.op === 'insert') {
         const many = Array.isArray(state.payload);
-        const made = (many ? state.payload : [state.payload]).map((p) => {
-          const row = { id: `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, created_at: tick(), updated_at: tick(), ...p };
+        const list = many ? state.payload : [state.payload];
+        if (list.some((p) => clash(table, p))) return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint' } };
+        const made = list.map((p) => {
+          const row = { id: `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, created_at: tick(), updated_at: tick(), ...(defaults[table] || {}), ...p };
           rows().push(row);
           writes.push({ op: 'insert', table, row });
           return row;
         });
         return { data: state.single ? made[0] : made, error: null };
+      }
+      if (state.op === 'upsert') {
+        const cols = String(state.upsert?.onConflict || 'id').split(',').map((c) => c.trim());
+        const out = [];
+        for (const p of Array.isArray(state.payload) ? state.payload : [state.payload]) {
+          const hit = collides(table, p, cols);
+          if (hit) {
+            if (state.upsert?.ignoreDuplicates) continue;
+            Object.assign(hit, p, { updated_at: tick() });
+            writes.push({ op: 'update', table, rows: [hit.id], patch: p });
+            out.push(hit);
+          } else {
+            const row = { id: `00000000-0000-4000-8000-${String(++seq).padStart(12, '0')}`, created_at: tick(), updated_at: tick(), ...(defaults[table] || {}), ...p };
+            rows().push(row);
+            writes.push({ op: 'insert', table, row });
+            out.push(row);
+          }
+        }
+        return { data: state.single ? out[0] || null : out, error: null };
       }
       if (state.op === 'update') {
         const hit = rows().filter(match);
@@ -79,6 +104,13 @@ export function fakeDb(seed = {}, { deny = {}, rpc = {} } = {}) {
         return q;
       },
       insert(p) { state.op = 'insert'; state.payload = p; return q; },
+      upsert(p, opts) { state.op = 'upsert'; state.payload = p; state.upsert = opts || {}; return q; },
+      // "a.eq.true,b.eq.buddy" — PostgREST's or(), eq only.
+      or(expr) {
+        const parts = String(expr).split(',').map((x) => x.split('.'));
+        state.filters.push((r) => parts.some(([c, , v]) => String(r[c]) === v));
+        return q;
+      },
       update(p) { state.op = 'update'; state.payload = p; return q; },
       delete() { state.op = 'delete'; return q; },
       eq(c, v) { state.filters.push((r) => r[c] === v); return q; },
@@ -86,7 +118,8 @@ export function fakeDb(seed = {}, { deny = {}, rpc = {} } = {}) {
       in(c, vs) { state.filters.push((r) => vs.includes(r[c])); return q; },
       gt(c, v) { state.filters.push((r) => r[c] > v); return q; },
       gte(c, v) { state.filters.push((r) => r[c] >= v); return q; },
-      lte(c, v) { state.filters.push((r) => r[c] <= v); return q; },
+      lte(c, v) { state.filters.push((r) => r[c] !== null && r[c] !== undefined && r[c] <= v); return q; },
+      lt(c, v) { state.filters.push((r) => r[c] !== null && r[c] !== undefined && r[c] < v); return q; },
       is(c, v) { state.filters.push((r) => (r[c] ?? null) === v); return q; },
       order(col, o) { state.order = { col, asc: o?.ascending !== false }; return q; },
       limit(n) { state.limit = n; return q; },

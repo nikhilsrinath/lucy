@@ -3,6 +3,7 @@ import { runChat, runResume } from './loop.js';
 import { confirm, cancel, undo, retry } from './pipeline.js';
 import { loadMany, toCard, recentFor } from './actions.js';
 import { computeInsights } from './insights.js';
+import { loadPolicy } from '../autonomy/policy.js';
 
 /**
  * Buddy — the one entry point to the AI operating layer.
@@ -35,10 +36,18 @@ import { computeInsights } from './insights.js';
  *   { user, token }            a StartupBuddy user (web, voice, their linked Telegram)
  *   { person, linkId, token }  a company person with no login, through a link
  *                              the channel verified (channelSession.js)
- * Both reach the same context, tools, lifecycle and audit trail.
+ *   { buddy: true, token }     the company's Buddy principal, for scheduled
+ *                              work no human asked for (autonomy/, 0072)
+ * All reach the same context, tools, lifecycle and audit trail.
  */
-export async function openSession({ user = null, person = null, linkId = null, token, orgId, body = {}, channel = null, channelActor = null }) {
-  const ctx = await buildAgentContext({ user, person, linkId, token, orgId, channelActor, body: channel ? { ...body, channel } : body });
+export async function openSession({ user = null, person = null, buddy = false, linkId = null, token, orgId, body = {}, channel = null, channelActor = null, autonomy = null }) {
+  const ctx = await buildAgentContext({ user, person, buddy, linkId, token, orgId, channelActor, body: channel ? { ...body, channel } : body });
+  // The company's autonomy policy (0072), read once per session. In a
+  // conversation it only lets the follow-through tools skip the card
+  // (autonomy/policy.js); a job passes its own context. A database without
+  // 0072 gets a policy that is not ready, and nothing changes.
+  const policy = autonomy?.policy || await loadPolicy(orgId).catch(() => null);
+  ctx.autonomy = policy ? { trigger: autonomy?.trigger || 'interactive', policy, job: autonomy?.job || null, ready: policy.ready !== false } : null;
   return ctx;
 }
 

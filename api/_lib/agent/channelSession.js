@@ -222,6 +222,51 @@ export async function personToken({ link, person }) {
   return token;
 }
 
+/* ── Buddy itself (no human actor) ────────────────────────────────────────── */
+
+/*
+ * Work nobody asked for directly — a deadline reminder, an escalation — runs
+ * as the company's Buddy principal (0072): a token with no user and no
+ * person, and one claim, sb_buddy { org }. The database trusts it only for
+ * that company while the company's autonomy is switched on
+ * (app.buddy_principal), and grants it a small operational set: read tasks,
+ * people and projects; create and edit tasks and notifications; never delete.
+ */
+
+function signBuddyJwt(orgId, secret) {
+  const now = Math.floor(Date.now() / 1000);
+  const url = process.env.SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const payload = {
+    iss: url ? `${url.replace(/\/$/, '')}/auth/v1` : 'supabase',
+    aud: 'authenticated',
+    role: 'authenticated',
+    // No sub, no sb_person: this is neither a user nor a company person.
+    sb_buddy: { org: orgId },
+    iat: now,
+    exp: now + BUDDY_TOKEN_TTL_S,
+  };
+  const body = `${b64url(JSON.stringify(header))}.${b64url(JSON.stringify(payload))}`;
+  return `${body}.${b64url(createHmac('sha256', secret).update(body).digest())}`;
+}
+
+const BUDDY_TOKEN_TTL_S = 5 * 60;
+const ORG_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** A short-lived token acting as this company's Buddy. Needs SUPABASE_JWT_SECRET. */
+export function buddyToken(orgId) {
+  const secret = process.env.SUPABASE_JWT_SECRET;
+  if (!secret) throw new ChannelAccessError('config');
+  if (!ORG_RE.test(String(orgId || ''))) throw new ChannelAccessError('unlinked');
+  return signBuddyJwt(orgId, secret);
+}
+
+/** A Buddy session acting for the company itself (buildAgentContext checks the database accepts it). */
+export async function openBuddySession({ orgId, body = {} }) {
+  const token = buddyToken(orgId);
+  return buddy.openSession({ buddy: true, token, orgId, channel: 'autonomous', channelActor: 'buddy:system', body });
+}
+
 /* ── the session ──────────────────────────────────────────────────────────── */
 
 /**

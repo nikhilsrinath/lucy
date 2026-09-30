@@ -1,6 +1,8 @@
 import { AgentError, friendlyDbError } from './db.js';
 import { sendOrgMail } from '../mailer.js';
 import { deliverPrivate, DeliveryError } from '../telegram/outbound.js';
+import * as jobs from '../autonomy/jobs.js';
+import { startFollowup, cancelWorkflow } from '../autonomy/workflows.js';
 
 /**
  * Applies a write plan as the user.
@@ -23,7 +25,11 @@ import { deliverPrivate, DeliveryError } from '../telegram/outbound.js';
  *   { op: 'delete', table, id, version, before }
  *   { op: 'rpc',    fn, params }
  *   { op: 'email',  orgId, userId, to, subject, text, fromName }
- *   { op: 'telegram', orgId, employeeId, text, senderName, orgName }
+ *   { op: 'telegram', orgId, employeeId, text, senderName, orgName, fromBuddy? }
+ *   { op: 'job',      orgId, kind, dedupeKey, runAt, actor, payload }   (0072)
+ *   { op: 'cancel_job', orgId, jobId }
+ *   { op: 'workflow', orgId, taskId, assigneeId, initiator, goal, settings }
+ *   { op: 'workflow_cancel', orgId, workflowId }
  *
  * `allowDelete: false` (a linked company person, who never deletes) refuses
  * every delete op, including one a follow-up or an undo would run — the
@@ -37,6 +43,11 @@ import { deliverPrivate, DeliveryError } from '../telegram/outbound.js';
  * chat with the bot, resolved again from the person id at the moment of
  * sending (telegram/outbound.js), and it cannot be unsent. It counts as done
  * only once Telegram returns the message id.
+ *
+ * Scheduling ops (job, workflow — 0072) write Buddy's own queue with the
+ * service role, always in the company the tool took from the verified
+ * session (op.orgId = ctx.orgId), never from the model. The business rows a
+ * follow-through is about (the task) are written before them, as the user.
  *
  * `then` runs follow-ups that need the new row's id (a project allocation for
  * a cash entry). A follow-up failing leaves the main write standing and is
@@ -82,6 +93,7 @@ export async function applyPlan(db, plan, { dryRun = false, stopOnError = true, 
       const failure = {
         op: op.op, table: op.table, id: op.id || null, ok: false,
         code: err.code || 'failed',
+        ...(err instanceof AgentError && err.detail ? { detail: err.detail } : {}),
         error: err instanceof AgentError ? err.message : friendlyDbError(err),
       };
       results.push(failure);
@@ -143,8 +155,32 @@ async function applyOp(db, op) {
         return { op: 'telegram', table: null, id: null, before: null, after: sent, ok: true };
       } catch (err) {
         // A DeliveryError's message is written for the person; anything else is not.
-        throw new AgentError(err instanceof DeliveryError ? err.message : 'Telegram couldn’t deliver this message.', { code: 'telegram' });
+        // Its code (blocked, revoked, telegram…) tells a job's retry whether trying again can help.
+        throw new AgentError(err instanceof DeliveryError ? err.message : 'Telegram couldn’t deliver this message.', { code: 'telegram', detail: err instanceof DeliveryError ? err.code : 'telegram' });
       }
+    }
+    case 'job': {
+      const job = await jobs.enqueue({ orgId: op.orgId, kind: op.kind, dedupeKey: op.dedupeKey, runAt: op.runAt, actor: op.actor, payload: op.payload, source: op.source || 'action' });
+      if (!job.id) throw new AgentError('Could not schedule that.', { code: 'schedule' });
+      return { op: 'job', table: null, id: null, before: null, after: { job_id: job.id, org_id: op.orgId, kind: op.kind, run_at: new Date(op.runAt).toISOString() }, ok: true };
+    }
+    case 'cancel_job': {
+      const ids = await jobs.cancel({ orgId: op.orgId, ids: [op.jobId], reason: 'undone' });
+      if (!ids.length) throw new AgentError('It has already run, so it cannot be undone.', { code: 'stale' });
+      return { op: 'cancel_job', table: null, id: null, before: null, after: { job_id: op.jobId }, ok: true };
+    }
+    case 'workflow': {
+      if (!op.taskId) throw new AgentError('There is no task to follow through.', { code: 'schedule' });
+      const wf = await startFollowup({
+        orgId: op.orgId, taskId: op.taskId, assigneeId: op.assigneeId, initiator: op.initiator,
+        goal: op.goal || null, settings: op.settings || {}, sourceActionId: op.actionId || null,
+      });
+      return { op: 'workflow', table: null, id: null, before: null, after: { workflow_id: wf.workflowId, job_ids: wf.jobIds, restarted: wf.restarted, task_id: op.taskId }, ok: true };
+    }
+    case 'workflow_cancel': {
+      const out = await cancelWorkflow({ orgId: op.orgId, workflowId: op.workflowId, reason: 'stopped on request' });
+      if (!out.workflow) throw new AgentError('I am not following that through any more.', { code: 'gone' });
+      return { op: 'workflow_cancel', table: null, id: null, before: null, after: { workflow_id: op.workflowId, jobs_cancelled: out.jobs.length }, ok: true };
     }
     case 'rpc': {
       const { data, error } = await db.rpc(op.fn, op.params);
@@ -205,7 +241,10 @@ export function undoPlan(results) {
       plan.push({ op: 'update', table: r.table, id: r.id, version: r.after?.updated_at || null, patch: r.before || {}, before: pick(r.after, Object.keys(r.before || {})) });
     } else if (r.op === 'insert') {
       plan.push({ op: 'delete', table: r.table, id: r.id, version: r.after?.updated_at || null, before: r.after });
-    } else if (r.op === 'delete' || r.op === 'email' || r.op === 'telegram') {
+    } else if (r.op === 'job') {
+      // A scheduled job not yet run is cancelled; one that ran cannot be undone.
+      plan.push({ op: 'cancel_job', orgId: r.after?.org_id, jobId: r.after?.job_id });
+    } else if (r.op === 'delete' || r.op === 'email' || r.op === 'telegram' || r.op === 'workflow' || r.op === 'workflow_cancel') {
       return null;
     }
   }

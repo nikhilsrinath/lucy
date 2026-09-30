@@ -1,4 +1,5 @@
 import { requireOrgRole, HttpError } from '../auth.js';
+import { supabaseAdmin } from '../supabaseAdmin.js';
 import { userClient } from './db.js';
 import { KINDS, isUuid } from './resolvers.js';
 import { todayIn, DEFAULT_TZ } from '../../../src/shared/dates.js';
@@ -37,25 +38,44 @@ export const SHARED_RESOURCES = new Set([
  */
 export const PERSON_ROLE = 'teammate';
 
-export async function buildAgentContext({ user = null, person = null, linkId = null, token, orgId, body = {}, actionId = null, channelActor = null }) {
+/**
+ * The role of the company's Buddy principal (0072, app.buddy_permission):
+ * Buddy acting on its own for a scheduled job with no human actor — view
+ * tasks, people and projects, create and edit tasks and notifications, as far
+ * as the company's admin role allows. Never delete. Not a membership role.
+ */
+export const BUDDY_ROLE = 'buddy';
+
+export async function buildAgentContext({ user = null, person = null, buddy = false, linkId = null, token, orgId, body = {}, actionId = null, channelActor = null }) {
   if (!orgId) throw new HttpError(400, 'Missing org_id');
-  if (!user && !person) throw new HttpError(401, 'No verified identity');
+  if (!user && !person && !buddy) throw new HttpError(401, 'No verified identity');
   // A user's membership is checked here; a person's link was verified by the
   // channel (channelSession.verifyLinkedPerson) and is re-checked by the
-  // database on every query their token makes.
-  const membership = person ? { role: PERSON_ROLE } : await requireOrgRole(user.id, orgId, 'viewer');
+  // database on every query their token makes. The Buddy principal is checked
+  // by the database on every query too (app.buddy_principal: this company,
+  // autonomy switched on).
+  const membership = buddy ? { role: BUDDY_ROLE } : person ? { role: PERSON_ROLE } : await requireOrgRole(user.id, orgId, 'viewer');
   const db = userClient(token);
+  // Buddy is not a member: the company's name, zone and plan are metadata it
+  // needs to word a reminder, read with the service role. Everything else it
+  // reads goes through its own token.
+  const meta = buddy ? supabaseAdmin() : db;
 
   const [permsRes, planRes, orgRes, meRes] = await Promise.all([
     db.rpc('my_permissions', { p_org: orgId }),
-    db.from('subscriptions').select('plan').eq('org_id', orgId).maybeSingle(),
-    db.from('organizations').select('*').eq('id', orgId).maybeSingle(),
-    person
-      ? Promise.resolve({ data: { id: person.id, full_name: person.full_name } })
-      : db.from('employees').select('id, full_name').eq('org_id', orgId).eq('user_id', user.id).maybeSingle(),
+    meta.from('subscriptions').select('plan').eq('org_id', orgId).maybeSingle(),
+    meta.from('organizations').select('*').eq('id', orgId).maybeSingle(),
+    buddy
+      ? Promise.resolve({ data: null })
+      : person
+        ? Promise.resolve({ data: { id: person.id, full_name: person.full_name } })
+        : db.from('employees').select('id, full_name').eq('org_id', orgId).eq('user_id', user.id).maybeSingle(),
   ]);
 
   let permRows = permsRes.data;
+  if (buddy && (permsRes.error || !permRows?.length)) {
+    throw new HttpError(503, 'Buddy cannot act on its own here: the database refused its session (is 0072 applied, autonomy on, and SUPABASE_JWT_SECRET accepted?).');
+  }
   if (permsRes.error) {
     if (person) throw new HttpError(503, 'Buddy is not available for linked people on this database yet (migration 0071).');
     // A database without 0062: the role's matrix alone.
@@ -68,7 +88,7 @@ export async function buildAgentContext({ user = null, person = null, linkId = n
   for (const r of permRows || []) {
     if (audience === 'shared' && !SHARED_RESOURCES.has(r.resource)) continue;
     // A person never deletes: the database says so too (app.person_permission).
-    perms[r.resource] = { view: !!r.can_view, create: !!r.can_create, edit: !!r.can_edit, delete: !person && !!r.can_delete };
+    perms[r.resource] = { view: !!r.can_view, create: !!r.can_create, edit: !!r.can_edit, delete: !person && !buddy && !!r.can_delete };
   }
 
   const plan = PLANS[planRes.data?.plan] ? planRes.data.plan : DEFAULT_PLAN;
@@ -76,16 +96,21 @@ export async function buildAgentContext({ user = null, person = null, linkId = n
   const tz = org.timezone || org.time_zone || DEFAULT_TZ;
 
   const ctx = {
-    user: person
-      ? { id: null, email: person.email || null, name: person.full_name || 'you' }
-      : { id: user.id, email: user.email || null, name: meRes.data?.full_name || user.user_metadata?.full_name || user.email || 'you' },
+    user: buddy
+      ? { id: null, email: null, name: 'Buddy' }
+      : person
+        ? { id: null, email: person.email || null, name: person.full_name || 'you' }
+        : { id: user.id, email: user.email || null, name: meRes.data?.full_name || user.user_metadata?.full_name || user.email || 'you' },
     // Who is acting, as resolved server-side before Buddy runs. Everything
     // that owns or attributes an action reads this, never the model.
-    actor: person
-      ? { kind: 'person', employeeId: person.id, linkId, title: person.role || null, via: 'telegram_link', channelActor: cleanActor(channelActor) }
-      : { kind: 'user', userId: user.id, channelActor: cleanActor(channelActor) },
-    // Deleting is for users whose role allows it; a linked person never does.
-    canDelete: !person,
+    actor: buddy
+      ? { kind: 'buddy', channelActor: 'buddy:system' }
+      : person
+        ? { kind: 'person', employeeId: person.id, linkId, title: person.role || null, via: 'telegram_link', channelActor: cleanActor(channelActor) }
+        : { kind: 'user', userId: user.id, channelActor: cleanActor(channelActor) },
+    // Deleting is for users whose role allows it; a linked person never
+    // does, and neither does Buddy acting on its own.
+    canDelete: !person && !buddy,
     orgId,
     orgName: org.company_name || org.name || 'your company',
     org,
@@ -108,7 +133,8 @@ export async function buildAgentContext({ user = null, person = null, linkId = n
     pending: cleanPending(body.pending),
     openCards: cleanCards(body.context?.openCards),
     voice: body.voice === true,
-    // Which surface asked (chat, voice, insight, api, telegram — later email).
+    // Which surface asked (chat, voice, insight, api, telegram, autonomous —
+    // Buddy's own scheduled work — later email).
     // Recorded on every action; it changes nothing about what is allowed.
     channel: cleanChannel(body.channel, body.voice === true),
     // private | shared — see SHARED_RESOURCES. Only ever narrows.
@@ -153,7 +179,7 @@ function cleanActor(a) {
   return typeof a === 'string' && /^[a-z]{2,16}:[\w.-]{1,64}$/.test(a) ? a : null;
 }
 
-const CHANNELS = new Set(['chat', 'voice', 'insight', 'api', 'telegram']);
+const CHANNELS = new Set(['chat', 'voice', 'insight', 'api', 'telegram', 'autonomous']);
 function cleanChannel(c, voice) {
   if (typeof c === 'string' && CHANNELS.has(c)) return c;
   return voice ? 'voice' : 'chat';
