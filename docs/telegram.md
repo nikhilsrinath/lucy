@@ -149,7 +149,7 @@ propose → confirm → executor → `ai_actions` path as everything else. Nothi
 
 ## Buddy messaging on its own (0072)
 
-Reminders before a deadline, follow-ups after one, escalations to the founder and follow-through workflows are sent by Buddy itself through the same `send_telegram_message` tool and checks, when the company's autonomy policy allows and the text is routine (no money, pay or secrets; ≤ 600 characters). They arrive as **🤖 Buddy · Company**, only in private chats, never in groups; at most `max_messages_per_person_per_day`, and not in quiet hours. A reply to one is an ordinary Buddy turn. See [autonomy.md](autonomy.md).
+Reminders before a deadline, follow-ups after one, escalations to the founder and follow-through workflows are sent by Buddy itself through the same `send_telegram_message` tool and checks, when the company's autonomy policy allows and the text is routine (no money, pay or secrets; ≤ 600 characters). They arrive as **🤖 Buddy · Company** in private chats — or, if an admin turned on *Buddy posts reminders in the group* (0073), task reminders and follow-ups go to the company group with the person tagged (escalations stay private). Owners/admins can also say "tell the group …" in the app to post there at once; at most `max_messages_per_person_per_day`, and not in quiet hours. A reply to one is an ordinary Buddy turn. See [autonomy.md](autonomy.md).
 
 ## Groups vs private chats
 

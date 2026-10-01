@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { loadPolicy } from './policy.js';
 import * as jobs from './jobs.js';
-import { HANDLERS } from './handlers.js';
+import { HANDLERS, groupPostsOn } from './handlers.js';
 import { observeAll } from './observe.js';
 import { sessionFor } from './session.js';
 import { act, approvalNotice, approvalLink } from './act.js';
@@ -45,6 +45,10 @@ function envFor(job, { now, callModel }) {
     async buddy() {
       memo.buddy = memo.buddy || sessionFor(job, { as: { kind: 'buddy' }, policy: await env.policy() });
       return memo.buddy;
+    },
+    async groupPosts() {
+      memo.groupPosts = memo.groupPosts ?? groupPostsOn(job.org_id);
+      return memo.groupPosts;
     },
     async actor() {
       memo.actor = memo.actor || sessionFor(job, { policy: await env.policy() });

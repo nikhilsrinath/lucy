@@ -14,7 +14,8 @@ import { appUrl } from './render.js';
  *   link_token        everyone: a one-time deep link that links MY Telegram
  *                     (15 minutes)
  *   unlink            everyone for themselves; admins for anyone
- *   settings          admin: Telegram on/off, Daily Pulse on/off and hour
+ *   settings          admin: Telegram on/off, Daily Pulse on/off and hour,
+ *                     Buddy's group posts on/off and which group (0073)
  *   invite_token      admin: a one-time deep link for a member (48 hours)
  *   person_invite     admin: a one-time deep link for a company PERSON in
  *                     Team, who needs no StartupBuddy login (48 hours, 0071)
@@ -74,11 +75,23 @@ export async function manage(req, res) {
       case 'status': return res.status(200).json({ success: true, ...(await status({ user, orgId, admin, token: bearerToken(req) })) });
 
       case 'settings': {
-        const saved = await store.saveOrgSettings(orgId, {
-          enabled: body.enabled, pulse_enabled: body.pulse_enabled,
-          pulse_hour: body.pulse_hour === undefined ? undefined : Number(body.pulse_hour),
-        }, user.id);
-        return res.status(200).json({ success: true, settings: { enabled: saved.enabled, pulse_enabled: saved.pulse_enabled, pulse_hour: saved.pulse_hour } });
+        let saved;
+        try {
+          saved = await store.saveOrgSettings(orgId, {
+            enabled: body.enabled, pulse_enabled: body.pulse_enabled,
+            pulse_hour: body.pulse_hour === undefined ? undefined : Number(body.pulse_hour),
+            group_posts: body.group_posts,
+            group_chat_ref: body.group_chat_ref === undefined ? undefined : (isUuid(body.group_chat_ref) ? body.group_chat_ref : null),
+          }, user.id);
+        } catch (err) {
+          if (err.status === 404) throw new HttpError(404, err.message);
+          if (/group_posts|group_chat_ref/.test(err.message || '')) throw new HttpError(503, 'Group posting needs migration 0073 on this database.');
+          throw err;
+        }
+        return res.status(200).json({ success: true, settings: {
+          enabled: saved.enabled, pulse_enabled: saved.pulse_enabled, pulse_hour: saved.pulse_hour,
+          group_posts: !!saved.group_posts, group_chat_ref: saved.group_chat_ref || null,
+        } });
       }
 
       case 'person_invite': {
@@ -179,6 +192,8 @@ async function status({ user, orgId, admin, token }) {
     enabled: settings.enabled,
     pulse_enabled: settings.pulse_enabled,
     pulse_hour: settings.pulse_hour,
+    group_posts: !!settings.group_posts,
+    group_chat_ref: settings.group_chat_ref || null,
     admin,
     me: linkView(mine),
   };

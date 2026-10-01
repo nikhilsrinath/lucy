@@ -226,3 +226,80 @@ export async function deliverPrivate({ orgId, employeeId, text, senderName = nul
     delivered_at: new Date().toISOString(),
   };
 }
+
+/* ── the company group (0073) ───────────────────────────────────────────────
+   A message from Buddy to the company's connected Telegram group. As with a
+   private message, nothing here takes a chat id from the caller: the group is
+   the one the company chose in Settings (org_telegram.group_chat_ref), or its
+   only connected group, re-read on every call and only while connected. A
+   person it is about is tagged by their Telegram @username when their link
+   has one (Telegram then notifies them), else by name. Everyone in the group
+   reads it, so money, pay and secrets never go there autonomously
+   (routineIssue) and secrets never at all. */
+
+/** The group Buddy may post in for this company, or why not. */
+export async function groupChannel(orgId) {
+  if (!orgId) return { ok: false, code: 'not_found', message: 'I could not find your company.' };
+  if (!bot.isConfigured()) return { ok: false, code: 'not_configured', message: 'The Telegram bot is not set up for StartupBuddy yet.' };
+  const settings = await store.orgSettings(orgId);
+  if (!settings.enabled) return { ok: false, code: 'disabled', message: 'Telegram is switched off for this company. An admin can turn it on in Settings → Telegram.' };
+  const groups = (await store.chatsForOrg(orgId)).filter((g) => g.org_id === orgId && !g.disconnected_at && Number(g.chat_id) < 0);
+  const chosen = settings.group_chat_ref ? groups.find((g) => g.id === settings.group_chat_ref) : null;
+  const group = chosen || (groups.length === 1 ? groups[0] : null);
+  if (!group) {
+    return groups.length
+      ? { ok: false, code: 'no_group_chosen', message: 'Several Telegram groups are connected. An admin picks the one Buddy posts in, in Settings → Telegram.' }
+      : { ok: false, code: 'no_group', message: 'No Telegram group is connected to this company yet. An admin connects one in Settings → Telegram.' };
+  }
+  return { ok: true, group, settings };
+}
+
+/** How a person is tagged in the group: @username if their live link has one, else their name. */
+async function mentionFor(orgId, employeeId) {
+  if (!employeeId) return null;
+  const person = await store.personInOrg(orgId, employeeId);
+  if (!person || person.org_id !== orgId) return null;
+  const link = await liveLink(orgId, person).catch(() => null);
+  const username = link?.telegram_username && /^[A-Za-z0-9_]{5,32}$/.test(link.telegram_username) ? link.telegram_username : null;
+  return { person, text: username ? `@${username}` : `<b>${bot.esc(person.full_name)}</b>` };
+}
+
+export function formatGroupMessage(text, { mention = null, orgName = null, fromBuddy = true, senderName = null }) {
+  const head = fromBuddy || !senderName || senderName === 'you'
+    ? `🤖 <b>Buddy</b>${orgName ? ` · ${bot.esc(orgName)}` : ''}`
+    : `💬 <b>${bot.esc(senderName)}</b> via Buddy`;
+  return `${head}\n\n${mention ? `${mention.text} ` : ''}${bot.esc(text)}`;
+}
+
+/** Posts one message in the company group. Re-checked at the moment of sending. */
+export async function deliverGroup({ orgId, text, mentionEmployeeId = null, orgName = null, fromBuddy = true, senderName = null }, { send = bot.sendMessage } = {}) {
+  const body = String(text || '').trim();
+  if (!body) throw new DeliveryError('empty', 'The message is empty.');
+  if (body.length > MAX_MESSAGE) throw new DeliveryError('too_long', `The message is too long for Telegram (${MAX_MESSAGE} characters at most).`);
+  if (topicsOf(body).some((t) => t.never)) throw new DeliveryError('secret', 'I don\'t post passwords, keys or bank details in a group.');
+  const g = await groupChannel(orgId);
+  if (!g.ok) throw new DeliveryError(g.code, g.message);
+  const mention = await mentionFor(orgId, mentionEmployeeId);
+  let sent;
+  try {
+    sent = await send(g.group.chat_id, formatGroupMessage(body, { mention, orgName, fromBuddy, senderName }));
+  } catch (err) {
+    const why = String(err?.description || '');
+    console.warn('[telegram] group message failed', { orgId, chatRef: g.group.id, status: err?.status ?? null });
+    if (/kicked|not a member|chat not found|have no rights|not enough rights/i.test(why)) {
+      throw new DeliveryError('group_gone', 'Buddy can\'t post in the team group any more (it was removed or lost its rights). Reconnect the group in Settings → Telegram.');
+    }
+    throw new DeliveryError('telegram', 'Telegram couldn\'t post this in the group. Try again in a moment.');
+  }
+  if (!sent || !Number.isFinite(Number(sent.message_id))) throw new DeliveryError('telegram', 'Telegram couldn\'t post this in the group. Try again in a moment.');
+  return {
+    chat: 'group',
+    telegram_chat_ref: g.group.id,
+    group_title: g.group.title || null,
+    mentioned_person_id: mention?.person.id || null,
+    telegram_message_id: sent.message_id,
+    characters: body.length,
+    from: fromBuddy ? 'buddy' : 'person',
+    delivered_at: new Date().toISOString(),
+  };
+}

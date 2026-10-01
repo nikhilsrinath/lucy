@@ -53,7 +53,7 @@ export async function recentUpdateCount(telegramUserId, windowMs) {
 
 /* ── company settings ─────────────────────────────────────────────────────── */
 
-const DEFAULT_SETTINGS = { enabled: false, pulse_enabled: false, pulse_hour: 18 };
+const DEFAULT_SETTINGS = { enabled: false, pulse_enabled: false, pulse_hour: 18, group_posts: false, group_chat_ref: null };
 
 export async function orgSettings(orgId) {
   const { data, error } = await db().from('org_telegram').select('*').eq('org_id', orgId).maybeSingle();
@@ -63,7 +63,14 @@ export async function orgSettings(orgId) {
 
 export async function saveOrgSettings(orgId, patch, userId) {
   const row = { org_id: orgId, updated_by: userId };
-  for (const k of ['enabled', 'pulse_enabled']) if (typeof patch[k] === 'boolean') row[k] = patch[k];
+  for (const k of ['enabled', 'pulse_enabled', 'group_posts']) if (typeof patch[k] === 'boolean') row[k] = patch[k];
+  // The group Buddy posts in (0073): one of THIS company's connected groups, or none.
+  if (patch.group_chat_ref === null) row.group_chat_ref = null;
+  else if (typeof patch.group_chat_ref === 'string') {
+    const { data: g } = await db().from('telegram_chats').select('id').eq('id', patch.group_chat_ref).eq('org_id', orgId).is('disconnected_at', null).maybeSingle();
+    if (!g) throw Object.assign(new Error('That group is not connected to this company.'), { status: 404 });
+    row.group_chat_ref = g.id;
+  }
   if (Number.isInteger(patch.pulse_hour) && patch.pulse_hour >= 0 && patch.pulse_hour <= 23) row.pulse_hour = patch.pulse_hour;
   return must(await db().from('org_telegram').upsert(row, { onConflict: 'org_id' }).select().single());
 }

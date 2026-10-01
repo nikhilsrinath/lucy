@@ -116,6 +116,30 @@ export default function TelegramSettings({ orgId }) {
                                 ))}
                             </Card>
 
+                            {(s.groups || []).length > 0 && (
+                                <Card list style={{ marginTop: 10 }}>
+                                    <div className="sb-kvr">
+                                        <span>
+                                            <b style={{ fontSize: 14 }}>Buddy posts reminders in the group</b>
+                                            <small style={{ display: 'block', color: 'var(--muted)', fontSize: 12 }}>Task reminders and follow-ups go to the group, tagging the person, instead of their private chat. Nothing about money or pay; escalations to you stay private.</small>
+                                        </span>
+                                        <Switch label="Buddy posts reminders in the group" checked={!!s.group_posts} disabled={!!busy}
+                                            onChange={(v) => run('group-posts', () => api({ mode: 'settings', org_id: orgId, group_posts: v }))} />
+                                    </div>
+                                    {(s.groups || []).length > 1 && (
+                                        <div className="sb-kvr">
+                                            <span style={{ color: 'var(--muted)', fontSize: 13 }}>Post in</span>
+                                            <select aria-label="Group Buddy posts in" value={s.group_chat_ref || ''} disabled={!!busy}
+                                                onChange={(e) => run('group-pick', () => api({ mode: 'settings', org_id: orgId, group_chat_ref: e.target.value || null }))}
+                                                style={{ height: 36, border: '1px solid var(--line)', borderRadius: 8, padding: '0 8px', font: 'inherit', fontSize: 14, width: 'auto', background: 'var(--surface)' }}>
+                                                <option value="">Choose a group…</option>
+                                                {s.groups.map((g) => <option key={g.id} value={g.id}>{g.title}</option>)}
+                                            </select>
+                                        </div>
+                                    )}
+                                </Card>
+                            )}
+
                             <Card list style={{ marginTop: 10 }}>
                                 <div className="sb-kvr"><span><b style={{ fontSize: 14 }}>Members on Telegram</b>
                                     <small style={{ display: 'block', color: 'var(--muted)', fontSize: 12 }}>StartupBuddy logins linked to Telegram. Their role and permissions apply on Telegram too, and removing someone here ends their Telegram access.</small></span></div>

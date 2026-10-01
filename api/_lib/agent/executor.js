@@ -1,6 +1,6 @@
 import { AgentError, friendlyDbError } from './db.js';
 import { sendOrgMail } from '../mailer.js';
-import { deliverPrivate, DeliveryError } from '../telegram/outbound.js';
+import { deliverPrivate, deliverGroup, DeliveryError } from '../telegram/outbound.js';
 import * as jobs from '../autonomy/jobs.js';
 import { startFollowup, cancelWorkflow } from '../autonomy/workflows.js';
 
@@ -26,6 +26,7 @@ import { startFollowup, cancelWorkflow } from '../autonomy/workflows.js';
  *   { op: 'rpc',    fn, params }
  *   { op: 'email',  orgId, userId, to, subject, text, fromName }
  *   { op: 'telegram', orgId, employeeId, text, senderName, orgName, fromBuddy? }
+ *   { op: 'telegram_group', orgId, text, mentionEmployeeId?, orgName, fromBuddy, senderName }   (0073)
  *   { op: 'job',      orgId, kind, dedupeKey, runAt, actor, payload }   (0072)
  *   { op: 'cancel_job', orgId, jobId }
  *   { op: 'workflow', orgId, taskId, assigneeId, initiator, goal, settings }
@@ -159,6 +160,14 @@ async function applyOp(db, op) {
         throw new AgentError(err instanceof DeliveryError ? err.message : 'Telegram couldn’t deliver this message.', { code: 'telegram', detail: err instanceof DeliveryError ? err.code : 'telegram' });
       }
     }
+    case 'telegram_group': {
+      try {
+        const sent = await deliverGroup(op);
+        return { op: 'telegram_group', table: null, id: null, before: null, after: sent, ok: true };
+      } catch (err) {
+        throw new AgentError(err instanceof DeliveryError ? err.message : 'Telegram couldn’t post this in the group.', { code: 'telegram', detail: err instanceof DeliveryError ? err.code : 'telegram' });
+      }
+    }
     case 'job': {
       const job = await jobs.enqueue({ orgId: op.orgId, kind: op.kind, dedupeKey: op.dedupeKey, runAt: op.runAt, actor: op.actor, payload: op.payload, source: op.source || 'action' });
       if (!job.id) throw new AgentError('Could not schedule that.', { code: 'schedule' });
@@ -244,7 +253,7 @@ export function undoPlan(results) {
     } else if (r.op === 'job') {
       // A scheduled job not yet run is cancelled; one that ran cannot be undone.
       plan.push({ op: 'cancel_job', orgId: r.after?.org_id, jobId: r.after?.job_id });
-    } else if (r.op === 'delete' || r.op === 'email' || r.op === 'telegram' || r.op === 'workflow' || r.op === 'workflow_cancel') {
+    } else if (r.op === 'delete' || r.op === 'email' || r.op === 'telegram' || r.op === 'telegram_group' || r.op === 'workflow' || r.op === 'workflow_cancel') {
       return null;
     }
   }
