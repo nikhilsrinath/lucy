@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { validateMessage, sanitizeFromName } from './email.js';
+import { validateMessage, sanitizeFromName } from '../../email.js';
 
 /**
  * FIX_PLAN item 7's remaining guards: recipient validation, the 50-address cap,

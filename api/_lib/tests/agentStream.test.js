@@ -8,7 +8,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  */
 
 const state = { user: { id: 'u-1', email: 'a@b.c' }, authError: null, sessionError: null, order: [] };
-vi.mock('./_lib/auth.js', async (importOriginal) => {
+vi.mock('../auth.js', async (importOriginal) => {
   const real = await importOriginal();
   return {
     ...real,
@@ -19,7 +19,7 @@ vi.mock('./_lib/auth.js', async (importOriginal) => {
     },
   };
 });
-vi.mock('./_lib/agent/buddy.js', () => ({
+vi.mock('../agent/buddy.js', () => ({
   openSession: vi.fn(async () => {
     state.order.push('session');
     if (state.sessionError) throw state.sessionError;
@@ -28,12 +28,12 @@ vi.mock('./_lib/agent/buddy.js', () => ({
   chat: vi.fn(async (_ctx, _turn, emit) => { state.order.push('chat'); emit('text', { text: 'hello' }); }),
   resume: vi.fn(), confirm: vi.fn(), cancel: vi.fn(), undo: vi.fn(), retry: vi.fn(), status: vi.fn(), insights: vi.fn(), activity: vi.fn(),
 }));
-vi.mock('./_lib/aiUsage.js', () => ({ bumpAiUsage: async () => { state.order.push('usage'); return 1; }, logAiUsage: async () => null }));
-vi.mock('./_lib/autonomy/worker.js', () => ({ runWorker: vi.fn(), recentJobs: vi.fn() }));
-vi.mock('./_lib/autonomy/policy.js', () => ({ loadPolicy: vi.fn(), savePolicy: vi.fn(), catalogue: vi.fn() }));
+vi.mock('../aiUsage.js', () => ({ bumpAiUsage: async () => { state.order.push('usage'); return 1; }, logAiUsage: async () => null }));
+vi.mock('../autonomy/worker.js', () => ({ runWorker: vi.fn(), recentJobs: vi.fn() }));
+vi.mock('../autonomy/policy.js', () => ({ loadPolicy: vi.fn(), savePolicy: vi.fn(), catalogue: vi.fn() }));
 
-const { default: handler } = await import('./agent.js');
-const { HttpError } = await import('./_lib/auth.js');
+const { default: handler } = await import('../../agent.js');
+const { HttpError } = await import('../auth.js');
 
 function call(body, { method = 'POST' } = {}) {
   const res = {

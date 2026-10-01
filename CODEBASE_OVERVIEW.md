@@ -734,7 +734,7 @@ Expected output is in `expected/day_one_access.out`. It covers every table under
 | `test` / `test:watch` | Vitest over `src/**/*.test.*` and `api/**/*.test.*`, with placeholder Supabase env and no network |
 | `preview` | `vite preview` |
 
-**Unit tests:** `api/email.test.js`, `api/_lib/brainRetrieval.test.js`, `src/services/{cashIntent,customerService,financeAnalytics,leaveService,salesGeoService,companyMemory}.test.*`, `src/components/overview/overviewModel.test.js`, `src/utils/htmlEscape.test.js`.
+**Unit tests:** `api/_lib/tests/email.test.js`, `api/_lib/brainRetrieval.test.js`, `src/services/{cashIntent,customerService,financeAnalytics,leaveService,salesGeoService,companyMemory}.test.*`, `src/components/overview/overviewModel.test.js`, `src/utils/htmlEscape.test.js`.
 
 **Deploy:** `vercel.json` passes `/api/*` through to functions and sends everything else to `index.html`. `netlify.toml` is an SPA fallback only; no functions run there.
 
