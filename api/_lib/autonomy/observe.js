@@ -6,6 +6,7 @@ import * as jobs from './jobs.js';
 import * as workflows from './workflows.js';
 import { atLocal, localNow } from './time.js';
 import { orgBasics } from '../telegram/store.js';
+import { groupPostsOn } from './handlers.js';
 import { jlog } from './log.js';
 
 /**
@@ -94,16 +95,19 @@ export async function observeOrg(org, { now = new Date(), session = openBuddySes
   if (error) throw new jobs.TransientError(`task read failed: ${error.message}`, 'db');
   const followed = new Set((await workflows.liveWorkflows(orgId)).map((w) => w.task_id));
   const reachable = await reachablePeople(orgId);
+  // With group posts on (0073), anyone assigned can be reminded: in the group.
+  const viaGroup = await groupPostsOn(orgId);
+  const canReach = (id) => !!id && (viaGroup || reachable.has(id));
   let escalations = 0;
   for (const t of tasks || []) {
     if (t.org_id !== orgId || t.status === 'done' || !t.deadline || followed.has(t.id)) continue;
     const payload = { task_id: t.id, deadline: t.deadline };
     if (t.deadline >= today) {
-      if (s.deadline_reminders && t.assignee_id && reachable.has(t.assignee_id)) {
+      if (s.deadline_reminders && canReach(t.assignee_id)) {
         await add({ kind: 'task_due_soon', dedupeKey: `task_due_soon:${t.id}:${t.deadline}`, payload });
       }
     } else {
-      if (s.overdue_followups && t.assignee_id && reachable.has(t.assignee_id)) {
+      if (s.overdue_followups && canReach(t.assignee_id)) {
         await add({ kind: 'task_overdue', dedupeKey: `task_overdue:${t.id}:${t.deadline}`, payload });
       }
       if (s.escalate && t.deadline <= shiftDays(today, -s.escalate_after_days)) escalations += 1;

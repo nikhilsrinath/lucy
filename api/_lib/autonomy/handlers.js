@@ -11,6 +11,8 @@ import { runChat } from '../agent/loop.js';
 import { bumpAiUsage, logAiUsage } from '../aiUsage.js';
 import { AGENT_MODEL } from '../agent/model.js';
 import { sendPulse } from '../telegram/pulse.js';
+import { orgSettings } from '../telegram/store.js';
+import { groupChannel } from '../telegram/outbound.js';
 
 /**
  * What Buddy does when a job becomes due — one handler per event kind.
@@ -84,13 +86,27 @@ async function liveWorkflowTaskIds(orgId) {
 
 /* ── one routine message ──────────────────────────────────────────────────── */
 
-/** Autonomous Telegram messages this person got from Buddy in the last day. */
+/** Autonomous Telegram messages to (or tagging) this person from Buddy in the last day. */
 export async function messagesToday(orgId, personId, now = new Date()) {
   const since = new Date(now.getTime() - 86400000).toISOString();
   const { data } = await db().from('ai_actions').select('id, args, executed_at')
-    .eq('org_id', orgId).eq('tool', 'send_telegram_message').eq('autonomous', true).eq('status', 'executed')
-    .gte('executed_at', since).limit(100);
-  return (data || []).filter((r) => r.args?.recipient_person_id === personId).length;
+    .eq('org_id', orgId).in('tool', ['send_telegram_message', 'send_telegram_group_message']).eq('autonomous', true).eq('status', 'executed')
+    .gte('executed_at', since).limit(200);
+  return (data || []).filter((r) => (r.args?.recipient_person_id || r.args?.mention_person_id) === personId).length;
+}
+
+/**
+ * Whether this company wants Buddy's task reminders in its team group
+ * (Settings → Telegram, 0073) and has a group Buddy can post in.
+ */
+export async function groupPostsOn(orgId) {
+  try {
+    const settings = await orgSettings(orgId);
+    if (!settings.group_posts) return false;
+    return (await groupChannel(orgId)).ok;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -98,7 +114,7 @@ export async function messagesToday(orgId, personId, now = new Date()) {
  * waits) or this person already had their share today (suppressed, not
  * retried — no spam). Returns act()'s result, or { deferred } / { suppressed }.
  */
-async function sendRoutine(env, ctx, { recipientId, text, key, workflowId = null, reason = null, respectQuiet = true, respectCap = true }) {
+async function sendRoutine(env, ctx, { recipientId, text, groupText = null, key, workflowId = null, reason = null, respectQuiet = true, respectCap = true }) {
   const settings = env.settings;
   if (respectQuiet) {
     const until = quietUntil(settings, ctx.tz, env.now);
@@ -107,6 +123,13 @@ async function sendRoutine(env, ctx, { recipientId, text, key, workflowId = null
   if (respectCap && await messagesToday(ctx.orgId, recipientId, env.now) >= settings.max_messages_per_person_per_day) {
     jlog('message.suppressed', { job_id: env.job.id, org_id: ctx.orgId, reason: 'daily_cap' });
     return { status: 'suppressed' };
+  }
+  // A task reminder or follow-up goes to the team group, the person tagged,
+  // when the company turned that on (0073); everything else stays private.
+  if (groupText && await env.groupPosts()) {
+    return act(ctx, 'send_telegram_group_message', { message: groupText, mention_person_id: recipientId }, {
+      key, reason, workflowId, notify: env.notifyApprover,
+    });
   }
   return act(ctx, 'send_telegram_message', { recipient_person_id: recipientId, message: text }, {
     key, reason, workflowId, notify: env.notifyApprover,
@@ -153,7 +176,8 @@ async function taskDueSoon(job, env) {
   const person = await readPerson(ctx, task.assignee_id);
   const text = `⏰ Hi ${first(person?.full_name)}, a reminder: “${task.title}” is due ${when(deadline, ctx.today)}. `
     + 'Reply here when it’s done, or tell me if anything is blocking it.';
-  return messageOutcome(await sendRoutine(env, ctx, { recipientId: task.assignee_id, text, key: `ev:${job.dedupe_key}`, reason: `Due ${deadline}` }), { task_id: taskId });
+  const groupText = `⏰ “${task.title}” is due ${when(deadline, ctx.today)}. Reply to this message when it’s done, or if anything is blocking it.`;
+  return messageOutcome(await sendRoutine(env, ctx, { recipientId: task.assignee_id, text, groupText, key: `ev:${job.dedupe_key}`, reason: `Due ${deadline}` }), { task_id: taskId });
 }
 
 /** task_overdue { task_id, deadline } — one follow-up with the assignee per missed deadline. */
@@ -170,7 +194,8 @@ async function taskOverdue(job, env) {
   const person = await readPerson(ctx, task.assignee_id);
   const text = `Hi ${first(person?.full_name)}, “${task.title}” was due ${formatDate(deadline)} and isn’t marked done yet. `
     + 'Is it finished, or do you need more time? Reply here and I’ll update it.';
-  return messageOutcome(await sendRoutine(env, ctx, { recipientId: task.assignee_id, text, key: `ev:${job.dedupe_key}`, reason: `Overdue since ${deadline}` }), { task_id: taskId });
+  const groupText = `“${task.title}” was due ${formatDate(deadline)} and isn’t marked done yet. Is it finished, or do you need more time? Reply to this message and I’ll update it.`;
+  return messageOutcome(await sendRoutine(env, ctx, { recipientId: task.assignee_id, text, groupText, key: `ev:${job.dedupe_key}`, reason: `Overdue since ${deadline}` }), { task_id: taskId });
 }
 
 /**
@@ -308,7 +333,8 @@ async function workflowCheck(job, env) {
       const by = D ? ` by ${D === today ? 'today' : formatDate(D)}` : '';
       const who = initiator && initiator.id !== assigneeId ? `${first(initiator.full_name)} asked me to make sure` : 'I’ll make sure';
       res = await send(assignee, `👋 Hi ${first(assignee?.full_name)}, ${who} “${task.title}” gets done${by}. `
-        + `${D && D > today ? 'I’ll remind you on the day. ' : ''}If anything blocks you, just reply here.`, 'kickoff');
+        + `${D && D > today ? 'I’ll remind you on the day. ' : ''}If anything blocks you, just reply here.`, 'kickoff',
+      { groupText: `${who} “${task.title}” gets done${by}. ${D && D > today ? 'I’ll remind you on the day. ' : ''}If anything blocks you, reply to this message.` });
       next = nextFromDeadline();
       if (next.phase === 'overdue' && D && D < today) next = { phase: 'overdue', runAt: env.now };
       break;
@@ -316,7 +342,8 @@ async function workflowCheck(job, env) {
     case 'due': {
       if (!D || D > today) { next = nextFromDeadline(); break; }
       if (D === today) {
-        res = await send(assignee, `⏰ Hi ${first(assignee?.full_name)}, “${task.title}” is due today. Reply here when it’s done, or tell me if you need more time.`, 'due');
+        res = await send(assignee, `⏰ Hi ${first(assignee?.full_name)}, “${task.title}” is due today. Reply here when it’s done, or tell me if you need more time.`, 'due',
+          { groupText: `⏰ “${task.title}” is due today. Reply to this message when it’s done, or if you need more time.` });
       }
       next = { phase: 'overdue', runAt: D === today ? at(shiftDays(D, 1)) : env.now };
       break;
@@ -324,7 +351,8 @@ async function workflowCheck(job, env) {
     case 'overdue': {
       if (!D || D >= today) { next = nextFromDeadline(); break; }
       res = await send(assignee, `Hi ${first(assignee?.full_name)}, “${task.title}” was due ${formatDate(D)} and isn’t marked done yet. `
-        + 'Is it finished, or do you need more time? Reply here and I’ll update it.', 'overdue');
+        + 'Is it finished, or do you need more time? Reply here and I’ll update it.', 'overdue',
+      { groupText: `“${task.title}” was due ${formatDate(D)} and isn’t marked done yet. Is it finished, or do you need more time? Reply to this message and I’ll update it.` });
       state.followups = (Number(state.followups) || 0) + (res.status === 'executed' ? 1 : 0);
       next = s.escalate
         ? { phase: 'escalate', runAt: at(shiftDays(D, s.escalate_after_days)) }

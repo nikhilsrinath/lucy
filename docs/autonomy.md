@@ -142,6 +142,29 @@ Messages Buddy sends on its own say **🤖 Buddy · Company**, never a person's 
 
 **Approving Buddy-raised requests.** An approval request raised by the Buddy principal can be approved in the app by an owner or admin. Approving *adopts* it: it becomes their action (`approved_by`), is executed with their permissions, and is audited as `edgeai`.
 
+## The team group (migration `0073_telegram_group_posts.sql`)
+
+**Posting from the app.** An owner or admin tells Buddy, in the app or a private Telegram chat:
+- "tell the group standup moved to 5"
+- "let everyone know the sponsor confirmed, tag Swetha"
+
+The tool is `send_telegram_group_message`. It posts **at once, with no card**. It is still an audited action (`autonomous`, rule `tool_default_autonomous`, trigger `interactive`).
+- Text that mentions money or pay becomes a card to confirm.
+- Passwords, keys and bank details are never posted.
+
+It is not offered to linked people, to members, or inside the group itself.
+
+**Automatic posting (opt-in).** Settings → Telegram → **Buddy posts reminders in the group**:
+- These go to the group, tagging the person by their Telegram @username (or by name): due-soon reminders, due-today reminders, overdue follow-ups, and the follow-through kickoff.
+- These stay private: escalations to the founder, "done" notices, approval notices, reminders people scheduled for themselves, and check reports.
+- With this on, assignees who never started a private chat with the bot get reminded too, in the group.
+- Quiet hours and the daily per-person cap still apply.
+
+**Which group.**
+- If the company has one connected group, Buddy uses it. If it has several, an admin picks one; until then, Buddy falls back to private chats.
+- The database only accepts one of the company's own groups (composite foreign key).
+- A disconnected group is never used, and the model never supplies a chat id.
+
 ## Retries, idempotency and failure
 
 - **Claim.** A job is claimed atomically with a 120-second lease. A crashed worker's job is reclaimed after the lease expires, as a new attempt. When no attempts remain, it fails.

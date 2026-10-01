@@ -325,6 +325,28 @@ do $$ begin
   end;
 end $$;
 
+-- ── the team group (0073) ───────────────────────────────────────────────────
+insert into public.org_telegram (org_id, enabled) values
+  ('e1610000-0000-0000-0000-00000000000a', true), ('e1610000-0000-0000-0000-00000000000b', true);
+insert into public.telegram_chats (id, org_id, chat_id, chat_type, title) values
+  ('e16d0000-0000-0000-0000-00000000000a', 'e1610000-0000-0000-0000-00000000000a', -100111, 'supergroup', 'A team'),
+  ('e16d0000-0000-0000-0000-00000000000b', 'e1610000-0000-0000-0000-00000000000b', -100222, 'supergroup', 'B team');
+select pg_temp.check((select not group_posts and group_chat_ref is null from public.org_telegram where org_id = 'e1610000-0000-0000-0000-00000000000a'),
+  'group posts are off by default');
+do $$ begin
+  begin
+    update public.org_telegram set group_chat_ref = 'e16d0000-0000-0000-0000-00000000000b' where org_id = 'e1610000-0000-0000-0000-00000000000a';
+    raise exception 'FAIL  a company pointed Buddy at another company''s group';
+  exception when foreign_key_violation then raise notice '  PASS  Buddy''s group must be one of the company''s own';
+  end;
+end $$;
+update public.org_telegram set group_posts = true, group_chat_ref = 'e16d0000-0000-0000-0000-00000000000a' where org_id = 'e1610000-0000-0000-0000-00000000000a';
+delete from public.telegram_chats where id = 'e16d0000-0000-0000-0000-00000000000a';
+select pg_temp.check((select group_chat_ref is null and group_posts from public.org_telegram where org_id = 'e1610000-0000-0000-0000-00000000000a'),
+  'removing the group clears the choice (and nothing else)');
+select pg_temp.check(pg_temp.user_err('e1600000-0000-0000-0000-000000000001', $q$update public.org_telegram set group_posts = false$q$) is not null,
+  'no client role changes the group setting (the API does, after an admin check)');
+
 rollback;
 
 -- ── concurrency: two workers at the same moment (separate sessions) ────────

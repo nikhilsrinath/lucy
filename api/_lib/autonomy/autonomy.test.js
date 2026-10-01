@@ -84,6 +84,7 @@ const T_PRIYA = '11111111-0000-4000-8000-000000000003';  // Priya (link revoked)
 const T_B = '11111111-0000-4000-8000-000000000009';      // ANOTHER company's task
 
 const TZ = 'Asia/Kolkata';
+const GROUP = -1001234567890;
 const START = '2026-09-26T06:00:00.000Z'; // 11:30 IST — outside quiet hours
 const ALL = { view: true, create: true, edit: true, delete: true };
 const OPS = { view: true, create: true, edit: true, delete: false };
@@ -143,7 +144,7 @@ function world({ policy = null } = {}) {
       { org_id: ORG_B, enabled: true, pulse_enabled: false, pulse_hour: 18 },
     ],
     telegram_links: [
-      link('l-swetha', { employee_id: SWETHA, telegram_user_id: 7001, dm_chat_id: 7001 }),
+      link('l-swetha', { employee_id: SWETHA, telegram_user_id: 7001, dm_chat_id: 7001, telegram_username: 'swetha_nm' }),
       link('l-madhes', { employee_id: MADHES, telegram_user_id: 7002, dm_chat_id: 7002 }),
       link('l-nikhil', { user_id: NIKHIL_USER, telegram_user_id: 7003, dm_chat_id: 7003, linked_via: 'self' }),
       link('l-priya', { employee_id: PRIYA, telegram_user_id: 7006, dm_chat_id: 7006, revoked_at: '2026-09-25T10:00:00Z' }),
@@ -151,6 +152,10 @@ function world({ policy = null } = {}) {
     ],
     role_permissions: RESOURCES.map((resource) => ({ org_id: ORG, role: 'admin', resource, can_view: true })),
     memberships: [{ id: 'm-1', org_id: ORG, user_id: NIKHIL_USER, role: 'owner' }],
+    telegram_chats: [
+      { id: 'g-team', org_id: ORG, chat_id: GROUP, chat_type: 'supergroup', title: 'Catalysis23 Team', disconnected_at: null, connected_at: '2026-09-01' },
+      { id: 'g-other', org_id: ORG_B, chat_id: -1009999, chat_type: 'supergroup', title: 'Other Co', disconnected_at: null, connected_at: '2026-09-01' },
+    ],
     buddy_autonomy_policies: policy ? [{ org_id: ORG, enabled: true, rules: {}, settings: {}, version: 1, ...policy }] : [],
     ai_actions: [],
     buddy_jobs: [],
@@ -1023,5 +1028,118 @@ describe('time', () => {
 
   it('kick never throws', async () => {
     expect(await kick(ORG, [])).toEqual({ processed: 0, jobs: [] });
+  });
+});
+
+/* ── the team group (0073) ────────────────────────────────────────────────── */
+
+describe('Buddy in the team group', () => {
+  const groupOn = (extra = {}) => Object.assign(rows('org_telegram').find((r) => r.org_id === ORG), { group_posts: true, ...extra });
+  const say = (args, ctx = interactive(nikhilCtx())) => propose(getTool('send_telegram_group_message'), args, ctx, { chatId: 'c1' });
+
+  it('"tell the group standup moved to 5" from the PWA posts at once — no card', async () => {
+    const out = await say({ message: 'Standup moved to 5 PM today.' });
+    expect(out.card.status).toBe('executed');
+    expect(sent).toHaveLength(1);
+    expect(sent[0].chatId).toBe(GROUP);
+    expect(sent[0].html).toContain('💬 <b>Nikhil</b> via Buddy');
+    expect(sent[0].html).toContain('Standup moved to 5 PM today.');
+    const a = actionsOf('send_telegram_group_message')[0];
+    expect(a).toMatchObject({ autonomous: true, user_id: NIKHIL_USER, actor_kind: 'user', status: 'executed', policy_decision: { rule: 'tool_default_autonomous', trigger: 'interactive' } });
+    expect(a.after_state[0]).toMatchObject({ chat: 'group', telegram_chat_ref: 'g-team', telegram_message_id: expect.any(Number) });
+    expect(JSON.stringify(a.after_state)).not.toContain(String(GROUP)); // no chat id in the record
+  });
+
+  it('tags a person by their Telegram @username', async () => {
+    await say({ message: 'the sponsor confirmed — great work!', mention: 'Swetha' });
+    expect(sent[0].html).toContain('@swetha_nm the sponsor confirmed');
+  });
+
+  it('anything about money or pay is a card; secrets are never posted', async () => {
+    const money = await say({ message: 'Acme paid ₹2 lakh today' });
+    expect(money.card.status).toBe('proposed');
+    expect(sent).toHaveLength(0);
+    const secret = await say({ message: 'the wifi password is hunter2' });
+    expect(secret.kind).toBe('none');
+    expect(secret.message).toMatch(/passwords, keys or bank details/);
+    expect(sent).toHaveLength(0);
+  });
+
+  it('is for owners and admins in a private conversation — not people, not inside the group', async () => {
+    const { toolsFor } = await import('../agent/registry.js');
+    const swetha = interactive(personCtx({ db: scoped(admin.db, ORG), employeeId: SWETHA }));
+    finishCtx(swetha, ORG);
+    expect(toolsFor(swetha).map((t) => t.name)).not.toContain('send_telegram_group_message');
+    const member = interactive(nikhilCtx());
+    member.role = 'member';
+    expect(toolsFor(member).map((t) => t.name)).not.toContain('send_telegram_group_message');
+    const inGroup = interactive(nikhilCtx());
+    inGroup.audience = 'shared';
+    expect(toolsFor(inGroup).map((t) => t.name)).not.toContain('send_telegram_group_message');
+  });
+
+  it('only ever posts in its own company\'s group', async () => {
+    rows('telegram_chats').find((g) => g.id === 'g-team').disconnected_at = '2026-09-25T00:00:00Z';
+    const out = await say({ message: 'hello team' });
+    expect(out.kind).toBe('none');
+    expect(out.message).toMatch(/No Telegram group is connected/);
+    expect(sent).toHaveLength(0); // never Other Co's group
+  });
+
+  it('with group posts on, Buddy\'s reminders go to the group with the person tagged — not privately', async () => {
+    groupOn();
+    await enqueueJob({ kind: 'task_due_soon', dedupeKey: `task_due_soon:${T_DECK}:2026-09-27`, payload: { task_id: T_DECK, deadline: '2026-09-27' } });
+    await runWorker({ observe: false });
+    expect(sent).toHaveLength(1);
+    expect(sent[0].chatId).toBe(GROUP);
+    expect(sent[0].html).toContain('🤖 <b>Buddy</b>');
+    expect(sent[0].html).toContain('@swetha_nm ⏰ “Send the sponsor deck” is due tomorrow');
+    expect(actionsOf('send_telegram_group_message')[0]).toMatchObject({ autonomous: true, actor_kind: 'buddy', args: { mention_person_id: SWETHA } });
+    // Running again sends nothing new.
+    await runWorker({ observe: false });
+    expect(sent).toHaveLength(1);
+  });
+
+  it('with group posts on, people without a private chat are reminded too (in the group)', async () => {
+    groupOn();
+    rows('tasks').push(task('11111111-0000-4000-8000-000000000007', 'Order the stickers', ARJUN, '2026-09-27', { assignee_label: 'Arjun' }));
+    await observeOrg({ org_id: ORG, pulse_enabled: false });
+    expect(jobsOf('task_due_soon').some((j) => j.payload.task_id === '11111111-0000-4000-8000-000000000007')).toBe(true);
+    await runWorker({ observe: false });
+    expect(sent.some((m) => m.chatId === GROUP && m.html.includes('<b>Arjun</b> ⏰ “Order the stickers”'))).toBe(true);
+  });
+
+  it('a follow-through posts in the group, but the escalation to the founder stays private', async () => {
+    groupOn();
+    await propose(getTool('start_followup'), { person: 'Swetha', task: 'Follow up with the sponsor', deadline: 'tomorrow' }, interactive(nikhilCtx()), { chatId: 'c1' });
+    expect(sent.at(-1).chatId).toBe(GROUP);
+    expect(sent.at(-1).html).toContain('@swetha_nm Nikhil asked me to make sure');
+    for (const day of ['2026-09-27', '2026-09-28', '2026-09-29']) {
+      at(`${day}T03:31:00Z`);
+      await runWorker({ observe: false });
+    }
+    expect(sent.filter((m) => m.chatId === GROUP)).toHaveLength(3); // kickoff, due today, overdue
+    expect(sent.at(-1).chatId).toBe(7003); // the escalation: Nikhil, privately
+    expect(sent.at(-1).html).toContain('overdue');
+  });
+
+  it('falls back to private chats when no group can be used (none connected, or several and none chosen)', async () => {
+    groupOn();
+    rows('telegram_chats').push({ id: 'g-2', org_id: ORG, chat_id: -1002222, chat_type: 'supergroup', title: 'Founders', disconnected_at: null });
+    await enqueueJob({ kind: 'task_due_soon', dedupeKey: `task_due_soon:${T_DECK}:2026-09-27`, payload: { task_id: T_DECK, deadline: '2026-09-27' } });
+    await runWorker({ observe: false });
+    expect(sent[0].chatId).toBe(7001);
+    // An admin picks the group: from then on it posts there.
+    groupOn({ group_chat_ref: 'g-2' });
+    await enqueueJob({ kind: 'task_overdue', dedupeKey: `task_overdue:${T_VENUE}:2026-09-22`, payload: { task_id: T_VENUE, deadline: '2026-09-22' } });
+    await runWorker({ observe: false });
+    expect(sent.at(-1).chatId).toBe(-1002222);
+  });
+
+  it('settings: a company can only pick one of its own connected groups', async () => {
+    const store = await import('../telegram/store.js');
+    await expect(store.saveOrgSettings(ORG, { group_chat_ref: 'g-other' }, NIKHIL_USER)).rejects.toThrow(/not connected to this company/);
+    const saved = await store.saveOrgSettings(ORG, { group_posts: true, group_chat_ref: 'g-team' }, NIKHIL_USER);
+    expect(saved).toMatchObject({ group_posts: true, group_chat_ref: 'g-team' });
   });
 });

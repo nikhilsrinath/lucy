@@ -1,6 +1,6 @@
 import { resolveEntity, entityOf, normalize } from '../resolvers.js';
 import { needsChoice, needsInput, notFound } from '../helpers.js';
-import { recipientChannel, recipientAccess, withheldFor, routineIssue, MAX_MESSAGE } from '../../telegram/outbound.js';
+import { recipientChannel, recipientAccess, withheldFor, routineIssue, groupChannel, topicsOf, MAX_MESSAGE } from '../../telegram/outbound.js';
 
 /**
  * A private Telegram message to one person in the team: "text Swetha about
@@ -163,4 +163,108 @@ const send_telegram_message = {
   href: () => '/employees',
 };
 
-export default [send_telegram_message];
+/**
+ * A message from Buddy to the company's Telegram group (0073): "tell the
+ * group standup moved to 5", "post in the team group that the office is
+ * closed tomorrow", "let everyone know the deck went out — tag Swetha".
+ *
+ * Owners and admins only (it speaks to the whole company), from a private
+ * conversation (never drafted inside the group). It is sent as soon as they
+ * ask — no card — when the text is routine; anything about money or pay is a
+ * card they confirm, and passwords, keys or bank details are never posted.
+ * The group is the company's chosen one (Settings → Telegram), resolved by
+ * the server; the model never sees a chat id. Buddy's own reminders and
+ * follow-ups use it too when the company turned group posts on.
+ */
+const send_telegram_group_message = {
+  name: 'send_telegram_group_message',
+  module: 'team',
+  kind: 'write',
+  risk: 'high',
+  permission: { resource: ['notifications', 'tasks'], action: 'create' },
+  privateOnly: true,
+  available: (ctx) => ctx.autonomy?.ready === true
+    && (ctx.actor?.kind === 'buddy' || (ctx.actor?.kind === 'user' && ['owner', 'admin'].includes(ctx.role))),
+  autonomy: {
+    class: 'autonomous',
+    interactive: 'auto',
+    widen: false,
+    when: (args) => routineIssue(args.message),
+  },
+  description: 'Post a message in the company\'s Telegram TEAM GROUP, from Buddy, at once: "tell the group standup moved to 5 PM", '
+    + '"post in the team group that the office is closed tomorrow", "let everyone know the sponsor confirmed — tag Swetha". '
+    + 'Write `message` exactly as it should appear, short, addressed to the team. Pass `mention` to tag one person. '
+    + 'For a private message to one person use send_telegram_message instead.',
+  params: {
+    type: 'object',
+    properties: {
+      message: { type: 'string', description: 'The exact text to post in the group.' },
+      mention: { type: 'string', description: 'Optional: one person to tag, as the user named them.' },
+      mention_person_id: { type: 'string', description: 'Their id, only if you have it.' },
+    },
+    required: ['message'],
+  },
+  undoable: false,
+  stopOnError: true,
+
+  async resolve(args, ctx) {
+    const message = String(args.message ?? '').trim();
+    if (!message) return needsInput('message', 'What should I post in the group?');
+    let mention = null;
+    const ref = String(args.mention_person_id || args.mention || '').trim();
+    if (ref) {
+      const r = await resolveEntity('employee', ref, ctx, { filter: active });
+      if (r.status === 'many') {
+        return needsChoice('mention_person_id', 'Which person should I tag?',
+          r.candidates.map((c) => ({ entity: c.entity, sub: [c.row.role, c.row.email].filter(Boolean).join(' · ') || null })));
+      }
+      if (r.status !== 'one') return notFound(`I couldn't find anyone called “${ref}” in your team.`);
+      mention = r.row;
+    }
+    const g = await groupChannel(ctx.orgId);
+    if (!g.ok) return notFound(g.message);
+    return {
+      args: { message: message.slice(0, MAX_MESSAGE + 1), mention_person_id: mention?.id || null },
+      targets: [],
+      entities: mention ? [entityOf('employee', mention)] : [],
+    };
+  },
+
+  async validate(args, ctx) {
+    const problems = [];
+    const text = String(args.message || '').trim();
+    if (!text) problems.push('The message is empty.');
+    if (text.length > MAX_MESSAGE) problems.push(`That message is too long for Telegram — keep it under ${MAX_MESSAGE} characters.`);
+    if (topicsOf(text).some((t) => t.never)) problems.push('I don\'t post passwords, keys or bank details in a group. Remove that part and I\'ll post the rest.');
+    const g = await groupChannel(ctx.orgId);
+    if (!g.ok) problems.push(g.message);
+    return problems;
+  },
+
+  async preview(args, ctx) {
+    const g = await groupChannel(ctx.orgId);
+    return {
+      title: `Post in ${g.ok ? `“${g.group.title || 'the team group'}”` : 'the team group'}`,
+      preview: { kind: 'message', rows: [['To', g.ok ? g.group.title || 'Team group' : 'Team group'], ['Via', 'Telegram · everyone in the group reads it']] },
+      message: { to: g.ok ? g.group.title : 'Team group', via: 'Telegram group', text: args.message },
+      fields: [{ key: 'message', label: 'Message', type: 'textarea', value: args.message }],
+      confirmLabel: 'Post in the group',
+      irreversible: 'Everyone in the group will see it, and it cannot be unsent.',
+    };
+  },
+
+  async plan(args, ctx) {
+    return [{
+      op: 'telegram_group', orgId: ctx.orgId, text: args.message, mentionEmployeeId: args.mention_person_id || null,
+      orgName: ctx.orgName || null, fromBuddy: ctx.actor?.kind === 'buddy', senderName: ctx.user?.name || null, label: 'Telegram group',
+    }];
+  },
+
+  summary(outcome) {
+    const sent = outcome.results.find((r) => r.op === 'telegram_group');
+    if (!sent || sent.ok === false) return sent?.error || 'Telegram couldn’t post this in the group.';
+    return `Posted in **${sent.after?.group_title || 'the team group'}** on Telegram.`;
+  },
+};
+
+export default [send_telegram_message, send_telegram_group_message];
