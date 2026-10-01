@@ -12,10 +12,31 @@ import { AI_URL, AI_MODEL, aiKey, aiHeaders, reasoningEffort } from '../aiProvid
 
 export const AGENT_MODEL = process.env.AGENT_MODEL || AI_MODEL;
 
+/**
+ * OpenRouter provider routing for the agent. A model on OpenRouter is served
+ * by several providers at very different speeds; by default OpenRouter
+ * load-balances for price. AGENT_PROVIDER_SORT picks what to prefer instead:
+ * `throughput` (default — the fastest generation), `latency` (the quickest
+ * first token) or `price`; `none` leaves OpenRouter's default routing.
+ *
+ * `require_parameters` keeps routing to providers that support everything
+ * the request uses (tools, reasoning), so a fast provider that would ignore
+ * the tools is never chosen. If OpenRouter cannot route the request that way
+ * (no such provider: 404/400), the call is repeated once with its default
+ * routing, and the setting is dropped for the life of this instance so no
+ * later call pays for a second attempt.
+ */
+const SORTS = new Set(['throughput', 'latency', 'price']);
+export function providerRouting(env = process.env.AGENT_PROVIDER_SORT) {
+  const v = String(env ?? 'throughput').trim().toLowerCase();
+  return SORTS.has(v) ? { sort: v, require_parameters: true } : undefined;
+}
+let routingDisabled = false;
+
 export async function callModel({ messages, tools, fetchImpl = fetch, signal } = {}) {
   const apiKey = aiKey();
   if (!apiKey) throw new Error('Server is missing OPENROUTER_API_KEY');
-  const res = await fetchImpl(AI_URL, {
+  const send = (provider) => fetchImpl(AI_URL, {
     method: 'POST',
     headers: aiHeaders(apiKey),
     body: JSON.stringify({
@@ -29,9 +50,17 @@ export async function callModel({ messages, tools, fetchImpl = fetch, signal } =
       reasoning_effort: reasoningEffort(process.env.AGENT_REASONING_EFFORT, 'low'),
       max_tokens: 4096,
       stream: false,
+      ...(provider ? { provider } : {}),
     }),
     signal,
   });
+  const routing = routingDisabled ? undefined : providerRouting();
+  let res = await send(routing);
+  if (!res.ok && routing && (res.status === 404 || res.status === 400)) {
+    routingDisabled = true;
+    console.warn(`[agent] OpenRouter refused provider routing (${res.status}); using default routing from now on. Set AGENT_PROVIDER_SORT=none to silence this.`);
+    res = await send(undefined);
+  }
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     const err = new Error(`AI provider error ${res.status}`);
@@ -52,6 +81,9 @@ export async function callModel({ messages, tools, fetchImpl = fetch, signal } =
  * completion_tokens. Cached input and cost (USD) are read where reported;
  * OpenRouter reports both.
  */
+/** Test hook: forget a failed routing attempt. */
+export const resetRouting = () => { routingDisabled = false; };
+
 export function newUsage() {
   return { calls: 0, prompt: 0, output: 0, cached: 0, cost: 0, perCall: [] };
 }

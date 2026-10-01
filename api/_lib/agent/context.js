@@ -54,14 +54,19 @@ export async function buildAgentContext({ user = null, person = null, buddy = fa
   // database on every query their token makes. The Buddy principal is checked
   // by the database on every query too (app.buddy_principal: this company,
   // autonomy switched on).
-  const membership = buddy ? { role: BUDDY_ROLE } : person ? { role: PERSON_ROLE } : await requireOrgRole(user.id, orgId, 'viewer');
+  // The membership check runs alongside the context queries below rather than
+  // before them: if it refuses, nothing they fetched is used (a refusal throws
+  // before any context exists), and a member's turn no longer waits one extra
+  // round trip.
+  const membershipP = buddy ? { role: BUDDY_ROLE } : person ? { role: PERSON_ROLE } : requireOrgRole(user.id, orgId, 'viewer');
   const db = userClient(token);
   // Buddy is not a member: the company's name, zone and plan are metadata it
   // needs to word a reminder, read with the service role. Everything else it
   // reads goes through its own token.
   const meta = buddy ? supabaseAdmin() : db;
 
-  const [permsRes, planRes, orgRes, meRes] = await Promise.all([
+  const [membership, permsRes, planRes, orgRes, meRes] = await Promise.all([
+    membershipP,
     db.rpc('my_permissions', { p_org: orgId }),
     meta.from('subscriptions').select('plan').eq('org_id', orgId).maybeSingle(),
     meta.from('organizations').select('*').eq('id', orgId).maybeSingle(),
