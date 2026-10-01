@@ -33,6 +33,34 @@ import { addView, takeViews } from './views.js';
 
 export const MAX_STEPS = 10;
 const MAX_HISTORY = 12;
+// EdgeBrain's facts are best effort: past this the answer goes ahead without them.
+export const BRAIN_WAIT_MS = 2000;
+
+/**
+ * Whether this message is worth an EdgeBrain lookup BEFORE the first model
+ * call. The lookup is several queries and the model call waits for it, so it
+ * is skipped where it cannot help — the model still has `ask_brain` and the
+ * read tools for anything that needs company facts:
+ *
+ *   · the message answers a question Buddy just asked (pending): the context
+ *     is already in the conversation;
+ *   · it is a short reply or acknowledgement ("Ads", "yes", "thanks"), unless
+ *     it is itself a question or a request to show something;
+ *   · it is a plain command the tools carry out from the words alone
+ *     ("remind Swetha…", "tell the group…", "mark it done", "make sure…").
+ */
+const ACTION_OPENER = /^(?:please\s+|pls\s+|can you\s+|could you\s+)?(?:remind|tell|text|message|ping|post|announce|make sure|ensure|keep after|chase|mark|complete|reopen|move|assign|schedule|stop|cancel|undo|scrap|never mind|yes|yeah|yep|no|nope|ok|okay|thanks|thank you|thx|hi|hello|hey)\b/i;
+const QUESTION_OPENER = /^(?:who|what|whats|what's|how|why|which|when|where|show|list|give|tell me|any|is|are|do|does|did|can)\b/i;
+export function wantsBrain(ctx, message) {
+  const text = String(message || '').trim();
+  if (!text) return false;
+  if (ctx.pending) return false;
+  const words = text.split(/\s+/).filter(Boolean).length;
+  const question = text.includes('?') || QUESTION_OPENER.test(text);
+  if (ACTION_OPENER.test(text) && !/\?\s*$/.test(text) && !/\btell me\b/i.test(text)) return false;
+  if (words <= 3 && !question) return false;
+  return true;
+}
 
 function cleanHistory(history) {
   if (!Array.isArray(history)) return [];
@@ -142,21 +170,31 @@ async function runControl(name, args, ctx, emit) {
  */
 export async function runChat(ctx, { message, history, chatId, messageId }, emit, { callModelImpl = callModel, usage = null } = {}) {
   const userMessage = String(message || '').trim().slice(0, 4000);
+  const t0 = Date.now();
+  // Where the time went, for the platform logs: counts and milliseconds only.
+  const timing = { brain: 'skipped', prep: 0, models: [], tools: [] };
   const tools = toolsFor(ctx);
-  // Tools that read reference data into their own schema (the cash tool's
-  // category list) do it before the model sees them.
-  await Promise.all(tools.filter((t) => t.prepare).map((t) => t.prepare(ctx).catch(() => null)));
 
   // EdgeBrain's facts for this question, as data. Best effort and bounded:
-  // a slow or missing brain narrows the answer, it never blocks it.
-  let brain = '';
-  if (ctx.can('edgebrain', 'view')) {
+  // a slow or missing brain narrows the answer, it never blocks it. Run
+  // alongside the tools' own preparation (the cash tool's category list
+  // goes into its schema before the model sees it) rather than after it.
+  const fetchBrain = async () => {
+    if (!ctx.can('edgebrain', 'view') || !wantsBrain(ctx, userMessage)) return '';
+    emit('status', { text: 'Checking what I know…' });
+    const started = Date.now();
     const pkg = await Promise.race([
       brainContext(ctx.orgId, ctx.allowed, userMessage, { maxEntities: 8 }).catch(() => null),
-      new Promise((r) => setTimeout(() => r(null), 4000)),
+      new Promise((r) => setTimeout(() => r(null), BRAIN_WAIT_MS)),
     ]);
-    if (pkg?.context) brain = `\n<data source="edgebrain">\n${pkg.context}\n</data>`;
-  }
+    timing.brain = pkg?.context ? Date.now() - started : `none(${Date.now() - started}ms)`;
+    return pkg?.context ? `\n<data source="edgebrain">\n${pkg.context}\n</data>` : '';
+  };
+  const [brain] = await Promise.all([
+    fetchBrain(),
+    Promise.all(tools.filter((t) => t.prepare).map((t) => t.prepare(ctx).catch(() => null))),
+  ]);
+  timing.prep = Date.now() - t0;
 
   const messages = [
     { role: 'system', content: buildSystemPrompt(ctx, tools) },
@@ -173,13 +211,16 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
   const ids = { chatId, messageId };
 
   for (let step = 0; step < MAX_STEPS; step++) {
+    const modelStart = Date.now();
     const { message: reply, usage: stepUsage } = await callModelImpl({ messages, tools: modelTools });
+    timing.models.push(Date.now() - modelStart);
     addUsage(usage, stepUsage);
     messages.push(reply);
     const calls = reply.tool_calls || [];
     if (!calls.length) {
       const { words, views } = emitReply(reply.content || '', ctx, emit);
       if (!words && !views.length) emit('text', { text: '' });
+      logTiming(ctx, timing, t0, step + 1);
       return { steps: step + 1 };
     }
 
@@ -206,8 +247,10 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
         }
       } else {
         if (tool.status) emit('status', { text: tool.status });
+        const toolStart = Date.now();
         try {
           const res = await tool.run(args, ctx);
+          timing.tools.push(`${name}:${Date.now() - toolStart}`);
           if (res.entities?.length) emit('entities', { entities: res.entities });
           if (res.navigate) emit('navigate', res.navigate);
           const viewId = res.view ? addView(ctx, res.view) : null;
@@ -221,9 +264,21 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
     }
     if (halt) {
       if (reply.content?.trim()) emitReply(reply.content, ctx, emit);
+      logTiming(ctx, timing, t0, step + 1);
       return { steps: step + 1 };
     }
   }
   emit('text', { text: 'That took more steps than I allow in one go. Could you ask for it in smaller pieces?' });
+  logTiming(ctx, timing, t0, MAX_STEPS);
   return { steps: MAX_STEPS };
+}
+
+/** One line: where a chat turn's time went. Numbers and tool names only — never content. */
+function logTiming(ctx, timing, t0, steps) {
+  try {
+    console.info(`[agent] timing ${JSON.stringify({
+      org: ctx.orgId, channel: ctx.channel || 'chat', total_ms: Date.now() - t0, prep_ms: timing.prep,
+      brain: timing.brain, steps, model_ms: timing.models, tools_ms: timing.tools,
+    })}`);
+  } catch { /* logging never fails a turn */ }
 }

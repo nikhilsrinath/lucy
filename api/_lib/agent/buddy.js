@@ -41,12 +41,15 @@ import { loadPolicy } from '../autonomy/policy.js';
  * All reach the same context, tools, lifecycle and audit trail.
  */
 export async function openSession({ user = null, person = null, buddy = false, linkId = null, token, orgId, body = {}, channel = null, channelActor = null, autonomy = null }) {
-  const ctx = await buildAgentContext({ user, person, buddy, linkId, token, orgId, channelActor, body: channel ? { ...body, channel } : body });
-  // The company's autonomy policy (0072), read once per session. In a
+  // The company's autonomy policy (0072), read once per session, in parallel
+  // with the context (it is discarded if the context refuses). In a
   // conversation it only lets the follow-through tools skip the card
   // (autonomy/policy.js); a job passes its own context. A database without
   // 0072 gets a policy that is not ready, and nothing changes.
-  const policy = autonomy?.policy || await loadPolicy(orgId).catch(() => null);
+  const [ctx, policy] = await Promise.all([
+    buildAgentContext({ user, person, buddy, linkId, token, orgId, channelActor, body: channel ? { ...body, channel } : body }),
+    autonomy?.policy || loadPolicy(orgId).catch(() => null),
+  ]);
   ctx.autonomy = policy ? { trigger: autonomy?.trigger || 'interactive', policy, job: autonomy?.job || null, ready: policy.ready !== false } : null;
   return ctx;
 }

@@ -55,10 +55,30 @@ export default async function handler(req, res) {
   }
   if (!methodIs(req, res, 'POST')) return undefined;
   let streaming = false;
+  const t0 = Date.now();
+  const mark = {};
   try {
     const body = await readJsonBody(req);
     const user = await requireUser(req);
+    mark.auth = Date.now() - t0;
+
+    // A chat turn starts streaming as soon as the caller is authenticated, so
+    // the app shows "Thinking…" while the session, usage and company context
+    // are prepared, instead of a blank wait. Anything that goes wrong after
+    // this point reaches the client as an `error` event (it already handles
+    // them); a missing message is still refused up front.
+    const chatTurn = body.mode === 'chat';
+    if (chatTurn && !String(body.message || '').trim() && !body.resume) throw new HttpError(400, 'Missing message');
+    if (chatTurn) {
+      res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-cache, no-transform');
+      res.setHeader('X-Accel-Buffering', 'no');
+      res.status(200);
+      streaming = true;
+      res.write(`event: status\ndata: ${JSON.stringify({ text: 'Thinking…' })}\n\n`);
+    }
     const ctx = await buddy.openSession({ user, token: bearerToken(req), orgId: body.org_id, body });
+    mark.session = Date.now() - t0;
 
     switch (body.mode) {
       case 'confirm': {
@@ -107,13 +127,6 @@ export default async function handler(req, res) {
     }
 
     const message = String(body.message || '').trim();
-    if (!message && !body.resume) throw new HttpError(400, 'Missing message');
-
-    res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
-    res.setHeader('Cache-Control', 'no-cache, no-transform');
-    res.setHeader('X-Accel-Buffering', 'no');
-    res.status(200);
-    streaming = true;
     const emit = (event, data) => res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
     const ids = { chatId: body.chat_id, messageId: body.message_id };
 
@@ -126,6 +139,8 @@ export default async function handler(req, res) {
 
     // Metered per message, before the model is called — see api/nvidia.js.
     const used = await bumpAiUsage(ctx.orgId);
+    mark.usage = Date.now() - t0;
+    console.info(`[agent] setup ${JSON.stringify({ org: ctx.orgId, auth_ms: mark.auth, session_ms: mark.session, usage_ms: mark.usage })}`);
     if (used > ctx.aiLimit) {
       await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', outcome: 'blocked' });
       emit('notice', { text: `Your plan's AI message limit (${ctx.aiLimit}) has been reached.` });

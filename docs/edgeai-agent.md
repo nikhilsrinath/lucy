@@ -116,6 +116,17 @@ New tools: `list_clients`, `list_projects`, `list_team`, `list_documents`, `rece
 
 **Channels.** Telegram (2026-09-30) is the first external channel: see [telegram.md](telegram.md). It adds nothing to the brain: a channel-neutral bridge (`channelSession.js`: verify the person on every request, act with a short-lived token of their own) and an `audience` on the context — in a shared space (a team group) the permission map is narrowed to work resources and `privateOnly` tools are withheld. `add_task_note` (notes and blockers) and `team_pulse` (Daily Pulse, `pulse.js`) are ordinary tools every channel gets.
 
+## Reply speed
+
+What a chat turn costs, in order — each stage is logged (`[agent] setup …`, `[agent] timing …`: milliseconds and tool names, never message text):
+
+1. **Auth + session** (`api/agent.js`, `context.js`): the caller is authenticated, then the stream opens at once with a `Thinking…` status, so the app is never blank while the rest runs. The membership check, permission map, plan, company and person queries (and the autonomy policy) run in parallel.
+2. **Plan metering** (`bumpAiUsage`).
+3. **EdgeBrain facts** (`loop.js wantsBrain`): fetched before the first model call only when the message can use them, capped at 2 s. Skipped for an answer to Buddy's open question, short replies (“Ads”, “yes”), and plain commands (“remind…”, “tell the group…”, “mark … done”); the model still has `ask_brain` and the read tools.
+4. **Model calls** (`model.js`): one per step, non-streaming. OpenRouter routing prefers the fastest provider that supports tools (`AGENT_PROVIDER_SORT`, default `throughput`; falls back by itself if OpenRouter can't route that way). `AGENT_REASONING_EFFORT` (default `low`) is the other lever.
+
+Still the largest remaining cost: the ~12k tokens of tool schemas sent on every step (50 tools), and a database in a different region from the functions (`regions` in `vercel.json`).
+
 ## Adding a tool
 
 1. Pick (or create) a file in `api/_lib/agent/tools/` and export an array of tool objects. List the file in `registry.js` if it is new.
