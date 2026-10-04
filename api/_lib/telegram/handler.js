@@ -238,7 +238,29 @@ async function onGroupMessage(msg, cmd, text, me) {
 
 /* ── a Buddy turn ─────────────────────────────────────────────────────────── */
 
+// Telegram shows "typing…" for about 5 seconds per sendChatAction.
+const TYPING_EVERY_MS = 4000;
+
+/** Shows "typing…" now and keeps it on until the returned stop() is called. */
+function keepTyping(chatId) {
+  bot.typing(chatId);
+  const timer = setInterval(() => bot.typing(chatId), TYPING_EVERY_MS);
+  timer.unref?.();
+  return () => clearInterval(timer);
+}
+
 async function buddyTurn({ msg, text, audience, link, orgId, conv }) {
+  // Right away, before the session and metering round trips: the person sees
+  // Buddy working instead of silence, for the whole turn.
+  const stopTyping = keepTyping(msg.chat.id);
+  try {
+    return await runBuddyTurn({ msg, text, audience, link, orgId, conv }, stopTyping);
+  } finally {
+    stopTyping();
+  }
+}
+
+async function runBuddyTurn({ msg, text, audience, link, orgId, conv }, stopTyping) {
   const { chat, from } = msg;
   const settings = await store.orgSettings(orgId);
   if (!settings.enabled) { await reply(msg, 'Telegram is switched off for this company in StartupBuddy.'); return 'done'; }
@@ -267,9 +289,8 @@ async function buddyTurn({ msg, text, audience, link, orgId, conv }) {
     return 'done';
   }
 
-  await bot.typing(chat.id);
   const events = [];
-  const emit = (event, data) => { events.push({ event, data }); if (event === 'status') bot.typing(chat.id); };
+  const emit = (event, data) => { events.push({ event, data }); };
   const usage = newUsage();
   const tokens = () => (usage.calls ? { promptTokens: usage.prompt, completionTokens: usage.output } : {});
   try {
@@ -285,6 +306,7 @@ async function buddyTurn({ msg, text, audience, link, orgId, conv }) {
   pushHistory(state, 'user', text);
   state.pending = null;
   state.offers = null;
+  stopTyping();
   const produced = await deliver(chat.id, state, events, { replyTo: audience === 'shared' ? msg.message_id : null, turn: messageId });
   if (checkin && state.pulse && !state.pulse.answered_at) state.pulse.answered_at = Date.now();
   state.at = Date.now();
