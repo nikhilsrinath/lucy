@@ -112,7 +112,12 @@ export async function manage(req, res) {
 
       case 'person_unlink': {
         if (!isUuid(body.employee_id)) throw new HttpError(400, 'Missing employee_id');
-        const link = await store.personLinkFor(orgId, body.employee_id);
+        let link = await store.personLinkFor(orgId, body.employee_id);
+        if (!link) {
+          // Connected through their login (see status): revoke that link.
+          const person = await store.personInOrg(orgId, body.employee_id);
+          if (person?.user_id) link = (await store.linksForOrg(orgId)).find((l) => l.user_id === person.user_id) || null;
+        }
         await store.voidPersonTokens(orgId, body.employee_id);
         if (link) {
           await store.revokeLink(link.id, 'admin_unlink');
@@ -214,7 +219,9 @@ async function status({ user, orgId, admin, token }) {
     name: p.full_name,
     title: p.role || null,
     has_login: !!p.user_id,
-    telegram: linkView(byPerson.get(p.id)),
+    // Their own person link, or the one of their login (the same lookup
+    // outbound.js uses to reach them) — e.g. an owner who linked in Settings.
+    telegram: linkView(byPerson.get(p.id) || (p.user_id && byUser.get(p.user_id)) || null),
   }));
   out.groups = groups.map((g) => ({ id: g.id, title: g.title || 'Untitled group', type: g.chat_type, connected_at: g.connected_at }));
   out.members = (membersRes.data || []).map((m) => ({

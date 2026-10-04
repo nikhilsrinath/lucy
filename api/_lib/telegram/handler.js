@@ -605,9 +605,8 @@ async function linkPerson(msg, row, token) {
   }
   // One Telegram account is one identity per company, and one company person anywhere.
   const mine = await store.linksForTelegram(from.id);
-  if (mine.some((l) => l.org_id === row.org_id && l.user_id)) {
-    return fail('This Telegram account is already linked to a StartupBuddy login in this company, so it can\'t also be connected as a team member. Use /unlink first, or open the invite from the right Telegram account.');
-  }
+  const login = mine.find((l) => l.org_id === row.org_id && l.user_id);
+  if (login) return attachOwnRecord(msg, row, token, person, login, fail);
   if (mine.some((l) => l.employee_id && l.org_id !== row.org_id)) {
     return fail('This Telegram account is already connected to another company as a team member. Ask that company\'s admin to disconnect it first.');
   }
@@ -633,6 +632,55 @@ async function linkPerson(msg, row, token) {
     'I always show you a change before I make it. /help for more.',
   ].join('\n'));
   return 'done';
+}
+
+/**
+ * A person invite opened by a Telegram account that is already linked to a
+ * StartupBuddy login in the same company. One Telegram account is one identity
+ * per company, so it cannot become a second, person identity. But when the
+ * Team record IS that login's owner — typically an owner/admin who linked
+ * their own Telegram in Settings and then pressed Connect Telegram on their
+ * own row in Team — the record is simply marked as theirs (employees.user_id).
+ * Reminders, follow-ups and messages to that record then reach this chat
+ * through the login's link (outbound.liveLink), and "my tasks" mean it.
+ *
+ * Proof it is the same human: the record already names this login, or the
+ * invite was made by this very login (an owner/admin, re-checked now) and
+ * opened from its own linked Telegram. Anything else is someone else's record.
+ */
+async function attachOwnRecord(msg, row, token, person, login, fail) {
+  const { from, chat } = msg;
+  const org = await store.orgBasics(row.org_id);
+  const done = async () => {
+    await store.voidPersonTokens(row.org_id, person.id);
+    if (chat.type === 'private') await store.touchLink(login, { from, dmChatId: chat.id });
+    console.info(`[telegram] person ${person.id} org ${row.org_id} attached to login ${login.user_id} (link ${login.id})`);
+    await reply(msg, [
+      `✅ <b>${bot.esc(person.full_name)}</b> in Team is you — you're already connected to <b>${bot.esc(org.name)}</b> here.`,
+      '',
+      `Reminders and follow-ups for tasks assigned to ${bot.esc(person.full_name)} will come to this chat.`,
+    ].join('\n'));
+    return 'done';
+  };
+  if (person.user_id === login.user_id) return done();
+
+  const otherRecord = 'This Telegram account is already linked to a StartupBuddy login in this company, so it can\'t also be connected as a different team member. Use /unlink first, or open the invite from the right Telegram account.';
+  if (person.user_id || row.created_by !== login.user_id) return fail(otherRecord);
+  try {
+    const me = await verifyPerson({ userId: login.user_id, orgId: row.org_id });
+    if (!['owner', 'admin'].includes(me.membership.role)) return fail(otherRecord);
+  } catch (err) {
+    if (!(err instanceof ChannelAccessError)) throw err;
+    return fail('Your StartupBuddy access to this company has changed, so I can\'t connect this. Ask an admin.', { keep: false });
+  }
+  try {
+    const attached = await store.attachLogin(row.org_id, person.id, login.user_id);
+    if (!attached) return fail(otherRecord, { keep: false });
+  } catch (err) {
+    if (err?.code !== '23505') throw err;
+    return fail('Your StartupBuddy login is already attached to another person in Team. Open Connect Telegram on <b>your own</b> Team record instead, or detach the other one in Team first.');
+  }
+  return done();
 }
 
 async function connectGroup(msg, token, me) {

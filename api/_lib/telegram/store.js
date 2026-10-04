@@ -152,6 +152,19 @@ export async function personLinkFor(orgId, employeeId) {
     .eq('org_id', orgId).eq('employee_id', employeeId).is('revoked_at', null).maybeSingle());
 }
 
+/**
+ * Marks a company person's record as belonging to this login (employees.user_id),
+ * only while it belongs to no one. The same column the Employees screen's
+ * "link login" sets; the partial unique index (org_id, user_id) is the final
+ * word — a login already on another record raises 23505. Returns the row, or
+ * null when the record was claimed in the meantime.
+ */
+export async function attachLogin(orgId, employeeId, userId) {
+  return must(await db().from('employees').update({ user_id: userId })
+    .eq('id', employeeId).eq('org_id', orgId).is('user_id', null)
+    .select('id, user_id').maybeSingle());
+}
+
 /** The company person record a person invite names — only in that company. */
 export async function personInOrg(orgId, employeeId) {
   return must(await db().from('employees').select('id, org_id, full_name, role, email, user_id, exited_at, access_revoked_at')

@@ -9,7 +9,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
  * own decisions.
  */
 
-const mem = vi.hoisted(() => ({ links: [], chats: [], tokens: new Map(), people: [], refuse: null, sessions: [], sent: [] }));
+const mem = vi.hoisted(() => ({ links: [], chats: [], tokens: new Map(), people: [], refuse: null, sessions: [], sent: [], roles: {} }));
 
 vi.mock('./bot.js', async (importOriginal) => {
   const real = await importOriginal();
@@ -51,6 +51,13 @@ vi.mock('./store.js', () => ({
     mem.links.push(l);
     return l;
   }),
+  attachLogin: vi.fn(async (orgId, id, userId) => {
+    const p = mem.people.find((x) => x.id === id && x.org_id === orgId && !x.user_id);
+    if (!p) return null;
+    if (mem.people.some((x) => x.org_id === orgId && x.user_id === userId)) throw Object.assign(new Error('dup'), { code: '23505' });
+    p.user_id = userId;
+    return { id, user_id: userId };
+  }),
   voidPersonTokens: vi.fn(async () => {}),
   touchLink: vi.fn(async () => {}),
   revokeLink: vi.fn(async (id) => { const l = mem.links.find((x) => x.id === id); if (l) l.revoked_at = 'now'; }),
@@ -61,6 +68,10 @@ vi.mock('../agent/channelSession.js', async (importOriginal) => {
   const real = await importOriginal();
   return {
     ...real,
+    verifyPerson: vi.fn(async ({ userId }) => {
+      if (!mem.roles[userId]) throw new real.ChannelAccessError('left');
+      return { user: { id: userId }, membership: { role: mem.roles[userId] } };
+    }),
     // The session opens as whoever the LINK names — recorded for the asserts.
     openChannelSession: vi.fn(async ({ link, orgId, body, channelActor }) => {
       if (mem.refuse) throw new real.ChannelAccessError(mem.refuse);
@@ -100,6 +111,7 @@ beforeEach(() => {
     { id: BOB_B, org_id: 'org-b', full_name: 'Bob', role: 'Ops', user_id: null, exited_at: null, access_revoked_at: null },
   ];
   mem.refuse = null;
+  mem.roles = {};
   mem.sessions = [];
   mem.sent = [];
   vi.clearAllMocks();
@@ -136,6 +148,59 @@ describe('C: an admin\'s person invite connects exactly that person', () => {
     expect(lastSent()).toMatch(/already connected to another company/);
     expect(store.createPersonLink).not.toHaveBeenCalled();
     expect(store.releaseToken).toHaveBeenCalledWith(TOKEN);
+  });
+});
+
+describe('C2: an admin who linked their login opens Connect Telegram on their own Team record', () => {
+  beforeEach(() => {
+    mem.roles = { 'u-nikhil': 'owner' };
+    mem.links.push({ id: 'l-nikhil', org_id: 'org-a', employee_id: null, user_id: 'u-nikhil', telegram_user_id: 7001, revoked_at: null });
+  });
+
+  it('marks the record as theirs instead of refusing, and adds no second link', async () => {
+    mem.tokens.set(TOKEN, { purpose: 'person', org_id: 'org-a', employee_id: SWETHA, created_by: 'u-nikhil' });
+    await processUpdate(dm(7001, `/start ${TOKEN}`));
+    expect(store.attachLogin).toHaveBeenCalledWith('org-a', SWETHA, 'u-nikhil');
+    expect(mem.people[0].user_id).toBe('u-nikhil');
+    expect(store.createPersonLink).not.toHaveBeenCalled();
+    expect(store.touchLink).toHaveBeenCalledWith(expect.objectContaining({ id: 'l-nikhil' }), expect.objectContaining({ dmChatId: 7001 }));
+    expect(lastSent()).toContain('<b>Swetha NM</b> in Team is you');
+    expect(store.voidPersonTokens).toHaveBeenCalledWith('org-a', SWETHA);
+  });
+
+  it('a record already theirs just says so', async () => {
+    mem.people[0].user_id = 'u-nikhil';
+    mem.tokens.set(TOKEN, { purpose: 'person', org_id: 'org-a', employee_id: SWETHA, created_by: 'u-other' });
+    await processUpdate(dm(7001, `/start ${TOKEN}`));
+    expect(store.attachLogin).not.toHaveBeenCalled();
+    expect(lastSent()).toContain('in Team is you');
+  });
+
+  it('never claims a record someone else invited them to, or one that names another login', async () => {
+    mem.tokens.set(TOKEN, { purpose: 'person', org_id: 'org-a', employee_id: SWETHA, created_by: 'u-other-admin' });
+    await processUpdate(dm(7001, `/start ${TOKEN}`));
+    expect(lastSent()).toMatch(/can't also be connected as a different team member/);
+
+    mem.people[0].user_id = 'u-swetha';
+    mem.tokens.set(TOKEN, { purpose: 'person', org_id: 'org-a', employee_id: SWETHA, created_by: 'u-nikhil' });
+    await processUpdate(dm(7001, `/start ${TOKEN}`));
+    expect(lastSent()).toMatch(/can't also be connected as a different team member/);
+    expect(store.attachLogin).not.toHaveBeenCalled();
+    expect(mem.people[0].user_id).toBe('u-swetha');
+  });
+
+  it('needs the login to still be an owner/admin, and one record per login', async () => {
+    mem.roles['u-nikhil'] = 'member';
+    mem.tokens.set(TOKEN, { purpose: 'person', org_id: 'org-a', employee_id: SWETHA, created_by: 'u-nikhil' });
+    await processUpdate(dm(7001, `/start ${TOKEN}`));
+    expect(store.attachLogin).not.toHaveBeenCalled();
+
+    mem.roles['u-nikhil'] = 'admin';
+    mem.people.push({ id: 'e-mine', org_id: 'org-a', full_name: 'Nikhil', user_id: 'u-nikhil', exited_at: null, access_revoked_at: null });
+    mem.tokens.set(TOKEN, { purpose: 'person', org_id: 'org-a', employee_id: SWETHA, created_by: 'u-nikhil' });
+    await processUpdate(dm(7001, `/start ${TOKEN}`));
+    expect(lastSent()).toMatch(/already attached to another person in Team/);
+    expect(mem.people[0].user_id).toBe(null);
   });
 });
 
