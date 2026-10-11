@@ -5,11 +5,14 @@ import { MOODS } from './parse.js';
  *
  * The server decides. A detected situation fixes the mood
  * (cofounders/_core/situations.md); the model may suggest one with a
- * [[mood:…]] marker, which is used only when no rule applies.
+ * [[mood:…]] marker, which is used only when no rule applies. With neither, the reply is a "win".
  */
 
-export const DEFAULT_MOOD = 'thinking';
-export const DEFAULT_TAGS = { warning: 'Needs attention', win: 'Good news', thinking: 'Thinking it through', celebrate: 'Big win' };
+// An ordinary answer is calm and pleased. "thinking" is never a resting mood:
+// it is for a reply that is loading, or a question the cofounder is asking.
+export const DEFAULT_MOOD = 'win';
+export const DEFAULT_TAG = 'Here you go';
+export const DEFAULT_TAGS = { warning: 'Needs attention', win: 'Good news', thinking: 'Needs info', celebrate: 'Big win' };
 
 const MARKER = /\[\[mood:([a-z]+)\]\]/gi;
 
@@ -29,7 +32,7 @@ export function decideMood({ situation = null, suggested = null } = {}, situatio
   const s = situation ? situations.find((x) => x.id === situation) : null;
   if (s) return { mood: s.mood, tag: s.tag || DEFAULT_TAGS[s.mood], by: 'rule' };
   if (MOODS.includes(suggested)) return { mood: suggested, tag: DEFAULT_TAGS[suggested], by: 'model' };
-  return { mood: DEFAULT_MOOD, tag: DEFAULT_TAGS[DEFAULT_MOOD], by: 'default' };
+  return { mood: DEFAULT_MOOD, tag: DEFAULT_TAG, by: 'default' };
 }
 
 /** What the screen shows above the answer: { mood, headline_word, tag, situation }. */

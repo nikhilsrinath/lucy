@@ -71,11 +71,29 @@ describe('the chat screen', () => {
         expect(renderToStaticMarkup(<Exchange a={loading} persona={PERSONAS[0]} mood="thinking" onOpen={() => {}} />)).toContain('mc-typing');
     });
 
-    it('takes the mood from the server, and is "thinking" while loading or idle', () => {
+    it('takes the mood from the server, and is "thinking" only while loading', () => {
         const persona = PERSONAS.find((p) => p.id === 'mark');
         const mood = { mood: 'celebrate', headline_word: 'Ship it!', tag: 'Big win' };
         expect(stageFor({ persona, mood, streaming: false, empty: false })).toEqual({ mood: 'celebrate', word: 'Ship it!', tag: 'Big win' });
         expect(stageFor({ persona, mood, streaming: true, empty: false })).toMatchObject({ mood: 'thinking', word: "Let's test it." });
-        expect(stageFor({ persona, mood: null, streaming: false, empty: true })).toMatchObject({ mood: 'thinking', tag: 'Ask me anything' });
+        expect(stageFor({ persona, mood: null, streaming: false, empty: false })).toMatchObject({ mood: 'win', tag: 'For you' });
+        // An answer stored under the old default no longer rests on "thinking".
+        const old = { mood: 'thinking', headline_word: "Let's test it.", tag: 'Thinking it through' };
+        expect(stageFor({ persona, mood: old, streaming: false, empty: false })).toEqual({ mood: 'win', word: "It's working.", tag: 'Here you go' });
+        // A question the cofounder asks is still "thinking".
+        const ask = { mood: 'thinking', headline_word: "Let's test it.", tag: 'Needs info' };
+        expect(stageFor({ persona, mood: ask, streaming: false, empty: false })).toMatchObject({ mood: 'thinking', tag: 'Needs info' });
+    });
+
+    it('reacts to the brief before anything is asked', () => {
+        const persona = PERSONAS.find((p) => p.id === 'mark');
+        const idle = (facts) => stageFor({ persona, mood: null, streaming: false, empty: true, brief: facts && { facts } });
+        const clear = { overdueCount: 0, tasksOverdue: 0, netCash: 5000 };
+        expect(idle(null)).toEqual({ mood: 'win', word: "It's working.", tag: 'Ask me anything' });
+        expect(idle(clear)).toMatchObject({ mood: 'win' });
+        expect(idle({ ...clear, netCash: null })).toMatchObject({ mood: 'win' });
+        expect(idle({ ...clear, overdueCount: 2 })).toEqual({ mood: 'warning', word: 'This is a problem.', tag: 'Needs attention' });
+        expect(idle({ ...clear, tasksOverdue: 1 })).toMatchObject({ mood: 'warning' });
+        expect(idle({ ...clear, netCash: -1 })).toMatchObject({ mood: 'warning' });
     });
 });

@@ -198,8 +198,9 @@ describe('mood mapping', () => {
 
   it('uses the model\'s suggestion only when no rule applies, and strips its marker', () => {
     expect(decideMood({ suggested: 'celebrate' }, situations())).toMatchObject({ mood: 'celebrate', by: 'model' });
-    expect(decideMood({ suggested: 'furious' }, situations())).toMatchObject({ mood: 'thinking', by: 'default' });
-    expect(decideMood({}, situations())).toMatchObject({ mood: 'thinking', by: 'default' });
+    expect(decideMood({ suggested: 'furious' }, situations())).toMatchObject({ mood: 'win', by: 'default' });
+    // An ordinary answer never rests on "thinking".
+    expect(decideMood({}, situations())).toEqual({ mood: 'win', tag: 'Here you go', by: 'default' });
     expect(takeMood('Paid in full.\n[[mood:win]]')).toEqual({ text: 'Paid in full.', suggested: 'win' });
     expect(takeMood('Plain.')).toEqual({ text: 'Plain.', suggested: null });
   });

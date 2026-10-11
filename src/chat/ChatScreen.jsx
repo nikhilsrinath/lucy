@@ -25,7 +25,8 @@ import './mood.css';
    Top: the mood. The background crossfades to the mood's scene, the
    cofounder's pose for it pops in, and the headline word and tag sit
    top-left. The server decides the mood (the `mood` event that ends a turn);
-   while a reply is loading it is "thinking".
+   only while a reply is loading is it "thinking". Before anything is asked
+   the mood comes from today's brief (stage.js).
 
    Below: a white panel holding ONLY the current exchange — the question and
    the cofounder's answer with its card, plan, view or quick picks — and the
@@ -55,7 +56,7 @@ export default function ChatScreen() {
 
     const { question, items } = currentExchange(a.messages);
     const empty = !question && !items.length;
-    const stage = stageFor({ persona, mood: a.mood, streaming: a.streaming, empty });
+    const stage = stageFor({ persona, mood: a.mood, streaming: a.streaming, empty, brief });
 
     // /chat?files=1 (the old /library) opens the Files sheet.
     useEffect(() => {
