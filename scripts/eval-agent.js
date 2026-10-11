@@ -14,7 +14,7 @@
  * Targets (docs/edgeai-agent.md): ≥ 95% correct tool, ≥ 90% fully correct
  * args, 0 unconfirmed writes.
  *
- * EVAL_PERSONA=<id> runs every case as that cofounder (default mira) — the
+ * EVAL_PERSONA=<id> runs every case as that cofounder (default steve) — the
  * persona changes tone only, and the targets are the same for all of them.
  *
  * Needs OPENROUTER_API_KEY (read from .env if not in the environment). Costs one
@@ -39,7 +39,7 @@ if (!process.env.OPENROUTER_API_KEY) {
 }
 
 const filters = process.argv.slice(2);
-const PERSONA = process.env.EVAL_PERSONA || 'mira';
+const PERSONA = process.env.EVAL_PERSONA || 'steve';
 console.log(`persona: ${PERSONA}`);
 const cases = filters.length ? CASES.filter((c) => filters.some((f) => c.id.startsWith(f))) : CASES;
 

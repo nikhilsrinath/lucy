@@ -1,5 +1,8 @@
 import { toolsFor, toModelTools, getTool, allowed } from './registry.js';
-import { buildSystemPrompt, buildTurnContext } from './prompt.js';
+import { assemblePrompt } from './assemble.js';
+import { cofounderOf, situations } from './cofounders.js';
+import { takeMood, moodFor } from '../../../src/shared/cofounders/mood.js';
+import { situationOfTurn } from '../../../src/shared/cofounders/detect.js';
 import { callModel, addUsage } from './model.js';
 import { propose, modelView, confirm, cancel } from './pipeline.js';
 import { loadAction } from './actions.js';
@@ -27,12 +30,25 @@ import { addView, takeViews } from './views.js';
  *   entities  { entities }             records this turn referred to
  *   view      { view }                 a figures/list/timeline/insights block
  *                                      the model chose to show ([[show:vN]])
+ *   mood      { mood, headline_word, tag, situation }
+ *                                      last event of a turn: how the reply
+ *                                      lands (warning, win, thinking,
+ *                                      celebrate), decided here from the
+ *                                      situation and what the turn produced —
+ *                                      the model's [[mood:…]] is a suggestion
+ *
+ * Together a turn's events are the exchange the screen shows:
+ *   { mood, headline_word, tag, answer, card?, picks? }
+ * (src/chat/exchange.js folds them into that shape).
+ *
+ * The model is given this message only — no earlier chat turns. What carries
+ * over is the system's own record: the records in play, an open question,
+ * open cards and what was done (prompt.js buildTurnContext).
  *
  * A plan (propose_plan) is proposed like a write — one card, the turn ends.
  */
 
 export const MAX_STEPS = 10;
-const MAX_HISTORY = 12;
 // EdgeBrain's facts are best effort: past this the answer goes ahead without them.
 export const BRAIN_WAIT_MS = 2000;
 
@@ -62,12 +78,29 @@ export function wantsBrain(ctx, message) {
   return true;
 }
 
-function cleanHistory(history) {
-  if (!Array.isArray(history)) return [];
-  return history
-    .filter((m) => m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string' && m.content.trim())
-    .slice(-MAX_HISTORY)
-    .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
+/**
+ * Watches a turn's events so its mood can be decided when it ends: a question
+ * asked, a card proposed or carried out, and the mood the model suggested.
+ */
+function trackTurn(ctx, emit) {
+  const outcome = { asked: null, cards: [] };
+  const turn = {
+    detected: null,
+    suggested: null,
+    /** A card this turn proposed, with the arguments it was proposed from. */
+    noteCard(tool, args, status = 'proposed') { outcome.cards.push({ tool, args, status }); },
+    emit(event, data) {
+      if (event === 'input' || event === 'choice') outcome.asked = event;
+      else if (event === 'card_update' && data?.card?.status === 'executed') outcome.cards.unshift({ tool: data.card.tool, status: 'executed' });
+      emit(event, data);
+    },
+    finish() {
+      const all = situations();
+      const situation = situationOfTurn({ detected: turn.detected, outcome, audience: ctx.audience }, all);
+      emit('mood', moodFor(cofounderOf(ctx.persona), { situation, suggested: turn.suggested }, all));
+    },
+  };
+  return turn;
 }
 
 function parseArgs(raw) {
@@ -78,10 +111,11 @@ function parseArgs(raw) {
 /** Emits a proposal's outcome. Returns what the model is told. */
 /** The assistant's words, then the views it referenced, in that order. */
 export function emitReply(text, ctx, emit) {
-  const { text: words, views } = takeViews(text, ctx);
+  const { text: unmarked, suggested } = takeMood(text);
+  const { text: words, views } = takeViews(unmarked, ctx);
   if (words) emit('text', { text: words });
   for (const view of views) emit('view', { view });
-  return { words, views };
+  return { words, views, suggested };
 }
 
 export function emitOutcome(out, emit) {
@@ -104,8 +138,11 @@ export async function runResume(ctx, resume, emit, ids) {
   if (!tool || tool.kind !== 'write') { emit('notice', { text: 'That option is no longer available.' }); return; }
   const args = { ...(resume.args || {}) };
   if (resume.param) args[resume.param] = resume.value;
+  const turn = trackTurn(ctx, emit);
   const out = await propose(tool, args, ctx, ids);
-  emitOutcome(out, emit);
+  if (out.kind === 'card') turn.noteCard(tool.name, args);
+  emitOutcome(out, turn.emit);
+  turn.finish();
 }
 
 /* ── controls: acting on what is already on the table ──────────────────────
@@ -162,13 +199,22 @@ async function runControl(name, args, ctx, emit) {
  * Message order is chosen for Gemini's implicit prompt cache, which discounts
  * a request's leading tokens when they match a recent request:
  *
- *   system prompt (fixed) · history · turn context + EdgeBrain · user message
+ *   system prompt (fixed) · turn context + playbook + EdgeBrain · user message
  *
- * Everything that changes per message sits after the history, so the prompt,
- * the tools and the earlier conversation form a prefix the next message and
- * every later step of this one reuse.
+ * Everything that changes per message sits after the system prompt, so the
+ * prompt and the tools form a prefix the next message and every later step of
+ * this one reuse. No earlier chat turns are sent (a `history` passed by an
+ * older caller is ignored).
  */
-export async function runChat(ctx, { message, history, chatId, messageId }, emit, { callModelImpl = callModel, usage = null } = {}) {
+export async function runChat(ctx, input, emit, opts = {}) {
+  const turn = trackTurn(ctx, emit);
+  const result = await chatTurn(ctx, input, turn, opts);
+  turn.finish();
+  return result;
+}
+
+async function chatTurn(ctx, { message, chatId, messageId }, turn, { callModelImpl = callModel, usage = null } = {}) {
+  const emit = turn.emit;
   const userMessage = String(message || '').trim().slice(0, 4000);
   const t0 = Date.now();
   // Where the time went, for the platform logs: counts and milliseconds only.
@@ -196,10 +242,11 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
   ]);
   timing.prep = Date.now() - t0;
 
+  const prompt = assemblePrompt(ctx, tools, userMessage);
+  turn.detected = prompt.situation;
   const messages = [
-    { role: 'system', content: buildSystemPrompt(ctx, tools) },
-    ...cleanHistory(history),
-    { role: 'user', content: buildTurnContext(ctx) + brain },
+    { role: 'system', content: prompt.system },
+    { role: 'user', content: prompt.turn + brain },
     { role: 'user', content: userMessage },
   ];
 
@@ -218,7 +265,8 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
     messages.push(reply);
     const calls = reply.tool_calls || [];
     if (!calls.length) {
-      const { words, views } = emitReply(reply.content || '', ctx, emit);
+      const { words, views, suggested } = emitReply(reply.content || '', ctx, emit);
+      turn.suggested = suggested || turn.suggested;
       if (!words && !views.length) emit('text', { text: '' });
       logTiming(ctx, timing, t0, step + 1);
       return { steps: step + 1 };
@@ -242,6 +290,7 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
           const out = tool.kind === 'plan'
             ? await proposePlan(args, ctx, { ...ids, reason })
             : await propose(tool, args, ctx, { ...ids, reason });
+          if (out.kind === 'card') turn.noteCard(name, args);
           content = emitOutcome(out, emit);
           if (out.stops) halt = true;
         }
@@ -263,7 +312,7 @@ export async function runChat(ctx, { message, history, chatId, messageId }, emit
       messages.push({ role: 'tool', tool_call_id: call.id, content: `<data tool="${name}">${JSON.stringify(content)}</data>` });
     }
     if (halt) {
-      if (reply.content?.trim()) emitReply(reply.content, ctx, emit);
+      if (reply.content?.trim()) turn.suggested = emitReply(reply.content, ctx, emit).suggested || turn.suggested;
       logTiming(ctx, timing, t0, step + 1);
       return { steps: step + 1 };
     }

@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { renderCard, renderOptions, renderNotice } from './render.js';
 import { mdToHtml, esc, verifyWebhookSecret } from './bot.js';
-import { currentState, freshState, requestBody, trackCard, remember, pushHistory, STALE_MS } from './conversation.js';
+import { currentState, freshState, requestBody, trackCard, remember, STALE_MS } from './conversation.js';
 import { isTokenShape } from './store.js';
 import { fakeDb, fakeCtx } from '../agent/testing/fakeDb.js';
 import { getTool, toolsFor, allowed } from '../agent/registry.js';
@@ -139,20 +139,22 @@ describe('conversation state', () => {
     expect(currentState({ state: s }, 'org-b')).toEqual(expect.objectContaining({ org_id: 'org-b', entities: [] }));
   });
 
-  it('drops stale words but keeps cards so a late tap still resolves', () => {
+  it('keeps no chat turns, and keeps cards so a late tap still resolves', () => {
     const s = { ...freshState('org-a'), at: Date.now() - STALE_MS - 1000, history: [{ role: 'user', content: 'hi' }], cards: [{ action_id: ID, status: 'proposed' }] };
     const cur = currentState({ state: s }, 'org-a');
-    expect(cur.history).toEqual([]);
+    expect(cur.history).toBeUndefined();
+    // A row written before turns stopped being kept loses them on the next read, stale or not.
+    expect(currentState({ state: { ...s, at: Date.now() } }, 'org-a').history).toBeUndefined();
     expect(cur.cards).toHaveLength(1);
   });
 
   it('builds the same request body the web client sends', () => {
     const s = freshState('org-a');
-    pushHistory(s, 'user', 'what is due?');
     remember(s, [{ type: 'task', id: ID, label: 'Homepage' }], 'tg1');
     trackCard(s, { action_id: ID, title: 'Mark task done', tool: 'complete_task', kind: 'action', risk: 'low', status: 'proposed', expires_at: future }, 42);
     const body = requestBody(s, { chatId: -100123, messageId: 'tg7', audience: 'shared', source: null });
     expect(body).toMatchObject({ channel: 'telegram', audience: 'shared', chat_id: 'tg:-100123', message_id: 'tg7' });
+    expect(body.history).toBeUndefined();
     expect(body.context.recentEntities[0]).toMatchObject({ id: ID, type: 'task' });
     expect(body.context.openCards).toEqual([{ action_id: ID, title: 'Mark task done', risk: 'low' }]);
     expect(s.cards[0].message_id).toBe(42);

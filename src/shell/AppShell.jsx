@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { useAssistant } from '../components/assistant/assistantStore';
-import { useCofounder } from '../design/useCofounder';
+import { Link, useLocation } from 'react-router-dom';
+import { useCofounder, useCofounderMigration } from '../design/useCofounder';
 import { PixelAvatar } from '../design/ui';
 import { ME_AVATAR } from '../design/personas';
 import { IconHome, IconBusiness, IconWork, IconTeam, IconSettings, IconCall } from '../design/icons';
@@ -14,6 +13,7 @@ import { useShell } from './shellContext';
 import Composer from '../chat/Composer';
 import FilesSheet from '../chat/FilesSheet';
 import CallHost from '../call/CallHost';
+import MovedNotice from './MovedNotice';
 import TabBar from './TabBar';
 import '../chat/chat.css';
 import '../design/sb.css';
@@ -35,11 +35,10 @@ const SIDE_NAV = NAV_AREAS.filter((id) => id !== 'chat');
 
 export default function AppShell({ children, composer = true }) {
     const location = useLocation();
-    const navigate = useNavigate();
     const { persona } = useCofounder();
+    useCofounderMigration();
     const me = useMe();
     const counts = useNavCounts();
-    const a = useAssistant();
     const shell = useShell();
     const current = sectionOf(location.pathname);
     const currentArea = areaOf(current);
@@ -56,9 +55,6 @@ export default function AppShell({ children, composer = true }) {
         if (greeting) startCall('incoming', { greeting });
     }, [uid, startCall]);
     const sectionLabel = area(currentArea)?.label || '';
-
-    const recent = a.chats.filter((c) => c.messages.length).slice(0, 6);
-    const openChat = (id) => { a.pickChat(id); navigate('/chat'); };
 
     const navLink = (id) => {
         const s = area(id);
@@ -101,19 +97,6 @@ export default function AppShell({ children, composer = true }) {
 
                 {SIDE_NAV.map(navLink)}
 
-                {recent.length > 0 && (
-                    <>
-                        <div className="sh" id="sb-recent-h">Recent chats</div>
-                        <div role="list" aria-labelledby="sb-recent-h">
-                            {recent.map((c) => (
-                                <button key={c.id} type="button" role="listitem" className="rc"
-                                    aria-current={current === 'chat' && a.activeId === c.id ? 'true' : undefined}
-                                    onClick={() => openChat(c.id)}>{c.title}</button>
-                            ))}
-                        </div>
-                    </>
-                )}
-
                 <div className="bottom">
                     <Link to="/settings" className="me" aria-label={`Settings, signed in as ${me.email}`}
                         aria-current={current === 'settings' ? 'page' : undefined}>
@@ -134,10 +117,12 @@ export default function AppShell({ children, composer = true }) {
 
             <main className="sb-main" id="sb-main">
                 {children}
-                {composer && current && <Composer section={current} persona={persona} brainBuilt={shell.brainBuilt} />}
+                {/* On Buddy the composer sits inside the chat panel (ChatScreen). */}
+                {composer && current && current !== 'chat' && <Composer section={current} persona={persona} brainBuilt={shell.brainBuilt} />}
             </main>
             <FilesSheet />
             <CallHost />
+            <MovedNotice />
 
             <TabBar current={current} currentArea={currentArea} counts={counts} persona={persona} />
         </div>

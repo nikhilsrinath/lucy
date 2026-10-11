@@ -1,6 +1,7 @@
-import React, { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useId, useLayoutEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { pixelRuns } from './personas';
+import { faceUrl } from './art/avatars';
 import { IconClose } from './icons';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -176,26 +177,24 @@ export function Field({ label, hint, error, children, select }) {
 const INK = '#111113';
 
 /**
- * A portrait: `spec` is a persona or any { h, x, acc }. A persona shows its
- * character image (`img`); anything else, or an image that fails to load, is
- * drawn as the pixel SVG. Sized by `size` (the tile, in px) or by its container.
+ * A portrait: `spec` is a persona or any { h, x, acc }. A cofounder (a spec
+ * with `art`) shows the face of its drawing (design/art); a teammate or the
+ * user is drawn as the pixel SVG. Sized by `size` (the tile, in px) or by
+ * its container.
  */
 export const PixelAvatar = React.memo(function PixelAvatar({ spec, size, round, className, style, label }) {
-    const [failed, setFailed] = useState(null);
-    const showImg = spec.img && failed !== spec.img;
-    const runs = showImg ? null : pixelRuns(spec.h, spec.x || []);
+    const box = { '--a': spec.acc, ...(size ? { width: size, height: size } : null), ...style };
+    const aria = { role: label ? 'img' : undefined, 'aria-label': label, 'aria-hidden': label ? undefined : true };
+    if (spec.art) {
+        return <span className={cx('sb-ava', 'art', round && 'round', className)} style={box} {...aria}><img src={faceUrl(spec.art)} alt="" draggable={false} /></span>;
+    }
+    const runs = pixelRuns(spec.h, spec.x || []);
     const colors = { 1: INK, 2: '#fff', 3: spec.acc };
     return (
-        <span className={cx('sb-ava', round && 'round', showImg && 'photo', className)}
-            style={{ '--a': spec.acc, ...(size ? { width: size, height: size } : null), ...style }}
-            role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
-            {showImg
-                ? <img src={spec.img} alt="" draggable={false} decoding="async" onError={() => setFailed(spec.img)} />
-                : (
-                    <svg viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true" focusable="false">
-                        {runs.map((r) => <rect key={`${r.y}-${r.x}`} x={r.x} y={r.y} width={r.w} height="1" fill={colors[r.v]} />)}
-                    </svg>
-                )}
+        <span className={cx('sb-ava', round && 'round', className)} style={box} {...aria}>
+            <svg viewBox="0 0 24 24" shapeRendering="crispEdges" aria-hidden="true" focusable="false">
+                {runs.map((r) => <rect key={`${r.y}-${r.x}`} x={r.x} y={r.y} width={r.w} height="1" fill={colors[r.v]} />)}
+            </svg>
         </span>
     );
 });

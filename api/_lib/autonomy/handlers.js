@@ -421,7 +421,7 @@ async function buddyReview(job, env) {
   const message = `SCHEDULED CHECK — you are running on your own, not in a conversation. The user asked you on ${p.asked_on || 'an earlier day'} to do this today:\n`
     + `"${String(p.instruction || '').slice(0, 500)}"\nLook up what you need, do what the instruction asks, then write a short report (at most 5 lines) addressed to them.`;
   try {
-    await runChat(ctx, { message, history: [], chatId: `job:${job.id}`, messageId: job.id }, emit, { callModelImpl: env.callModel });
+    await runChat(ctx, { message, chatId: `job:${job.id}`, messageId: job.id }, emit, { callModelImpl: env.callModel });
     await logAiUsage({ orgId: ctx.orgId, user: ctx.user?.id ? ctx.user : null, surface: 'copilot', model: AGENT_MODEL });
   } catch (err) {
     await logAiUsage({ orgId: ctx.orgId, user: ctx.user?.id ? ctx.user : null, surface: 'copilot', outcome: 'failed', model: AGENT_MODEL });

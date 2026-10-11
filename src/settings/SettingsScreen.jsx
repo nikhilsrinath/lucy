@@ -14,7 +14,7 @@ import { confirmDialog } from '../services/confirm';
 import { useCofounder } from '../design/useCofounder';
 import { useShell } from '../shell/shellContext';
 import { Button, Badge, Card, PageHeader, Sheet, Field, Segmented, PixelAvatar } from '../design/ui';
-import CofounderCarousel from '../design/CofounderCarousel';
+import CofounderChooser from '../design/CofounderChooser';
 import TelegramSettings from './TelegramSettings';
 import { introGreeting } from '../call/greeting';
 import '../money/money.css';
@@ -294,20 +294,19 @@ function ImageSlot({ label, url, busy, disabled, onPick, onClear }) {
 }
 
 function SwitchSheet({ onClose, onDone }) {
-    const { persona, setCofounder } = useCofounder();
-    const [pick, setPick] = useState(persona);
+    const { persona, setCofounder, founderProfile } = useCofounder();
     const [error, setError] = useState('');
-    const go = async () => {
-        if (pick.id === persona.id) { onClose(); return; }
-        try { await setCofounder(pick.id); onDone(pick.name); onClose(); }
+    const go = async (pick, extra) => {
+        if (pick.id === persona.id && !Object.keys(extra).length) { onClose(); return; }
+        try { await setCofounder(pick.id, extra); if (pick.id !== persona.id) onDone(pick.name); onClose(); }
         catch (e) { setError(e.message || 'Could not switch.'); }
     };
     return (
-        <Sheet open onClose={onClose} title="Change cofounder"
-            footer={<Button variant="primary" block size="lg" onClick={go}>{pick.id === persona.id ? `${pick.name} is your cofounder` : `Switch to ${pick.name}`}</Button>}>
+        <Sheet open onClose={onClose} title="Change cofounder" size="wide">
             {error && <div className="sb-err" role="alert">{error}</div>}
-            <CofounderCarousel compact value={persona.id} onChange={setPick} />
-            <p className="sb-acnote" style={{ textAlign: 'center' }}>Your chats, files and data stay the same. Only the personality changes.</p>
+            <CofounderChooser value={persona.id} answers={founderProfile} onPick={go}
+                cta={(p) => (p.id === persona.id ? `Keep ${p.name}` : `Switch to ${p.name}`)} />
+            <p className="sb-acnote" style={{ textAlign: 'center' }}>Your files, records and data stay the same. Only the cofounder changes.</p>
         </Sheet>
     );
 }

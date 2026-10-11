@@ -1,6 +1,6 @@
 import * as buddy from '../agent/buddy.js';
 import {
-  verifyPerson, userToken, verifyLinkedPerson, personToken, openBuddySession, ChannelAccessError,
+  verifyPerson, userToken, verifyLinkedPerson, personToken, openBuddySession, ChannelAccessError, COFOUNDER_KEY,
 } from '../agent/channelSession.js';
 import * as store from '../telegram/store.js';
 import { PermanentError, TransientError } from './jobs.js';
@@ -44,7 +44,9 @@ export async function sessionFor(job, { as = null, policy } = {}) {
     if (actor.kind === 'user') {
       const { user } = await verifyPerson({ userId: actor.userId, orgId });
       const token = await userToken(user);
-      return await buddy.openSession({ user, token, orgId, channel: 'autonomous', channelActor: 'buddy:job', autonomy });
+      // Follow-ups a user asked for come from their own cofounder.
+      const body = { context: { persona: user.user_metadata?.[COFOUNDER_KEY] || undefined } };
+      return await buddy.openSession({ user, token, orgId, channel: 'autonomous', channelActor: 'buddy:job', autonomy, body });
     }
     if (actor.kind === 'person') {
       const link = await store.personLinkFor(orgId, actor.employeeId);

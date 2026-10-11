@@ -4,7 +4,7 @@ import { userClient } from './db.js';
 import { KINDS, isUuid } from './resolvers.js';
 import { todayIn, DEFAULT_TZ } from '../../../src/shared/dates.js';
 import { PLANS, DEFAULT_PLAN } from '../../../src/services/planConfig.js';
-import { cleanPersona } from './personas.js';
+import { cleanPersona } from './cofounders.js';
 
 /**
  * Everything a tool may know about who is asking, built fresh per request.
@@ -150,7 +150,8 @@ export async function buildAgentContext({ user = null, person = null, buddy = fa
     // What Buddy has already done or tried in this chat, for "undo that",
     // "send the same reminder again", "did it work?".
     recentActions: cleanActions(body.context?.recentActions),
-    // The chosen cofounder's voice for the prompt — tone only (personas.js).
+    // The chosen cofounder: a mind and a manner (cofounders.js). A retired id
+    // maps to its successor; anything unknown is the default.
     persona: cleanPersona(body.context?.persona),
     cache: new Map(),
   };

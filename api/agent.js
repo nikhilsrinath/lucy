@@ -1,7 +1,7 @@
 /**
  * EdgeAI agent — POST /api/agent { mode, org_id, ... }
  *
- *   chat     { message, history, chat_id, message_id, context, resume?, pending? }
+ *   chat     { message, chat_id, message_id, context, resume?, pending? }
  *            → text/event-stream of agent events (see api/_lib/agent/loop.js)
  *   confirm  { action_id, selected?, edits? }  → execute a proposed change
  *   cancel   { action_id }
@@ -153,7 +153,7 @@ export default async function handler(req, res) {
     const usage = newUsage();
     const tokens = () => (usage.calls ? { promptTokens: usage.prompt, completionTokens: usage.output } : {});
     try {
-      await buddy.chat(ctx, { message, history: body.history, chatId: body.chat_id, messageId: body.message_id }, emit, { usage });
+      await buddy.chat(ctx, { message, chatId: body.chat_id, messageId: body.message_id }, emit, { usage });
       console.info(`[agent] tokens: ${describeUsage(usage)}`);
       await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
     } catch (err) {

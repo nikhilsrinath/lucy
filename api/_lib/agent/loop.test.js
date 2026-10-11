@@ -129,7 +129,9 @@ describe('nothing is written without a confirm', () => {
     );
     await runChat(ctx, { message: 'what is overdue?', chatId: 'c1', messageId: 'm1' }, emit, { callModelImpl: model });
     expect(events.find((e) => e.event === 'entities').entities[0]).toMatchObject({ type: 'task', id: T1 });
-    expect(events.at(-1)).toMatchObject({ event: 'text', text: expect.stringMatching(/One overdue task/) });
+    expect(events.at(-2)).toMatchObject({ event: 'text', text: expect.stringMatching(/One overdue task/) });
+    // The turn ends with its mood: something overdue is a warning, whatever the model says.
+    expect(events.at(-1)).toMatchObject({ event: 'mood', mood: 'warning', headline_word: 'Not good enough.' });
     const toolMsg = model.seen[1].messages.find((m) => m.role === 'tool');
     expect(toolMsg.content).toMatch(/^<data tool="list_tasks">/);
     expect(toolMsg.content).toMatch(/"total_matching":1/);
@@ -258,7 +260,7 @@ describe('chips and typed answers', () => {
 describe('prompt caching and token accounting', () => {
   const history = [{ role: 'user', content: 'hi' }, { role: 'assistant', content: 'Hello!' }];
 
-  it('the system prompt does not change with the per-message state, which goes just before the message', async () => {
+  it('the system prompt does not change with the per-message state, and no earlier chat turns are sent', async () => {
     const a = world();
     const b = world();
     b.ctx.today = '2026-10-14';
@@ -274,7 +276,9 @@ describe('prompt caching and token accounting', () => {
 
     const [sa, sb] = [ma.seen[0].messages, mb.seen[0].messages];
     expect(sb[0]).toEqual(sa[0]);
-    expect(sb.slice(1, 3)).toEqual(history);
+    // system · turn context · the message — the history a caller passes is ignored.
+    expect(sb).toHaveLength(3);
+    expect(JSON.stringify(sb)).not.toMatch(/Hello!/);
     expect(sb.at(-1)).toEqual({ role: 'user', content: 'second' });
     const turn = sb.at(-2).content;
     expect(turn).toMatch(/^<data source="turn">/);

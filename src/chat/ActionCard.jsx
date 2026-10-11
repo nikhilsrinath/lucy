@@ -93,7 +93,7 @@ export default function ActionCard({ card, onConfirm, onCancel, onUndo, onRetry,
                 )}
                 {(status === 'proposed' || busy) && (high
                     ? <Badge tone="a">Review first</Badge>
-                    : <Badge tone="n">Undo in 10 min</Badge>)}
+                    : <Badge tone="n">Undo 10 min</Badge>)}
             </span>
         </div>
     );

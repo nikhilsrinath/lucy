@@ -1,0 +1,58 @@
+/* /dev/cofounders. Prefix pv-. */
+
+.pv { --soft: #f3f2ee; max-width: 1320px; margin: 0 auto; padding: 32px 16px 80px; color: #141414; font-family: Inter, system-ui, sans-serif; background: #f5f4ef; min-height: 100vh; }
+.pv h1 { font: 800 40px/1.05 "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -.03em; margin: 0 0 8px; }
+.pv h2 { font: 800 26px/1.1 "Bricolage Grotesque", Inter, sans-serif; letter-spacing: -.02em; margin: 56px 0 16px; }
+.pv-lede { color: #4a4945; font-size: 15px; margin: 0 0 24px; }
+.pv code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; background: #fff; padding: 1px 5px; border-radius: 5px; }
+
+.pv-grid { display: grid; grid-template-columns: 120px repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; overflow-x: auto; }
+.pv-col { font: 700 11px "JetBrains Mono", ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: #55534d; }
+.pv-row { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; }
+.pv-row b { font-size: 16px; } .pv-row small { color: #6b6a66; font-size: 12.5px; }
+.pv-cell { margin: 0; min-width: 150px; }
+.pv-cell .art { position: relative; aspect-ratio: 390 / 420; border-radius: 16px; overflow: hidden; border: 2px solid #141414; }
+.pv-cell .cf-avatar { position: absolute; right: 2%; bottom: 0; width: 62%; }
+.pv-cell figcaption { font-size: 13px; font-weight: 650; margin-top: 8px; }
+.pv-cell figcaption span { display: block; font: 500 11px "JetBrains Mono", ui-monospace, monospace; color: #77756e; margin-top: 2px; }
+
+.pv-pick { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 14px; }
+.pv-pick select { height: 40px; border-radius: 10px; border: 1.5px solid #141414; padding: 0 10px; font: inherit; background: #fff; }
+.pv-mood { font: 700 11px "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; padding: 6px 8px; border-radius: 6px; color: #fff; background: #141414; }
+.pv-mood.warning { background: #c8261c; } .pv-mood.win { background: #0b6fc2; } .pv-mood.thinking { background: #ffc107; color: #2a1d00; } .pv-mood.celebrate { background: #6d28d9; }
+.pv-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.pv-answer { background: #fff; border: 2px solid #141414; border-radius: 16px; padding: 16px; box-shadow: 3px 3px 0 #141414; }
+.pv-answer header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.pv-answer header small { display: block; color: #6b6a66; font-size: 12.5px; }
+.pv-answer .word { margin-left: auto; font: 800 16px "Bricolage Grotesque", Inter, sans-serif; text-align: right; }
+.pv-answer .sum { font-size: 15px; font-weight: 600; line-height: 1.4; margin: 0 0 10px; }
+.pv-answer ol { margin: 0; padding-left: 20px; display: grid; gap: 6px; font-size: 13.5px; }
+.pv-answer li small { display: block; color: #6b6a66; }
+.pv-answer pre { margin: 12px 0 0; white-space: pre-wrap; font: 500 12.5px/1.5 Inter, sans-serif; background: #f7f6f1; border-radius: 10px; padding: 10px; color: #33322f; }
+
+.pv-frames { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 28px 20px; justify-items: center; }
+.pv-frames figure { margin: 0; } .pv-frames figcaption { text-align: center; margin-top: 10px; font: 700 11px "JetBrains Mono", ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: #55534d; }
+.pv-phone { width: 390px; height: 760px; border-radius: 30px; overflow: hidden; border: 2px solid #141414; background: #fff; display: flex; zoom: .76; }
+.pv-phone .sb-chat.mc { flex: 1; --mc-stage: 340px; --mc-panel-top: 236px; }
+.pv-phone .mc .mc-head { top: 74px; left: 18px; } .pv-phone .mc .mc-head .word { font-size: 34px; }
+.pv-phone .mc .mc-avatar { width: 176px; right: 2px; top: 44px; }
+.pv-phone .mc .mc-panel { left: 10px; right: 10px; bottom: 10px; }
+.pv-phone .mc .mc-scroll { padding: 16px 14px 10px; }
+.pv.pv-shot { display: grid; place-items: center; padding: 16px 0; max-width: none; } .pv-shot .pv-phone { zoom: 1; }
+
+.pv-card { border: 2px solid #141414; border-radius: 14px; padding: 12px; box-shadow: 3px 3px 0 #141414; background: #fff; margin: 0 4px 4px 0; }
+.pv-card .top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: #55534d; }
+.pv-card .top em { font: 600 10.5px "JetBrains Mono", ui-monospace, monospace; background: #f3f2ee; padding: 3px 6px; border-radius: 5px; text-transform: none; letter-spacing: 0; }
+.pv-card .main { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 14px; }
+.pv-card .amt { font: 700 15px "JetBrains Mono", ui-monospace, monospace; } .pv-card .amt.pos { color: #2f8a1e; } .pv-card .amt.neg { color: #d12b2b; }
+.pv-card .meta { font-size: 12px; color: #77756e; margin-top: 2px; }
+.pv-card .btns { display: flex; gap: 6px; margin-top: 10px; }
+.pv-card .btns span { flex: 1; text-align: center; border-radius: 10px; padding: 9px 6px; font-size: 12.5px; font-weight: 700; border: 1.5px solid #141414; }
+.pv-card .btns .p { background: #141414; color: #fff; }
+.pv-composer { margin: 0 10px 10px; display: flex; align-items: center; justify-content: space-between; border: 1.5px solid #dcd9cf; border-radius: 14px; padding: 6px 6px 6px 12px; color: #9a988f; font-size: 14px; }
+.pv-composer i { font-style: normal; width: 32px; height: 32px; border-radius: 10px; background: #141414; color: #fff; display: grid; place-items: center; }
+
+@media (max-width: 760px) { .pv-grid { grid-template-columns: 84px repeat(4, 150px); } }
+
+.pv-choose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
+@media (max-width: 900px) { .pv-choose { grid-template-columns: 1fr; } }

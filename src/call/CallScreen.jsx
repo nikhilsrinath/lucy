@@ -38,14 +38,24 @@ export default function CallScreen({ onEnd, greeting = '' }) {
     const listRef = useRef(null);
 
     const items = a.messages.filter((m) => !startIds.has(m.id));
-    const cards = items.filter((m) => m.kind === 'action' && m.card);
+    // Each thing said on a call replaces the exchange on screen, so the call
+    // keeps its own record of the cards it produced, at their latest state.
+    const seen = useRef({ any: false, cards: new Map() });
+    if (items.length) seen.current.any = true;
+    for (const m of items) if (m.kind === 'action' && m.card) seen.current.cards.set(m.id, m);
 
-    const end = () => onEnd({
-        duration: mmss(call.elapsed),
-        exchanged: items.length > 0,
-        confirmed: cards.filter((m) => m.card.status === 'executed').map((m) => ({ id: m.id, title: m.card.summary || m.card.title })),
-        waiting: cards.filter((m) => m.card.status === 'proposed').map((m) => ({ id: m.id, title: m.card.title, risk: m.card.risk })),
-    });
+    const end = () => {
+        const cards = [...seen.current.cards.values()];
+        const waiting = cards.filter((m) => m.card.status === 'proposed');
+        onEnd({
+            duration: mmss(call.elapsed),
+            exchanged: seen.current.any,
+            confirmed: cards.filter((m) => m.card.status === 'executed').map((m) => ({ id: m.id, title: m.card.summary || m.card.title })),
+            waiting: waiting.map((m) => ({ id: m.id, title: m.card.title, risk: m.card.risk })),
+            // The waiting cards themselves, to show under the summary for a tap.
+            cards: waiting,
+        });
+    };
     const endRef = useRef(end);
     useEffect(() => { endRef.current = end; });
 

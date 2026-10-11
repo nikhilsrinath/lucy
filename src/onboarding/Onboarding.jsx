@@ -11,7 +11,7 @@ import { displayNameOf } from '../lib/user';
 import { PERSONAS } from '../design/personas';
 import { useCofounder } from '../design/useCofounder';
 import { Button, Field, Segmented, PixelAvatar, Card, Switch, IconTile } from '../design/ui';
-import CofounderCarousel from '../design/CofounderCarousel';
+import CofounderChooser from '../design/CofounderChooser';
 import { IconChevronLeft, IconChat, IconCheck, IconCall, IconInvoice, IconMail, IconBank } from '../design/icons';
 import { introGreeting } from '../call/greeting';
 import { setOnboardingStep, INTRO_CALL_KEY } from './onboardingState';
@@ -33,7 +33,7 @@ import './onboarding.css';
    first knowledge-base build. The intro call's greeting is spoken locally.
    ══════════════════════════════════════════════════════════════════════════ */
 
-const STACK = [3, 4, 0, 5, 2, 1].map((i) => PERSONAS[i]);
+const STACK = PERSONAS;
 const SIZES = ['Just me', '2–5', '6–20', '20+'];
 const SELLS = [{ value: 'services', label: 'Services' }, { value: 'products', label: 'Products' }, { value: 'both', label: 'Both' }];
 const STEPS = { account: 1, company: 2, cofounder: 3, headstart: 4 };
@@ -142,7 +142,6 @@ export default function Onboarding({ initial = 'account' }) {
     const [company, setCompany] = useState(() => ({
         first: (displayNameOf(user) || '').split(/\s+/)[0] || '', name: '', sells: 'services', size: '2–5',
     }));
-    const [pick, setPick] = useState(persona);
     const [head, setHead] = useState({ files: false, gmail: false, bank: false });
     const [fileList, setFileList] = useState([]);
     const [gmail, setGmail] = useState({ user: '', pass: '' });
@@ -190,10 +189,10 @@ export default function Onboarding({ initial = 'account' }) {
         } finally { setBusy(false); }
     };
 
-    const chooseCofounder = async () => {
+    const chooseCofounder = async (picked, extra) => {
         setBusy(true);
         try {
-            await setCofounder(pick.id);
+            await setCofounder(picked.id, extra);
             await setOnboardingStep(user.id, 'headstart');
             go('headstart');
         } catch (err) { setError(err.message || 'Could not save your choice.'); }
@@ -267,10 +266,11 @@ export default function Onboarding({ initial = 'account' }) {
                 <section className="sb-os">
                     <div className="sb-ow wide">
                         <h2 className="center">Choose your cofounder</h2>
-                        <p className="lede center">Same skills, different personalities. You can switch anytime.</p>
+                        <p className="lede center">Same tools and rules, different minds. You can switch anytime.</p>
                         {error && <div className="sb-err" role="alert" style={{ marginTop: 16 }}>{error}</div>}
-                        <CofounderCarousel value={pick.id} onChange={setPick} />
-                        <div className="sb-pickcta"><Button variant="primary" size="lg" block onClick={chooseCofounder} disabled={busy}>Continue with {pick.name}</Button></div>
+                        <div style={{ marginTop: 20 }}>
+                            <CofounderChooser value={persona.id} busy={busy} cta={(p) => `Continue with ${p.name}`} onPick={chooseCofounder} />
+                        </div>
                     </div>
                 </section>
             </Frame>

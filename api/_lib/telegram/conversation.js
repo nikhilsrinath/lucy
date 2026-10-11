@@ -2,9 +2,10 @@ import { randomBytes } from 'node:crypto';
 
 /**
  * One person's short-term context in one Telegram chat — the server-side
- * twin of what the web client keeps per chat in the browser
- * (AssistantContext.jsx): the recent words, the records in play, the open
- * question, the cards shown and what became of them. Built into the same
+ * twin of what the web client keeps for the exchange on screen
+ * (AssistantContext.jsx): the records in play, the open question, the cards
+ * shown and what became of them. No words are kept: Buddy is given the
+ * current message only, never earlier chat turns. Built into the same
  * request body the web client sends, so Buddy reads a Telegram turn exactly
  * like a web one.
  *
@@ -17,12 +18,11 @@ import { randomBytes } from 'node:crypto';
  */
 
 export const STALE_MS = 12 * 60 * 60 * 1000;
-const MAX_HISTORY = 16;
 const MAX_ENTITIES = 10;
 const MAX_CARDS = 12;
 
 export function freshState(orgId) {
-  return { org_id: orgId, at: Date.now(), history: [], entities: [], pending: null, offers: null, cards: [], pulse: null };
+  return { org_id: orgId, at: Date.now(), entities: [], pending: null, offers: null, cards: [], pulse: null };
 }
 
 /** The stored state, or a fresh one if it is for another company or has gone stale. */
@@ -30,10 +30,12 @@ export function currentState(row, orgId) {
   const s = row?.state;
   if (!s || s.org_id !== orgId) return freshState(orgId);
   if (Date.now() - (s.at || 0) > STALE_MS) {
-    // Old words and questions no longer help; cards are kept so a late tap still resolves.
+    // Old questions no longer help; cards are kept so a late tap still resolves.
     return { ...freshState(orgId), cards: (s.cards || []).slice(-MAX_CARDS), pulse: s.pulse || null };
   }
-  return { ...freshState(orgId), ...s };
+  // Rows written before chat turns stopped being kept still carry them: drop them.
+  const { history: _words, ...kept } = s;
+  return { ...freshState(orgId), ...kept };
 }
 
 export const chatKey = (chatId) => `tg:${chatId}`;
@@ -48,7 +50,6 @@ export function requestBody(state, { chatId, messageId, audience, source = null 
     audience,
     chat_id: chatKey(chatId),
     message_id: String(messageId),
-    history: state.history,
     pending: state.pending || undefined,
     context: {
       recentEntities: state.entities,
@@ -62,12 +63,6 @@ export function requestBody(state, { chatId, messageId, audience, source = null 
 }
 
 /* ── after a turn ─────────────────────────────────────────────────────────── */
-
-export function pushHistory(state, role, content) {
-  const text = String(content || '').trim();
-  if (!text) return;
-  state.history = [...state.history, { role, content: text.slice(0, 2000) }].slice(-MAX_HISTORY);
-}
 
 export function remember(state, entities, turn) {
   if (!entities?.length) return;
@@ -95,7 +90,7 @@ export function trackCard(state, card, messageId = null) {
   return entry;
 }
 
-/** A card as one line of history — what the model reads back (cardText.js on the web). */
+/** A card as one line of plain text (cardText.js on the web). */
 export function cardLine(card) {
   if (!card) return '';
   if (card.kind === 'plan') {

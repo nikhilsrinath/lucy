@@ -3,7 +3,7 @@ import * as store from './store.js';
 import * as pulse from '../agent/pulse.js';
 import { verifyPerson, ChannelAccessError } from '../agent/channelSession.js';
 import { supabaseAdmin } from '../supabaseAdmin.js';
-import { currentState, pushHistory } from './conversation.js';
+import { currentState } from './conversation.js';
 
 /**
  * Daily Pulse over Telegram: delivering the question. The log and the
@@ -60,7 +60,6 @@ export async function sendPulse({ orgId, force = false }) {
       const conv = await store.loadConversation(link.dm_chat_id, link.telegram_user_id);
       const state = currentState(conv, orgId);
       state.pulse = { id: row.id, asked_at: row.asked_at };
-      pushHistory(state, 'assistant', question);
       state.at = Date.now();
       await store.saveConversation(link.dm_chat_id, link.telegram_user_id, orgId, state);
       out.sent += 1;

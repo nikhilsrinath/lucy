@@ -221,13 +221,6 @@ ${tb.week.length ? `**This Week:**\n${weekLines}` : ''}`;
         run: () => 'EdgeBrain slash lookup is disabled for deterministic command execution. Use the EdgeBrain panel for knowledge search.',
     },
     {
-        name: 'clear',
-        category: 'Tools',
-        description: 'Clear the active chat history',
-        icon: 'trash',
-        action: ({ a }) => a.clearHistory(),
-    },
-    {
         name: 'help',
         aliases: ['commands'],
         category: 'Help',

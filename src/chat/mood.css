@@ -1,0 +1,88 @@
+/* The Buddy screen (buddy-mood-chat.html): a mood stage on top, a white panel
+   holding the one exchange and the composer below. Prefix mc-, scoped under
+   .sb-chat.mc so it outranks the shared chat styles. */
+
+.sb-chat.mc { position: relative; overflow: hidden; background: #fff; --mc-ink: #141414; --mc-lime: #c8f169;
+  --mc-stage: 340px; --mc-panel-top: 236px; }
+
+/* ── the stage ─────────────────────────────────────────────────────────── */
+.mc .mc-stage { position: absolute; inset: 0 0 auto 0; height: var(--mc-stage); z-index: 0; }
+.mc .mc-in { position: relative; height: 100%; max-width: 760px; margin: 0 auto; }
+
+.mc .mc-top { position: absolute; top: calc(12px + var(--sat, 0px)); left: 14px; right: 14px; display: flex; align-items: center; gap: 8px; z-index: 20; }
+.mc .mc-pill, .mc .mc-pill:visited { display: inline-flex; align-items: center; gap: 7px; min-height: 36px; margin-right: auto; background: rgba(255,255,255,.94); color: var(--mc-ink); border: 2px solid var(--mc-ink); border-radius: 999px; padding: 3px 12px 3px 4px; font-size: 13px; font-weight: 700; box-shadow: 2px 2px 0 var(--mc-ink); text-decoration: none; }
+.mc .mc-pill small { font-weight: 500; color: #4a4945; font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 38vw; }
+.mc .mc-pill .cf-face { border-width: 2px; background: var(--mc-lime); }
+.mc .mc-ib { width: 38px; height: 38px; border-radius: 12px; background: #fff; color: var(--mc-ink); border: 2px solid var(--mc-ink); display: grid; place-items: center; box-shadow: 2px 2px 0 var(--mc-ink); cursor: pointer; flex: none; }
+.mc .mc-ib:active, .mc .mc-pill:active { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--mc-ink); }
+
+/* Readable on every background: the word is white with a thick ink outline
+   (ink with a white outline on the yellow mood), the tag is a solid chip. */
+.mc .mc-head { position: absolute; left: 18px; top: calc(74px + var(--sat, 0px)); width: min(46%, 300px); z-index: 15; color: #fff; }
+.mc .mc-head .word { font: 800 34px/0.98 "Bricolage Grotesque", Inter, system-ui, sans-serif; letter-spacing: -.02em; -webkit-text-stroke: 6px var(--mc-ink); paint-order: stroke fill; text-shadow: 3px 3px 0 rgba(0,0,0,.28); overflow-wrap: break-word; }
+.mc .mc-head .tag { display: inline-block; margin-top: 12px; font: 700 11px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; background: var(--mc-ink); color: #fff; padding: 6px 8px; border-radius: 6px; }
+.mc.mood-thinking .mc-head { color: #2a1d00; }
+.mc.mood-thinking .mc-head .word { -webkit-text-stroke-color: #fff; text-shadow: 3px 3px 0 rgba(58,42,0,.25); }
+.mc.mood-thinking .mc-head .tag { background: #fff; color: #2a1d00; }
+
+.mc .mc-avatar { position: absolute; right: 2px; top: calc(44px + var(--sat, 0px)); width: 176px; z-index: 10; }
+
+/* ── the panel ─────────────────────────────────────────────────────────── */
+.mc .mc-panel { position: absolute; left: 10px; right: 10px; top: calc(var(--mc-panel-top) + var(--sat, 0px)); bottom: 6px; max-width: 760px; margin: 0 auto; background: #fff; border-radius: 24px; z-index: 12; display: flex; flex-direction: column; box-shadow: 0 -6px 20px -10px rgba(0,0,0,.25), 0 0 0 1px rgba(20,20,20,.06); overflow: hidden; }
+.mc .mc-scroll { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 14px 10px; scrollbar-width: thin; }
+
+.mc .mc-x { display: flex; flex-direction: column; animation: mcRise .4s ease; }
+@keyframes mcRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+.mc .mc-q { align-self: flex-end; max-width: 84%; background: var(--soft, #f3f2ee); border-radius: 16px 16px 4px 16px; padding: 9px 13px; font-size: 15px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
+.mc .mc-who { display: flex; align-items: center; gap: 7px; margin: 12px 0 6px; font-size: 12.5px; }
+.mc .mc-who b { font-weight: 700; }
+.mc .mc-who span { color: #77756e; font-weight: 500; }
+.mc .mc-a { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.mc .mc-a .sb-say { font-size: 15px; line-height: 1.5; color: #1e1e1e; max-width: none; }
+.mc .mc-hint { display: block; color: #77756e; font-size: 12.5px; margin-top: 2px; }
+.mc .mc-typing { padding: 6px 0; }
+
+/* Cards in the sticker style: ink border, hard shadow. */
+.mc .mc-a .sb-ac, .mc .mc-a .sb-cd { border: 2px solid var(--mc-ink); border-radius: 14px; box-shadow: 3px 3px 0 var(--mc-ink); max-width: none; margin: 0 4px 4px 0; }
+.mc .mc-a .sb-ac.dim { box-shadow: none; border-color: #c9c6bb; }
+
+.mc .mc-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.mc .mc-pick { border: 1.5px solid var(--mc-ink); border-radius: 999px; min-height: 36px; padding: 6px 13px; font: 600 13.5px Inter, system-ui, sans-serif; background: #fff7d6; color: var(--mc-ink); cursor: pointer; text-align: left; }
+.mc .mc-pick small { display: block; font-weight: 500; font-size: 11.5px; color: #55534d; }
+.mc .mc-pick:hover:not(:disabled) { background: #ffe680; }
+.mc .mc-pick:disabled { opacity: .5; cursor: default; }
+
+/* The brief, when nothing has been asked yet. */
+.mc .mc-scroll > .sb-m > .mav { display: none; }
+.mc .mc-scroll .sb-greet { font-size: 24px; }
+.mc .mc-scroll .sb-lede2 { font-size: 15px; }
+
+/* ── the composer, inside the panel ────────────────────────────────────── */
+.mc .sb-composer { padding: 8px 10px 10px; border-top: 1px solid #efede6; background: #fff; }
+.mc .sb-composer .in { max-width: none; padding: 0; }
+.mc .sb-bar { box-shadow: none; border: 1.5px solid #dcd9cf; border-radius: 14px; }
+.mc .sb-hint { display: none; }
+
+.mc .mc-toast { position: absolute; left: 12px; right: 12px; bottom: 12px; background: var(--mc-ink); color: #fff; border-radius: 14px; padding: 10px 12px 10px 14px; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 40; animation: mcRise .3s ease; }
+.mc .mc-toast button { background: var(--mc-lime); color: var(--mc-ink); border: 0; border-radius: 8px; min-height: 32px; padding: 5px 12px; font: 700 12.5px Inter, system-ui, sans-serif; cursor: pointer; }
+
+/* ── wider screens: same stage, roomier ────────────────────────────────── */
+@media (min-width: 761px) {
+  .sb-chat.mc { --mc-stage: 380px; --mc-panel-top: 262px; }
+  .mc .mc-head { top: 86px; left: 26px; }
+  .mc .mc-head .word { font-size: 46px; }
+  .mc .mc-avatar { width: 204px; right: 18px; top: 40px; }
+  .mc .mc-panel { bottom: 16px; left: 16px; right: 16px; }
+  .mc .mc-scroll { padding: 22px 22px 12px; }
+  .mc .sb-composer { padding: 10px 16px 14px; }
+}
+@media (max-height: 640px) {
+  .sb-chat.mc { --mc-stage: 280px; --mc-panel-top: 186px; }
+  .mc .mc-avatar { width: 138px; top: calc(40px + var(--sat, 0px)); }
+  .mc .mc-head { top: calc(64px + var(--sat, 0px)); }
+  .mc .mc-head .word { font-size: 28px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mc .mc-x, .mc .mc-toast { animation: none; }
+}

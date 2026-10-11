@@ -83,6 +83,7 @@ import { meService } from './services/meService';
 import { ToastProvider } from './components/shared/Toast';
 import ConfirmHost from './components/shared/ConfirmHost';
 import AdminApp from './components/admin/AdminApp';
+import CofoundersPreview from './dev/CofoundersPreview';
 
 // Financial Documents
 import QuotationForm from './components/financial/QuotationForm';
@@ -373,7 +374,7 @@ function AppContent() {
   const editor = /^\/money\/invoices\/(new|[^/]+\/edit)\/?$/.test(location.pathname) || /^\/team\/letters\//.test(location.pathname);
 
   return (
-    <AssistantProvider orgId={activeOrg?.id || null} userId={user?.id || null} assistantName={persona.name} personaId={persona.id}>
+    <AssistantProvider orgId={activeOrg?.id || null} userId={user?.id || null} personaId={persona.id}>
       <ShellProvider>
       <AppShell composer={!flush && !editor}>
         <ShellFrame
@@ -568,6 +569,8 @@ function App() {
                 every tenant rather than one, and it gates on its own operator
                 sign-in rather than the workspace session. */}
             <Route path="/admin/*" element={<AdminApp />} />
+            {/* The cofounders × moods preview: drawings and files only, no data. */}
+            <Route path="/dev/cofounders" element={<CofoundersPreview />} />
             {Object.keys(subPages).map(path => {
               const SubPageComponent = subPages[path];
               return (

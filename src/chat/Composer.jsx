@@ -294,7 +294,6 @@ export default function Composer({ section, persona, brainBuilt = false }) {
         if (wizard && !wizard.ready) { answerWizard(draft); return; }
         go();
     };
-    const pending = onChat && a.pendingQuestion && !streaming ? a.pendingQuestion : null;
 
     const handleKeyDown = (e) => {
         if (wizard && e.key === 'Escape') {
@@ -340,20 +339,13 @@ export default function Composer({ section, persona, brainBuilt = false }) {
     return (
         <div className="sb-composer">
             <div className="in">
-                {onChat && !wizard && a.messages.length === 0 && (
+                {onChat && !wizard && (
                     <div className="sb-sugg" role="group" aria-label="Suggestions">
                         {SUGGESTIONS.filter((s) => !s.needsBrain || brainBuilt).map((s) => (
                             <button key={s.label} type="button" disabled={streaming} onClick={() => go(s.prompt)}>{s.label}</button>
                         ))}
                     </div>
                 )}
-                {pending && (
-                    <div className="sb-pending" role="status">
-                        <span>Waiting for: {pending.content}</span>
-                        <button type="button" onClick={() => a.dismissQuestion(a.activeId, pending.id)}>Skip</button>
-                    </div>
-                )}
-
                 {wizard && (
                     <SlashWizard
                         wizard={wizard}

@@ -1,108 +1,50 @@
+import { parseSituations, parseRules, buildCofounder } from '../shared/cofounders/parse.js';
+import { COFOUNDER_IDS, DEFAULT_COFOUNDER_ID, resolveCofounderId } from '../shared/cofounders/legacy.js';
+
 /* ══════════════════════════════════════════════════════════════════════════
-   The six cofounders and their portraits.
+   The cofounders, as the app knows them.
 
-   Each cofounder's face is `img` (public/characters/web, 480px copies of the
-   originals in public/characters). `h`/`x` are kept as the pixel fallback
-   while an image loads or if it fails.
+   Each one lives in cofounders/<id>/ (profile.json, persona.md, mind.md,
+   playbooks.md, examples.md), with the shared rules and the situations in
+   cofounders/_core/. The files are bundled here and parsed with the same
+   functions the server uses (src/shared/cofounders/parse.js), so the app and
+   the agent can never disagree about who a cofounder is.
 
-   `pixelRuns` is a faithful port of the mockup's pix(): a 24×24 grid painted
-   with the same rectangles in the same order, then run-length encoded row by
-   row. Values: 1 ink, 2 white, 3 the persona's accent. Teammates and the
-   user's own avatar still use it.
+   A persona carries what the screens need: name, title, speciality, IQ, the
+   selection vector, the headline word for each mood, the browser voice
+   (`voice`, picked by pickVoice), the call's opener and closer, the fillers
+   that cover a wait on a call, and `art` — the id its drawings are keyed by
+   (src/design/art).
 
-   Personas are voice and manner only. Skills, tools, permissions and
-   confirmations are identical for all of them (the server keeps its own copy
-   of the ids and how each one speaks in api/_lib/agent/personas.js, and
-   accepts only those ids).
-
-   Everything spoken locally is theirs too: `voice` picks a browser voice of
-   their gender from their own shortlist (pickVoice) and sets pitch and rate;
-   `opener`/`closer` frame the intro call; `fillers` cover the wait on a call.
-
-   `sample` lines are data-free on purpose: the mockup's samples named clients
-   and amounts, which a real preview would be inventing.
+   `pixelRuns` further down draws the pixel portraits teammates and the
+   user's own avatar still use.
    ══════════════════════════════════════════════════════════════════════════ */
 
-export const PERSONAS = [
-    { id: 'mira', name: 'Mira', img: '/characters/web/mira.jpg', role: 'Numbers-first', traits: ['Runway', 'Early warnings', 'Concise'], acc: '#C8F169', h: 'long', x: ['glasses'],
-        sample: 'Short version first: here is the number, and here is what it means for your runway.',
-        opener: 'Hi, I\'m Mira, your cofounder.',
-        closer: 'Ask me for any number, or tell me what happened and I\'ll have it ready for you to confirm.',
-        voice: { gender: 'f', prefer: ['Neerja', 'Heera', 'Veena', 'Google UK English Female', 'Sonia', 'Hazel'], pitch: 1.04, rate: 1.02 },
-        fillers: {
-            question: ['Let me check.', 'Checking that now.'],
-            numbers: ['Pulling the figures.', 'One sec, checking the numbers.', 'Let me total that up.'],
-            request: ['On it.', 'Noted. Preparing it.'],
-            generic: ['One sec.', 'Let me see.'],
-            still: ['Nearly there.', 'Just adding it up.'],
-        } },
-    { id: 'arjun', name: 'Arjun', img: '/characters/web/arjun.jpg', role: 'No fluff', traits: ['Direct', 'Brief', 'Decisive'], acc: '#FFDD6B', h: 'buzz', x: [],
-        sample: 'Answer first. Then the next step. That is it.',
-        opener: 'Arjun. Your cofounder.',
-        closer: 'Ask, or tell me what happened. I\'ll draft it, you confirm.',
-        voice: { gender: 'm', prefer: ['Christopher', 'Eric', 'Andrew', 'David', 'Alex'], pitch: 0.86, rate: 1.1 },
-        fillers: {
-            question: ['Checking.', 'One sec.'],
-            numbers: ['Pulling numbers.', 'Checking figures.'],
-            request: ['On it.', 'Doing it.'],
-            generic: ['One sec.', 'Okay.'],
-            still: ['Almost.', 'Nearly.'],
-        } },
-    { id: 'tara', name: 'Tara', img: '/characters/web/tara.jpg', role: 'Hype partner', traits: ['Upbeat', 'Motivating', 'Celebrates wins'], acc: '#FFB3DF', h: 'curly', x: [],
-        sample: 'Every payment in is a win, and trust me, we are going to celebrate every single one!',
-        opener: 'Hey hey! I\'m Tara, your cofounder.',
-        closer: 'Ask me anything, or tell me what happened and I\'ll get it ready for you to confirm. Let\'s go!',
-        voice: { gender: 'f', prefer: ['Jenny', 'Aria', 'Ana', 'Michelle', 'Google US English', 'Samantha', 'Zira'], pitch: 1.15, rate: 1.08 },
-        fillers: {
-            question: ['Ooh, let me check!', 'Ooh, good one.'],
-            numbers: ['Let\'s see those numbers!', 'Ooh, pulling them up.'],
-            request: ['Yes! On it.', 'Love it, doing it now.'],
-            generic: ['Okay, okay!', 'Ooh, one sec.'],
-            still: ['Almost there, promise!', 'Nearly got it!'],
-        } },
-    { id: 'neel', name: 'Neel', img: '/characters/web/neel.jpg', role: 'Detail checker', traits: ['Precise', 'GST', 'Compliance'], acc: '#C7B8FF', h: 'cap', x: ['glasses'],
-        sample: 'To be precise: every figure I give you comes with exactly where it came from.',
-        opener: 'Good day, I\'m Neel, your cofounder.',
-        closer: 'Ask me anything, or tell me what happened and I\'ll prepare it carefully for you to confirm.',
-        voice: { gender: 'm', prefer: ['Ryan', 'Thomas', 'George', 'Daniel', 'Google UK English Male', 'Rishi'], pitch: 0.97, rate: 0.94 },
-        fillers: {
-            question: ['Let me verify that.', 'One moment, double-checking.'],
-            numbers: ['Let me reconcile the figures.', 'Checking the exact numbers.'],
-            request: ['Understood. Preparing it.', 'Right, drafting that carefully.'],
-            generic: ['One moment.', 'Let me confirm.'],
-            still: ['Just cross-checking.', 'Verifying the last detail.'],
-        } },
-    { id: 'dia', name: 'Dia', img: '/characters/web/dia.jpg', role: 'Negotiator', traits: ['Pricing', 'Terms', 'Deals'], acc: '#FF9C9C', h: 'flat', x: ['earring'],
-        sample: 'Every price is a position. Let us make sure yours is one you can stand behind.',
-        opener: 'Hi, I\'m Dia, your cofounder.',
-        closer: 'Ask me anything, or tell me what just happened and I\'ll prepare it, on the right terms, for you to confirm.',
-        voice: { gender: 'f', prefer: ['Natasha', 'Clara', 'Emma', 'Ava', 'Karen', 'Tessa', 'Zira'], pitch: 1.02, rate: 0.97 },
-        fillers: {
-            question: ['Let me think about that.', 'Interesting, let me look.'],
-            numbers: ['Let me look at the margins.', 'Checking the numbers behind it.'],
-            request: ['Sure, let me put that together.', 'Alright, drafting it.'],
-            generic: ['Let me think.', 'One moment.'],
-            still: ['Weighing it up, one moment.', 'Almost ready.'],
-        } },
-    { id: 'sam', name: 'Sam', img: '/characters/web/sam.jpg', role: 'Cool head', traits: ['Laid-back', 'Unblocks', 'Quick wins'], acc: '#8EE6CB', h: 'hood', x: [],
-        sample: 'Relax, we have got this. Tell me what is stuck and we will sort it out, one thing at a time.',
-        opener: 'Hey, Sam here, your cofounder.',
-        closer: 'Tell me what\'s stuck or what happened, and I\'ll sort it out for you to confirm. No stress.',
-        voice: { gender: 'm', prefer: ['Guy', 'Liam', 'William', 'Connor', 'Brian', 'Mark'], pitch: 1.0, rate: 1.04 },
-        fillers: {
-            question: ['Alright, let me look.', 'Hmm, let me check.'],
-            numbers: ['Quick look at the numbers.', 'Pulling them up, one sec.'],
-            request: ['Got it, sorting it.', 'Cool, on it.'],
-            generic: ['Okay, one sec.', 'Easy, one moment.'],
-            still: ['Almost sorted.', 'Nearly there, hang tight.'],
-        } },
-];
+const profiles = import.meta.glob('../../cofounders/*/profile.json', { eager: true, import: 'default' });
+const texts = import.meta.glob('../../cofounders/**/*.md', { eager: true, query: '?raw', import: 'default' });
+const text = (path) => texts[`../../cofounders/${path}`] || '';
 
-export const DEFAULT_PERSONA_ID = 'mira';
+const core = parseSituations(text('_core/situations.md'));
+export const SITUATIONS = core.situations;
+export const ACTIONS = core.actions;
+export const SHARED_RULES = parseRules(text('_core/rules.md'));
+
+export const PERSONAS = COFOUNDER_IDS.map((id) => ({
+    ...buildCofounder({
+        profile: profiles[`../../cofounders/${id}/profile.json`],
+        persona: text(`${id}/persona.md`),
+        mind: text(`${id}/mind.md`),
+        playbooks: text(`${id}/playbooks.md`),
+        examples: text(`${id}/examples.md`),
+    }),
+    art: id,
+}));
+
+export const DEFAULT_PERSONA_ID = DEFAULT_COFOUNDER_ID;
 const BY_ID = new Map(PERSONAS.map((p) => [p.id, p]));
 
-/** The persona for an id, or the default one for anything unknown. */
-export const personaOf = (id) => BY_ID.get(id) || BY_ID.get(DEFAULT_PERSONA_ID);
+/** The persona for a stored id (a retired one maps to its successor), or the default for anything unknown. */
+export const personaOf = (id) => BY_ID.get(resolveCofounderId(id).id || DEFAULT_PERSONA_ID);
 export const isPersonaId = (id) => BY_ID.has(id);
 
 /** Portrait specs for the people in the mockup's team (the user's own avatar). */

@@ -9,7 +9,7 @@ import { AGENT_MODEL, newUsage, describeUsage } from '../agent/model.js';
 import * as pulse from '../agent/pulse.js';
 import { getTool, appApprovalOnly } from '../agent/registry.js';
 import {
-  currentState, freshState, requestBody, pushHistory, remember, trackCard, cardLine, nonce, chatKey,
+  currentState, freshState, requestBody, remember, trackCard, nonce, chatKey,
 } from './conversation.js';
 import { renderCard, renderView, renderOptions, renderNotice, renderNavigate } from './render.js';
 
@@ -294,7 +294,7 @@ async function runBuddyTurn({ msg, text, audience, link, orgId, conv }, stopTypi
   const usage = newUsage();
   const tokens = () => (usage.calls ? { promptTokens: usage.prompt, completionTokens: usage.output } : {});
   try {
-    await buddy.chat(ctx, { message: text, history: body.history, chatId: body.chat_id, messageId }, emit, { usage });
+    await buddy.chat(ctx, { message: text, chatId: body.chat_id, messageId }, emit, { usage });
     console.info(`[telegram] tokens: ${describeUsage(usage)}`);
     await logAiUsage({ orgId, user: ctx.user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
   } catch (err) {
@@ -303,7 +303,6 @@ async function runBuddyTurn({ msg, text, audience, link, orgId, conv }, stopTypi
     events.push({ event: 'error', data: { message: err?.status ? 'The AI service is unavailable right now. Try again in a moment.' : 'Something went wrong on my side.' } });
   }
 
-  pushHistory(state, 'user', text);
   state.pending = null;
   state.offers = null;
   stopTyping();
@@ -327,17 +326,16 @@ async function deliver(chatId, state, events, { replyTo = null, turn }) {
   for (const { event, data } of events) {
     switch (event) {
       case 'text':
-        if (data.text) { await send({ html: bot.mdToHtml(data.text) }); pushHistory(state, 'assistant', data.text); }
+        if (data.text) { await send({ html: bot.mdToHtml(data.text) }); }
         break;
       case 'view': {
         const r = renderView(data.view);
-        if (r) { await send(r); pushHistory(state, 'assistant', `[Shown: ${data.view.title || 'details'}]`); }
+        if (r) { await send(r); }
         break;
       }
       case 'card': {
         const m = await send(renderCard(data.card, Date.now(), { group: chatId < 0 }));
         trackCard(state, data.card, m?.message_id);
-        pushHistory(state, 'assistant', cardLine(data.card));
         remember(state, data.card.entities, turn);
         out.actionIds.push(data.card.action_id);
         break;
@@ -353,14 +351,12 @@ async function deliver(chatId, state, events, { replyTo = null, turn }) {
         state.offers = { n, items: options.map((o) => ({ tool: q.resume?.tool, args: q.resume?.args || {}, param: q.param, value: o.value, label: o.label })) };
         state.pending = q.resume ? { ...q.resume, param: q.param, question: q.question } : null;
         await send(renderOptions(q.question, options, n, { hint: q.hint }));
-        pushHistory(state, 'assistant', q.question);
         break;
       }
       case 'notice': {
         let n = null;
         if (data.offer?.tool) { n = nonce(); state.offers = { n, items: [{ tool: data.offer.tool, args: data.offer.args || {}, label: data.offer.label }] }; }
         await send(renderNotice(data.text, data.offer?.tool ? data.offer : null, n));
-        pushHistory(state, 'assistant', data.text);
         break;
       }
       case 'navigate': {
@@ -473,7 +469,6 @@ async function onCardButton(cb, op, actionId) {
   } else if (op === 'e') {
     state.pending = null;
     await say('What should I change? Reply with the correction — e.g. “make it ₹4,500” or “date it yesterday” — and I\'ll prepare an updated card. Nothing changes until you confirm.');
-    pushHistory(state, 'assistant', `[Asked what to change on the card "${actionId}"]`);
   } else if (op === 'c') {
     state.reviewed = null;
     await bot.clearButtons(chat.id, mid);
@@ -487,27 +482,24 @@ async function onCardButton(cb, op, actionId) {
       if (old) await showCard(chat.id, state, old, mid);
       await say('It changed since I proposed it — here it is again with the current values.');
       await showCard(chat.id, state, res.card);
-      pushHistory(state, 'assistant', cardLine(res.card));
     } else if (res.card) {
       await showCard(chat.id, state, res.card, mid);
-      pushHistory(state, 'assistant', cardLine(res.card));
       if (res.status === 'executed') remember(state, res.entities || res.card.entities, `cb${mid}`);
     } else if (res.message) {
       await say(bot.esc(res.message));
     }
   } else if (op === 'x') {
     res = await buddy.cancel(ctx, actionId);
-    if (res.card) { await showCard(chat.id, state, res.card, mid); pushHistory(state, 'assistant', cardLine(res.card)); }
+    if (res.card) { await showCard(chat.id, state, res.card, mid); }
   } else if (op === 'u') {
     res = await buddy.undo(ctx, actionId);
-    if (res.status === 'undone' && res.card) { await showCard(chat.id, state, res.card, mid); pushHistory(state, 'assistant', cardLine(res.card)); }
+    if (res.status === 'undone' && res.card) { await showCard(chat.id, state, res.card, mid); }
     else await say(`⚠️ ${bot.esc(res.message || 'Could not undo it.')}`);
   } else {
     res = await buddy.retry(ctx, actionId);
     if (res.status === 'proposed' && res.card) {
       await bot.clearButtons(chat.id, mid);
       await showCard(chat.id, state, res.card);
-      pushHistory(state, 'assistant', cardLine(res.card));
     } else await say(`⚠️ ${bot.esc(res.message || 'That can\'t be prepared again right now.')}`);
   }
   state.at = Date.now();
@@ -544,7 +536,6 @@ async function onOption(cb, n, i) {
   const events = [];
   const resumeArgs = { tool: item.tool, args: item.args || {}, ...(item.param ? { param: item.param, value: item.value } : {}) };
   await buddy.resume(ctx, resumeArgs, (event, data) => events.push({ event, data }), { chatId: chatKey(chat.id), messageId });
-  pushHistory(state, 'user', item.label || String(item.value ?? ''));
   state.pending = null;
   state.offers = null;
   await deliver(chat.id, state, events, { replyTo: group ? cb.message.message_id : null, turn: messageId });

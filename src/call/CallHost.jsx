@@ -16,8 +16,9 @@ import './call.css';
    "Replay intro call". The greeting is spoken locally (useVoiceCall), so a
    ringing phone costs nothing; Accept begins a real call.
 
-   Ending a call that said anything leaves a summary in the chat: what was
-   confirmed, and what is still waiting (display-only, never sent as history).
+   Ending a call that said anything makes its summary the exchange on screen:
+   what was confirmed, and the cards still waiting for a tap (display-only,
+   never sent to the model).
    ══════════════════════════════════════════════════════════════════════════ */
 
 export default function CallHost() {
@@ -34,7 +35,14 @@ export default function CallHost() {
     const finish = (summary) => {
         shell.endCall();
         setAcceptedAt(null);
-        if (summary?.exchanged) a.addLocal({ kind: 'call', call: summary });
+        if (summary?.exchanged) {
+            const { cards = [], ...call } = summary;
+            const mood = call.waiting.length ? 'thinking' : call.confirmed.length ? 'win' : null;
+            a.addLocal({ kind: 'call', call }, {
+                cards,
+                mood: mood && { mood, headline_word: persona.headlines[mood], tag: call.waiting.length ? 'Needs your tap' : 'Call summary' },
+            });
+        }
         navigate('/chat');
     };
 

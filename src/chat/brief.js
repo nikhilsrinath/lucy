@@ -45,25 +45,22 @@ export function greetingWord(now = new Date()) {
     return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
 }
 
-/* One or two sentences in each persona's voice, from facts only. Every branch
-   says something true for the numbers given — including "nothing". */
+/* One or two sentences in each cofounder's voice, from facts only. Every
+   branch says something true for the numbers given — including "nothing".
+   Each leads with what that mind looks at first: Elon the cash and what is
+   stuck, Mark the pattern in the numbers, Steve the work. */
+const plural = (n, one, many) => (n === 1 ? one : many);
 const LEDES = {
-    mira: (f) => (f.owed > 0
-        ? `You're owed ${inr(f.owed)}${f.overdueCount ? `, and ${f.overdueCount} ${f.overdueCount === 1 ? 'invoice is' : 'invoices are'} past due` : ''}.${f.netCash !== null ? ` Net cash stands at ${inr(f.netCash)}.` : ''}`
-        : `No one owes you money right now.${f.netCash !== null ? ` Net cash stands at ${inr(f.netCash)}.` : ''}`),
-    arjun: (f) => (f.overdueCount
-        ? `${f.overdueCount} late. ${inr(f.overdueAmount)}. Chase it.`
-        : f.tasksOverdue ? `${f.tasksOverdue} ${f.tasksOverdue === 1 ? 'task' : 'tasks'} overdue. Clear ${f.tasksOverdue === 1 ? 'it' : 'them'}.` : 'Nothing urgent.'),
-    tara: (f) => (f.owed > 0
-        ? `${inr(f.owed)} is on its way to you. Let's bring it home!`
-        : `Clean slate: nobody owes you a rupee. ${f.tasksDue ? `${f.tasksDue} ${f.tasksDue === 1 ? 'task' : 'tasks'} to knock out this week.` : 'Enjoy it.'}`),
-    neel: (f) => `${f.owed > 0 ? `Receivables: ${inr(f.owed)} across ${f.owedCount} ${f.owedCount === 1 ? 'invoice' : 'invoices'}` : 'Receivables: nil'}${f.gst !== null ? `. GST payable this month: ${inr(Math.max(0, f.gst))}` : ''}.`,
-    sam: (f) => (f.overdueCount || f.tasksOverdue
-        ? `${[f.overdueCount && `${f.overdueCount} late ${f.overdueCount === 1 ? 'invoice' : 'invoices'}`, f.tasksOverdue && `${f.tasksOverdue} overdue ${f.tasksOverdue === 1 ? 'task' : 'tasks'}`].filter(Boolean).join(' and ')}. No stress, let's sort them.`
-        : 'Nothing is stuck. Easy day to get ahead.'),
-    dia: (f) => (f.owed > 0
-        ? `${inr(f.owed)} is owed to you. Worth checking your terms on the ${f.overdueCount ? 'late ones' : 'next quote'}.`
-        : 'Nothing outstanding. A good moment to send the next quote.'),
+    elon: (f) => (f.owed > 0
+        ? `You're owed ${inr(f.owed)}${f.overdueCount ? `, and ${f.overdueCount} ${plural(f.overdueCount, 'invoice is', 'invoices are')} past due. Go straight to whoever approves the payment` : ''}.${f.netCash !== null ? ` Net cash stands at ${inr(f.netCash)}.` : ''}`
+        : `No one owes you money right now.${f.netCash !== null ? ` Net cash stands at ${inr(f.netCash)}.` : ''}${f.tasksOverdue ? ` ${f.tasksOverdue} ${plural(f.tasksOverdue, 'task is', 'tasks are')} overdue: find the one thing holding ${plural(f.tasksOverdue, 'it', 'them')} up.` : ''}`),
+    mark: (f) => (f.owed > 0
+        ? `${inr(f.owed)} is owed to you${f.overdueCount ? `, ${f.overdueCount} of ${plural(f.owedCount, 'it', 'them')} late. If that is a pattern, fix the terms, not the client` : '. Nothing late, so the system is working'}.`
+        : `Nobody owes you a rupee. ${f.tasksDue ? `${f.tasksDue} ${plural(f.tasksDue, 'task', 'tasks')} due this week: ship ${plural(f.tasksDue, 'it', 'them')}, then look at what is growing.` : 'A good day to ship something and measure it.'}`),
+    steve: (f) => (f.tasksOverdue
+        ? `${f.tasksOverdue} ${plural(f.tasksOverdue, 'task is', 'tasks are')} overdue. Cut what does not matter and finish the rest.${f.overdueCount ? ` ${f.overdueCount} late ${plural(f.overdueCount, 'invoice', 'invoices')}, ${inr(f.overdueAmount)}: hand the chasing to someone.` : ''}`
+        : f.overdueCount ? `The work is on track. ${f.overdueCount} late ${plural(f.overdueCount, 'invoice', 'invoices')}, ${inr(f.overdueAmount)}: hand the chasing to someone.`
+            : 'Nothing is in the way. Spend today on the product.'),
 };
 
 /**
@@ -144,7 +141,7 @@ export function buildBrief(p) {
         sug.push({ id: 'brain', tone: 'n', icon: 'bolt', title: `Let ${p.persona?.name || 'your cofounder'} learn your company`, sub: 'Builds the knowledge your answers come from', action: 'Build', build: true });
     }
 
-    const lede = (LEDES[p.persona?.id] || LEDES.mira)(facts);
+    const lede = (LEDES[p.persona?.id] || LEDES.steve)(facts);
     return {
         greeting: `${greetingWord(now)}, ${p.name || 'there'}.`,
         lede,
