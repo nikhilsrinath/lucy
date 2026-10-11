@@ -179,6 +179,8 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, personaId =
         const now = Date.now();
         const next = {
             ...before, id: uid('x'), at: now, mood: null,
+            // The last read's memo lasts one turn (it is sent below as lastRoute).
+            route: null,
             messages: [...leading, { id: replyId, role: 'assistant', content: '' }].map((m) => ({ ...m, at: now })),
         };
         xRef.current = next;
@@ -228,6 +230,10 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, personaId =
                 case 'card_update': cardUpdateRef.current?.(data); added += 1; break;
                 // How the reply lands — decided by the server, last in the turn.
                 case 'mood': setExchange((x) => ({ ...x, mood: data })); break;
+                // What a locally-answered read was about (intent, period, record
+                // ids — no words), sent back with the next message so "what
+                // about last month?" is read against it.
+                case 'route': setExchange((x) => ({ ...x, route: data.memo || null })); break;
                 case 'error': patchMessage(replyId, { content: data.message || 'Something went wrong.', error: true }); said = data.message || 'x'; break;
                 default: break;
             }
@@ -257,6 +263,7 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, personaId =
                 persona: personaId || undefined,
                 page: pageRef.current,
                 recentEntities: before.entities || [],
+                lastRoute: before.route || undefined,
                 // Cards still waiting, so "scrap that" or (on a call) "yes, do it"
                 // is understood against them by the model — not matched by the app.
                 openCards: prior

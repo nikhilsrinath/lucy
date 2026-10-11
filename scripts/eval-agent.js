@@ -73,7 +73,9 @@ async function runCase(c) {
   const started = Date.now();
   let error = null;
   try {
-    await runChat(ctx, { message: c.say, history: c.history || [], chatId: 'eval', messageId: c.id }, (event, data) => events.push({ event, ...data }));
+    // This harness measures the MODEL: the local router is switched off for it
+    // (scripts/eval-router.js measures the router over the same cases).
+    await runChat(ctx, { message: c.say, history: c.history || [], chatId: 'eval', messageId: c.id }, (event, data) => events.push({ event, ...data }), { router: 'off' });
   } catch (err) {
     error = err.message + (err.detail ? ` ${err.detail}` : '');
   }

@@ -35,6 +35,7 @@ import * as buddy from './_lib/agent/buddy.js';
 import { toCard } from './_lib/agent/actions.js';
 import { AGENT_MODEL, newUsage, describeUsage } from './_lib/agent/model.js';
 import { cronAuthorized } from './_lib/cron.js';
+import { supabaseAdmin } from './_lib/supabaseAdmin.js';
 import { runWorker, recentJobs } from './_lib/autonomy/worker.js';
 import { loadPolicy, savePolicy, catalogue } from './_lib/autonomy/policy.js';
 
@@ -47,6 +48,9 @@ export default async function handler(req, res) {
     if (!cronAuthorized(req)) return res.status(401).json({ success: false, error: 'Unauthorized' });
     try {
       const out = await runWorker({ budgetMs: 45_000 });
+      // Retention for the router's decision log (0074): 90 days. Best effort —
+      // a database without the function is not a failed run.
+      await Promise.resolve().then(() => supabaseAdmin().rpc('prune_buddy_route_events')).catch(() => null);
       return res.status(200).json({ success: true, worker: { claimed: out.claimed, processed: out.processed, byStatus: out.byStatus, legacy: !!out.legacy } });
     } catch (err) {
       console.error('[agent] worker', err?.message || err);
@@ -137,30 +141,36 @@ export default async function handler(req, res) {
       return res.end();
     }
 
-    // Metered per message, before the model is called — see api/nvidia.js.
-    const used = await bumpAiUsage(ctx.orgId);
-    mark.usage = Date.now() - t0;
-    console.info(`[agent] setup ${JSON.stringify({ org: ctx.orgId, auth_ms: mark.auth, session_ms: mark.session, usage_ms: mark.usage })}`);
-    if (used > ctx.aiLimit) {
+    // Metered per message that reaches the model, just before it is called
+    // (see api/nvidia.js). A message the local router answers from the
+    // records (api/_lib/agent/local) calls no model and is not counted — and
+    // still works when the plan's AI messages have run out.
+    const gate = async () => {
+      const used = await bumpAiUsage(ctx.orgId);
+      mark.usage = Date.now() - t0;
+      if (used <= ctx.aiLimit) return null;
       await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', outcome: 'blocked' });
-      emit('notice', { text: `Your plan's AI message limit (${ctx.aiLimit}) has been reached.` });
-      emit('done', {});
-      return res.end();
-    }
+      return { blocked: true, message: `Your plan's AI message limit (${ctx.aiLimit}) has been reached. I can still answer from your records and prepare changes: try “who owes us money?” or “what is overdue?”.` };
+    };
+    console.info(`[agent] setup ${JSON.stringify({ org: ctx.orgId, auth_ms: mark.auth, session_ms: mark.session })}`);
 
     // Tokens across every model call of this message, logged even when it
     // fails part-way (the calls before the failure were still billed).
     const usage = newUsage();
     const tokens = () => (usage.calls ? { promptTokens: usage.prompt, completionTokens: usage.output } : {});
     try {
-      await buddy.chat(ctx, { message, chatId: body.chat_id, messageId: body.message_id }, emit, { usage });
-      console.info(`[agent] tokens: ${describeUsage(usage)}`);
-      await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
+      const out = await buddy.chat(ctx, { message, chatId: body.chat_id, messageId: body.message_id }, emit, { usage, gate });
+      // Only a turn the model answered is an AI call.
+      if (out?.route === 'llm') {
+        console.info(`[agent] tokens: ${describeUsage(usage)}`);
+        await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
+      }
     } catch (err) {
       console.error('[agent] chat', err?.message || err, err?.detail || '');
       if (usage.calls) console.info(`[agent] tokens (failed): ${describeUsage(usage)}`);
       await logAiUsage({ orgId: ctx.orgId, user, surface: 'copilot', outcome: 'failed', model: AGENT_MODEL, ...tokens() });
-      emit('error', { message: err?.status ? 'The AI service is unavailable right now. Try again in a moment.' : 'Something went wrong on my side.' });
+      // runChat has already said what happened and what still works.
+      if (!err?.explained) emit('error', { message: err?.status ? 'The AI service is unavailable right now. Try again in a moment.' : 'Something went wrong on my side.' });
     }
     emit('done', {});
     return res.end();

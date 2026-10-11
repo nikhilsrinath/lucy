@@ -13,6 +13,10 @@ export default defineConfig({
     env: {
       VITE_SUPABASE_URL: 'http://localhost:54321',
       VITE_SUPABASE_ANON_KEY: 'test-anon-key',
+      // The agent's existing tests script a model and assert what it is sent;
+      // they exercise the model loop, so the local router stays out of their
+      // way. Its own tests (api/_lib/agent/local) switch it on per call.
+      BUDDY_LOCAL_ROUTER: 'off',
     },
     // api/ is included as well as src/: the serverless handlers hold the
     // recipient validation and the header-injection guards, which are exactly

@@ -9,6 +9,9 @@ import { loadAction } from './actions.js';
 import { buildContext as brainContext } from '../brainRetrieval.js';
 import { proposePlan } from './plans.js';
 import { addView, takeViews } from './views.js';
+import { tryLocal, resumeLocal, isLocalResume } from './local/engine.js';
+import { modelDown } from './local/render.js';
+import { logRoute } from './local/telemetry.js';
 
 /**
  * One user message, start to finish.
@@ -46,6 +49,11 @@ import { addView, takeViews } from './views.js';
  * open cards and what was done (prompt.js buildTurnContext).
  *
  * A plan (propose_plan) is proposed like a write — one card, the turn ends.
+ *
+ * Before any of that, the local router (local/engine.js) reads the message.
+ * What a business function can answer is answered there — the same tools,
+ * the same propose() and cards, no model call — and only what genuinely
+ * needs the model reaches chatTurn. docs/local-router.md.
  */
 
 export const MAX_STEPS = 10;
@@ -134,6 +142,13 @@ export function emitOutcome(out, emit) {
  * any model's, so a client that edits them gains nothing.
  */
 export async function runResume(ctx, resume, emit, ids) {
+  // A chip on one of the local router's own questions.
+  if (isLocalResume(resume)) {
+    const turn = trackTurn(ctx, emit);
+    await resumeLocal(ctx, resume, turn, ids || {}, { emitOutcome });
+    turn.finish();
+    return;
+  }
   const tool = getTool(resume?.tool);
   if (!tool || tool.kind !== 'write') { emit('notice', { text: 'That option is no longer available.' }); return; }
   const args = { ...(resume.args || {}) };
@@ -208,9 +223,40 @@ async function runControl(name, args, ctx, emit) {
  */
 export async function runChat(ctx, input, emit, opts = {}) {
   const turn = trackTurn(ctx, emit);
-  const result = await chatTurn(ctx, input, turn, opts);
-  turn.finish();
-  return result;
+  const started = Date.now();
+
+  // Understand locally first. Handled here means no model was called.
+  const local = await tryLocal(ctx, input, turn, { emitOutcome }, opts.router ? { mode: opts.router } : undefined);
+  if (local.handled) {
+    turn.finish();
+    return { steps: 0, local: true, route: local.route, intent: local.intent, decision: local.decision || null };
+  }
+
+  // The model's turn. `gate` is the caller's metering: it runs only now, so
+  // a message answered locally never counts against the plan's AI messages.
+  if (opts.gate) {
+    const g = await opts.gate();
+    if (g?.blocked) {
+      emit('notice', { text: g.message });
+      turn.finish();
+      return { steps: 0, blocked: true, route: 'blocked' };
+    }
+  }
+  const forModel = local.message ? { ...input, message: local.message } : input;
+  try {
+    const result = await chatTurn(ctx, forModel, turn, opts);
+    turn.finish();
+    return { ...result, route: 'llm', intent: local.decision?.intent || null, decision: local.decision || null };
+  } catch (err) {
+    // No model, a timeout or a malformed reply: say so, and say what still
+    // works. Never an invented answer.
+    const timeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
+    emit('text', { text: modelDown(ctx) });
+    logRoute(ctx, { intent: local.decision?.intent || 'OPEN_ENDED', route: 'llm', reasonCode: 'model_error', ok: false, errorKind: timeout ? 'model_timeout' : 'model_failed', llmUsed: true, latencyMs: Date.now() - started });
+    turn.finish();
+    err.explained = true;
+    throw err;
+  }
 }
 
 async function chatTurn(ctx, { message, chatId, messageId }, turn, { callModelImpl = callModel, usage = null } = {}) {

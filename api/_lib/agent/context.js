@@ -133,6 +133,11 @@ export async function buildAgentContext({ user = null, person = null, buddy = fa
     actionId,
     page: cleanPage(body.context?.page),
     recentEntities: cleanEntities(body.context?.recentEntities),
+    // What the last locally-answered read was about (intent, concepts, period,
+    // record ids), so "what about last month?" is read against it. Only a
+    // pointer: local/understand.js cleanRoute checks every field, and the read
+    // it leads to goes through the same permission checks as any other.
+    lastRoute: body.context?.lastRoute && typeof body.context.lastRoute === 'object' ? body.context.lastRoute : null,
     // What is on the table in this chat: the question EdgeAI last asked, and
     // the cards still waiting. The model reads the next message against them.
     pending: cleanPending(body.pending),

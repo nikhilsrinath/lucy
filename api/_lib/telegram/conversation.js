@@ -22,7 +22,7 @@ const MAX_ENTITIES = 10;
 const MAX_CARDS = 12;
 
 export function freshState(orgId) {
-  return { org_id: orgId, at: Date.now(), entities: [], pending: null, offers: null, cards: [], pulse: null };
+  return { org_id: orgId, at: Date.now(), entities: [], pending: null, offers: null, cards: [], pulse: null, route: null };
 }
 
 /** The stored state, or a fresh one if it is for another company or has gone stale. */
@@ -53,6 +53,8 @@ export function requestBody(state, { chatId, messageId, audience, source = null 
     pending: state.pending || undefined,
     context: {
       recentEntities: state.entities,
+      // What the last locally-answered read was about, for "what about last month?".
+      lastRoute: state.route || undefined,
       openCards: state.cards.filter(live).slice(-5)
         .map((c) => ({ action_id: c.action_id, title: c.title, risk: c.kind === 'plan' ? 'high' : c.risk })),
       recentActions: state.cards.filter((c) => !live(c) && c.status !== 'confirmed').slice(-6)

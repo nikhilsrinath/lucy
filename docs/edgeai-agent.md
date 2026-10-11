@@ -24,6 +24,8 @@ undo ────► POST /api/agent {mode:'undo'}   within 10 minutes, only if 
 
 Other modes: `cancel`, `status` (latest state of cards in a reopened thread).
 
+**Before the model (2026-10-12).** Every chat message is read by the local router first (`api/_lib/agent/local/`): what a tool can answer on its own is answered there — the same tools, the same `propose()` and cards — with no model call, and only the rest reaches the model loop described here. See [local-router.md](local-router.md).
+
 ## Rules that hold everywhere
 
 - **The agent is the user.** Every read and write uses a Supabase client built from the caller's access token (`api/_lib/agent/db.js`). RLS, the permission matrix and every `app.*` guard apply exactly as in the UI. The service role touches only `ai_actions` and the AI meter. (EdgeBrain retrieval keeps its existing permission-filtered path.)
@@ -49,7 +51,8 @@ Other modes: `cancel`, `status` (latest state of cards in a reopened thread).
 | `src/shared/` | Isomorphic code both sides use: `dates.js`, `cashIntent.js`, `financeTaxonomy.js`, `finDocs.js` (document rows, totals, company snapshot, receivables), `documentConversion.js`, `documentLifecycle.js`, `proformaAdvance.js`. Imports only `./x.js` siblings (enforced by `sharedBoundary.test.js`); the old `src/services/` paths re-export them. |
 | `src/components/assistant/` | `AssistantContext` (turns, cards, chips), `ActionCard`, `DisambiguationCard`, `FollowUpChips`. |
 | `supabase/migrations/0068_ai_actions.sql` | `ai_actions`, its permission rows, and `audit_log.via / ai_action_id`. |
-| `scripts/eval-agent.js` | Evals against the real model. |
+| `scripts/eval-agent.js` | Evals against the real model (router off). |
+| `api/_lib/agent/local/` | The local router: understanding, routing, templates, its eval set. `scripts/eval-router.js` reports on it. |
 
 ## The tools
 

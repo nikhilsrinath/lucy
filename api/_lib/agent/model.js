@@ -33,7 +33,15 @@ export function providerRouting(env = process.env.AGENT_PROVIDER_SORT) {
 }
 let routingDisabled = false;
 
-export async function callModel({ messages, tools, fetchImpl = fetch, signal } = {}) {
+/**
+ * How long one model call may take before it is abandoned. A provider that
+ * stalls would otherwise hold the whole function open until the platform
+ * kills it, and the person would get nothing; past this the turn fails
+ * cleanly and says the AI service could not be reached (loop.js runChat).
+ */
+export const MODEL_TIMEOUT_MS = Math.max(1000, Number(process.env.AGENT_MODEL_TIMEOUT_MS) || 45_000);
+
+export async function callModel({ messages, tools, fetchImpl = fetch, signal, timeoutMs = MODEL_TIMEOUT_MS } = {}) {
   const apiKey = aiKey();
   if (!apiKey) throw new Error('Server is missing OPENROUTER_API_KEY');
   const send = (provider) => fetchImpl(AI_URL, {
@@ -52,7 +60,7 @@ export async function callModel({ messages, tools, fetchImpl = fetch, signal } =
       stream: false,
       ...(provider ? { provider } : {}),
     }),
-    signal,
+    signal: signal || (timeoutMs ? AbortSignal.timeout(timeoutMs) : undefined),
   });
   const routing = routingDisabled ? undefined : providerRouting();
   let res = await send(routing);
@@ -68,7 +76,15 @@ export async function callModel({ messages, tools, fetchImpl = fetch, signal } =
     err.detail = text.slice(0, 400);
     throw err;
   }
-  const json = await res.json();
+  const json = await res.json().catch(() => null);
+  // A 200 that is not a completion (an HTML error page, an empty body, an
+  // error object) is a failure, not an empty answer.
+  if (!json || !Array.isArray(json.choices) || !json.choices.length) {
+    const err = new Error('AI provider returned a malformed response');
+    err.status = 502;
+    err.detail = json?.error?.message ? String(json.error.message).slice(0, 400) : '';
+    throw err;
+  }
   const choice = json.choices?.[0] || {};
   return { message: choice.message || { role: 'assistant', content: '' }, finish: choice.finish_reason, usage: json.usage || null };
 }

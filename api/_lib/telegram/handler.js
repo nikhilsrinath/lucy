@@ -281,30 +281,36 @@ async function runBuddyTurn({ msg, text, audience, link, orgId, conv }, stopTypi
   if (!ctx) return 'done';
   await store.touchLink(link, { from, dmChatId: audience === 'private' ? chat.id : null });
 
-  // Metered exactly like a web message, before the model is called.
-  const used = await bumpAiUsage(orgId, 'telegram');
-  if (used > ctx.aiLimit) {
+  // Metered exactly like a web message: when the model is about to be called.
+  // A message the local router answers from the records is not an AI message.
+  const gate = async () => {
+    const used = await bumpAiUsage(orgId, 'telegram');
+    if (used <= ctx.aiLimit) return null;
     await logAiUsage({ orgId, user: ctx.user, surface: 'copilot', outcome: 'blocked' });
-    await reply(msg, bot.esc(`Your plan's AI message limit (${ctx.aiLimit}) has been reached.`));
-    return 'done';
-  }
+    return { blocked: true, message: `Your plan's AI message limit (${ctx.aiLimit}) has been reached.` };
+  };
 
   const events = [];
   const emit = (event, data) => { events.push({ event, data }); };
   const usage = newUsage();
   const tokens = () => (usage.calls ? { promptTokens: usage.prompt, completionTokens: usage.output } : {});
   try {
-    await buddy.chat(ctx, { message: text, chatId: body.chat_id, messageId }, emit, { usage });
-    console.info(`[telegram] tokens: ${describeUsage(usage)}`);
-    await logAiUsage({ orgId, user: ctx.user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
+    const out = await buddy.chat(ctx, { message: text, chatId: body.chat_id, messageId }, emit, { usage, gate });
+    if (out?.route === 'llm') {
+      console.info(`[telegram] tokens: ${describeUsage(usage)}`);
+      await logAiUsage({ orgId, user: ctx.user, surface: 'copilot', model: AGENT_MODEL, ...tokens() });
+    }
   } catch (err) {
     console.error('[telegram] chat', err?.message || err, err?.detail || '');
     await logAiUsage({ orgId, user: ctx.user, surface: 'copilot', outcome: 'failed', model: AGENT_MODEL, ...tokens() });
-    events.push({ event: 'error', data: { message: err?.status ? 'The AI service is unavailable right now. Try again in a moment.' : 'Something went wrong on my side.' } });
+    if (!err?.explained) events.push({ event: 'error', data: { message: err?.status ? 'The AI service is unavailable right now. Try again in a moment.' : 'Something went wrong on my side.' } });
   }
 
   state.pending = null;
   state.offers = null;
+  // The last read's memo lasts one turn: a follow-up is read against it, and
+  // this turn sets its own (a `route` event) or leaves none.
+  state.route = null;
   stopTyping();
   const produced = await deliver(chat.id, state, events, { replyTo: audience === 'shared' ? msg.message_id : null, turn: messageId });
   if (checkin && state.pulse && !state.pulse.answered_at) state.pulse.answered_at = Date.now();
@@ -359,6 +365,10 @@ async function deliver(chatId, state, events, { replyTo = null, turn }) {
         await send(renderNotice(data.text, data.offer?.tool ? data.offer : null, n));
         break;
       }
+      // What a locally-answered read was about: kept for one follow-up.
+      case 'route':
+        state.route = data.memo || null;
+        break;
       case 'navigate': {
         const r = renderNavigate(data);
         if (r) await send(r);

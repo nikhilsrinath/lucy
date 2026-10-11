@@ -3,6 +3,7 @@ import {
 } from '../resolvers.js';
 import { readDate, formatDate, money } from '../helpers.js';
 import { getMetrics, headlineSection, buildContext, CONTEXT_RULES } from '../../brainRetrieval.js';
+import { issuedInvoices } from '../../../../src/shared/finDocs.js';
 
 /**
  * Read tools. They run the moment the model calls them — no card, no
@@ -471,6 +472,98 @@ const finance_summary = {
   },
 };
 
+/* ── money over a period ──────────────────────────────────────────────────── */
+
+const pretty = (key) => String(key || 'other').replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
+
+/**
+ * What was invoiced, what came in and what went out between two dates —
+ * computed from the rows, by the rules liveFigures and
+ * financeAnalytics.cashPosition use (confirmed document payments, cash-book
+ * income not already counted as a document payment, paid expenses). A figure
+ * is given only when the person can read every table behind it.
+ *
+ * These are cash-book figures, labelled as such: "invoiced" is not profit,
+ * and vendor bill payments carry no payment date, so they are not placed in
+ * a period (the result says so when there are any).
+ */
+const money_for_period = {
+  name: 'money_for_period',
+  module: 'finance',
+  kind: 'read',
+  permission: { resource: ['financial_documents', 'expenses', 'income_entries'], action: 'view' },
+  description: 'Money over a period (default this month): what was invoiced, money that came in, money spent with the top spending categories, and the net. Use it for "revenue this month", "how much did we spend last month", "expenses by category in September", "cash flow this quarter".',
+  params: {
+    type: 'object',
+    properties: {
+      from: { type: 'string', description: 'First day, as said or YYYY-MM-DD. Omit both for this month.' },
+      to: { type: 'string', description: 'Last day.' },
+    },
+  },
+  status: 'Adding up the period…',
+  async run(args, ctx) {
+    const monthStart = `${ctx.today.slice(0, 8)}01`;
+    const from = (args.from ? readDate(args.from, ctx.today, { prefer: 'past' }).value : null) || (args.to ? null : monthStart);
+    const to = (args.to ? readDate(args.to, ctx.today, { prefer: 'past' }).value : null) || (args.from ? ctx.today : ctx.today);
+    if (from && to && from > to) return { data: { error: 'That period ends before it starts.' } };
+    const within = (d) => { const k = d ? String(d).slice(0, 10) : ''; return !!k && (!from || k >= from) && k <= to; };
+    const canDocs = ctx.can('financial_documents', 'view');
+    const canIn = canDocs && ctx.can('income_entries', 'view');
+    const canOut = ctx.can('expenses', 'view');
+    const n = (v) => Number(v) || 0;
+    const none = { data: [], error: null };
+    const [docs, pays, income, expenses, bills] = await Promise.all([
+      canDocs ? ctx.db.from('financial_documents').select('id, type, status, grand_total, issue_date').limit(5000) : none,
+      canIn ? ctx.db.from('payments').select('document_id, amount, confirmed_at, paid_on').limit(10000) : none,
+      canIn ? ctx.db.from('income_entries').select('amount, document_id, received_on').limit(10000) : none,
+      canOut ? ctx.db.from('expenses').select('amount, status, incurred_on, category').limit(10000) : none,
+      canOut && ctx.can('purchase_invoices', 'view') ? ctx.db.from('purchase_invoices').select('amount_paid, status').limit(5000) : none,
+    ]);
+    if ([docs, pays, income, expenses].some((r) => r.error)) return { data: { error: 'Could not read the money records.' } };
+
+    const issued = issuedInvoices(docs.data || []).filter((d) => within(d.issue_date));
+    const invoiced = issued.reduce((s, d) => s + n(d.grand_total), 0);
+
+    const paidDocs = new Set();
+    let moneyIn = 0;
+    for (const p of pays.data || []) {
+      if (!p.confirmed_at) continue;
+      paidDocs.add(p.document_id);
+      if (within(p.paid_on || p.confirmed_at)) moneyIn += n(p.amount);
+    }
+    for (const e of income.data || []) if (!(e.document_id && paidDocs.has(e.document_id)) && within(e.received_on)) moneyIn += n(e.amount);
+
+    let moneyOut = 0;
+    const byCategory = new Map();
+    for (const e of expenses.data || []) {
+      if ((e.status || 'paid') === 'pending' || !within(e.incurred_on)) continue;
+      moneyOut += n(e.amount);
+      byCategory.set(e.category || 'other_expense', (byCategory.get(e.category || 'other_expense') || 0) + n(e.amount));
+    }
+    const top = [...byCategory.entries()].sort((a, b) => b[1] - a[1]).slice(0, 5);
+    const undatedBills = (bills.data || []).some((b) => b.status !== 'void' && n(b.amount_paid) > 0);
+    const label = from ? `${formatDate(from)} – ${formatDate(to)}` : `up to ${formatDate(to)}`;
+
+    const data = {
+      from: from ? formatDate(from) : null, to: formatDate(to),
+      invoiced: canDocs ? money(invoiced) : null, invoices_issued: canDocs ? issued.length : null,
+      money_in: canIn ? money(moneyIn) : null,
+      money_out: canOut ? money(moneyOut) : null,
+      net: canIn && canOut ? money(moneyIn - moneyOut) : null,
+      net_is_positive: canIn && canOut ? moneyIn - moneyOut >= 0 : null,
+      spending_by_category: canOut ? top.map(([key, amount]) => ({ category: pretty(key), amount: money(amount) })) : null,
+      note: undatedBills ? 'Payments made against vendor bills carry no payment date, so they are not in this period\'s money out.' : undefined,
+    };
+    const items = [
+      canDocs && { label: 'Invoiced', value: money(invoiced), sub: `${issued.length} invoice${issued.length === 1 ? '' : 's'} issued`, tone: 'n' },
+      canIn && { label: 'Money in', value: money(moneyIn), tone: 'g' },
+      canOut && { label: 'Money out', value: money(moneyOut), sub: top[0] ? `Most on ${pretty(top[0][0]).toLowerCase()}` : null, tone: 'n' },
+      canIn && canOut && { label: 'Net', value: money(moneyIn - moneyOut), tone: moneyIn - moneyOut >= 0 ? 'g' : 'r' },
+    ].filter(Boolean);
+    return { data, view: { type: 'metrics', title: `Money · ${label}`, items, href: '/business' } };
+  },
+};
+
 const ask_brain = {
   name: 'ask_brain',
   module: 'core',
@@ -489,4 +582,4 @@ const ask_brain = {
   },
 };
 
-export default [search, get_record, list_tasks, list_invoices, list_leave, get_attendance, finance_summary, ask_brain];
+export default [search, get_record, list_tasks, list_invoices, list_leave, get_attendance, finance_summary, money_for_period, ask_brain];
