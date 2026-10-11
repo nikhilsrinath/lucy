@@ -196,6 +196,11 @@ const list_tasks = {
         tasks: out,
       },
       entities: shown.slice(0, 10).map((r) => entityOf('task', r)),
+      // A list of finished tasks says nothing about what is open or late.
+      reading: status === 'done' ? [] : [
+        { metric: 'open_tasks', value: rows.filter((r) => r.status !== 'done').length },
+        { metric: 'overdue_tasks', value: rows.filter(overdue).length },
+      ],
       view: {
         type: 'list',
         title: status === 'overdue' ? 'Overdue tasks' : status === 'done' ? 'Done tasks' : 'Tasks',
@@ -278,6 +283,7 @@ const list_invoices = {
         })),
       },
       entities: shown.slice(0, 10).map((d) => entityOf('invoice', d)),
+      reading: type === 'invoice' ? [{ metric: 'overdue', value: rows.filter(isOverdue).reduce((s, d) => s + Math.max(0, balance(d)), 0) }] : [],
       view: {
         type: 'list',
         title: args.overdue ? `Overdue ${type}s` : args.unpaid ? `Unpaid ${type}s` : `${type[0].toUpperCase()}${type.slice(1)}s`,
@@ -426,6 +432,7 @@ async function liveFigures(ctx) {
       net_cash: money(net), money_received_all_time: money(received), money_paid_out_all_time: money(paidOut),
       owed_to_us: money(owed), overdue_receivables: money(overdue), open_invoices: open.length, we_owe_vendors: money(payable),
     },
+    reading: [{ metric: 'net', value: net }, { metric: 'overdue', value: overdue }, { metric: 'payables', value: payable }],
     view: {
       type: 'metrics', title: 'Money · live', href: '/business',
       items: [
@@ -453,7 +460,7 @@ const finance_summary = {
       // No EdgeBrain yet: the same figures straight from the records.
       const live = await liveFigures(ctx).catch(() => null);
       if (!live) return { data: { unavailable: 'No headline figures have been computed yet (EdgeBrain has not been built or synced), or your role cannot see them.' } };
-      return { data: { source: 'computed live from the records just now', figures: live.data }, view: live.view };
+      return { data: { source: 'computed live from the records just now', figures: live.data }, view: live.view, reading: live.reading };
     }
     const asOf = metrics.find((m) => m.as_of)?.as_of;
     const byKey = new Map(metrics.filter((m) => !m.bucket).map((m) => [m.key, m]));
@@ -465,8 +472,10 @@ const finance_summary = {
       tile('revenue.total', 'Revenue', () => 'n'),
       tile('cash.paid_out', 'Paid out', () => 'n'),
     ].filter(Boolean);
+    const figure = (metric, key) => (byKey.has(key) ? [{ metric, value: Number(byKey.get(key).value) || 0 }] : []);
     return {
       data: { as_of: asOf ? formatDate(asOf) : null, figures: block, rules: CONTEXT_RULES },
+      reading: [...figure('net', 'cash.net'), ...figure('overdue', 'revenue.overdue')],
       view: items.length ? { type: 'metrics', title: `Money${asOf ? ` · as of ${formatDate(asOf)}` : ''}`, items, href: '/business' } : null,
     };
   },
@@ -507,6 +516,13 @@ const money_for_period = {
     const to = (args.to ? readDate(args.to, ctx.today, { prefer: 'past' }).value : null) || (args.from ? ctx.today : ctx.today);
     if (from && to && from > to) return { data: { error: 'That period ends before it starts.' } };
     const within = (d) => { const k = d ? String(d).slice(0, 10) : ''; return !!k && (!from || k >= from) && k <= to; };
+    // The window of equal length just before this one, for "up or down on last time".
+    const day = (iso, shift) => new Date(Date.parse(`${iso}T00:00:00Z`) + shift * 86400000).toISOString().slice(0, 10);
+    const span = from ? Math.round((Date.parse(to) - Date.parse(from)) / 86400000) : null;
+    const prevTo = from ? day(from, -1) : null;
+    const prevFrom = from ? day(prevTo, -span) : null;
+    const earlier = (d) => { const k = d ? String(d).slice(0, 10) : ''; return !!from && !!k && k >= prevFrom && k <= prevTo; };
+    const prev = { invoiced: 0, moneyIn: 0, moneyOut: 0 };
     const canDocs = ctx.can('financial_documents', 'view');
     const canIn = canDocs && ctx.can('income_entries', 'view');
     const canOut = ctx.can('expenses', 'view');
@@ -523,6 +539,7 @@ const money_for_period = {
 
     const issued = issuedInvoices(docs.data || []).filter((d) => within(d.issue_date));
     const invoiced = issued.reduce((s, d) => s + n(d.grand_total), 0);
+    prev.invoiced = issuedInvoices(docs.data || []).filter((d) => earlier(d.issue_date)).reduce((s, d) => s + n(d.grand_total), 0);
 
     const paidDocs = new Set();
     let moneyIn = 0;
@@ -530,13 +547,20 @@ const money_for_period = {
       if (!p.confirmed_at) continue;
       paidDocs.add(p.document_id);
       if (within(p.paid_on || p.confirmed_at)) moneyIn += n(p.amount);
+      else if (earlier(p.paid_on || p.confirmed_at)) prev.moneyIn += n(p.amount);
     }
-    for (const e of income.data || []) if (!(e.document_id && paidDocs.has(e.document_id)) && within(e.received_on)) moneyIn += n(e.amount);
+    for (const e of income.data || []) {
+      if (e.document_id && paidDocs.has(e.document_id)) continue;
+      if (within(e.received_on)) moneyIn += n(e.amount);
+      else if (earlier(e.received_on)) prev.moneyIn += n(e.amount);
+    }
 
     let moneyOut = 0;
     const byCategory = new Map();
     for (const e of expenses.data || []) {
-      if ((e.status || 'paid') === 'pending' || !within(e.incurred_on)) continue;
+      if ((e.status || 'paid') === 'pending') continue;
+      if (earlier(e.incurred_on)) prev.moneyOut += n(e.amount);
+      if (!within(e.incurred_on)) continue;
       moneyOut += n(e.amount);
       byCategory.set(e.category || 'other_expense', (byCategory.get(e.category || 'other_expense') || 0) + n(e.amount));
     }
@@ -560,7 +584,14 @@ const money_for_period = {
       canOut && { label: 'Money out', value: money(moneyOut), sub: top[0] ? `Most on ${pretty(top[0][0]).toLowerCase()}` : null, tone: 'n' },
       canIn && canOut && { label: 'Net', value: money(moneyIn - moneyOut), tone: moneyIn - moneyOut >= 0 ? 'g' : 'r' },
     ].filter(Boolean);
-    return { data, view: { type: 'metrics', title: `Money · ${label}`, items, href: '/business' } };
+    const than = (previous) => (from ? { previous } : {});
+    const reading = [
+      canIn && { metric: 'money_in', value: moneyIn, ...than(prev.moneyIn) },
+      canDocs && { metric: 'invoiced', value: invoiced, ...than(prev.invoiced) },
+      canOut && { metric: 'money_out', value: moneyOut, ...than(prev.moneyOut) },
+      canIn && canOut && { metric: 'net', value: moneyIn - moneyOut },
+    ].filter(Boolean);
+    return { data, reading, view: { type: 'metrics', title: `Money · ${label}`, items, href: '/business' } };
   },
 };
 

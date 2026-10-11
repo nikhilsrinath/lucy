@@ -6,7 +6,7 @@
 .pv-lede { color: #4a4945; font-size: 15px; margin: 0 0 24px; }
 .pv code { font-family: "JetBrains Mono", ui-monospace, monospace; font-size: 13px; background: #fff; padding: 1px 5px; border-radius: 5px; }
 
-.pv-grid { display: grid; grid-template-columns: 120px repeat(4, minmax(0, 1fr)); gap: 14px; align-items: start; overflow-x: auto; }
+.pv-grid { display: grid; grid-template-columns: 120px repeat(8, minmax(120px, 1fr)); gap: 14px; align-items: start; overflow-x: auto; }
 .pv-col { font: 700 11px "JetBrains Mono", ui-monospace, monospace; letter-spacing: .1em; text-transform: uppercase; color: #55534d; }
 .pv-row { display: flex; flex-direction: column; gap: 4px; padding-top: 8px; }
 .pv-row b { font-size: 16px; } .pv-row small { color: #6b6a66; font-size: 12.5px; }
@@ -19,7 +19,8 @@
 .pv-pick { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; font-size: 14px; }
 .pv-pick select { height: 40px; border-radius: 10px; border: 1.5px solid #141414; padding: 0 10px; font: inherit; background: #fff; }
 .pv-mood { font: 700 11px "JetBrains Mono", ui-monospace, monospace; text-transform: uppercase; letter-spacing: .08em; padding: 6px 8px; border-radius: 6px; color: #fff; background: #141414; }
-.pv-mood.warning { background: #c8261c; } .pv-mood.win { background: #0b6fc2; } .pv-mood.thinking { background: #ffc107; color: #2a1d00; } .pv-mood.celebrate { background: #6d28d9; }
+.pv-mood.serious { background: #c8261c; } .pv-mood.happy { background: #0b6fc2; } .pv-mood.thinking { background: #ffc107; color: #2a1d00; } .pv-mood.laughing { background: #6d28d9; }
+.pv-mood.neutral { background: #34558b; } .pv-mood.explaining { background: #0c8377; } .pv-mood.surprised { background: #f04a12; } .pv-mood.disappointed { background: #3a3752; }
 .pv-three { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
 .pv-answer { background: #fff; border: 2px solid #141414; border-radius: 16px; padding: 16px; box-shadow: 3px 3px 0 #141414; }
 .pv-answer header { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
@@ -52,7 +53,7 @@
 .pv-composer { margin: 0 10px 10px; display: flex; align-items: center; justify-content: space-between; border: 1.5px solid #dcd9cf; border-radius: 14px; padding: 6px 6px 6px 12px; color: #9a988f; font-size: 14px; }
 .pv-composer i { font-style: normal; width: 32px; height: 32px; border-radius: 10px; background: #141414; color: #fff; display: grid; place-items: center; }
 
-@media (max-width: 760px) { .pv-grid { grid-template-columns: 84px repeat(4, 150px); } }
+@media (max-width: 760px) { .pv-grid { grid-template-columns: 84px repeat(8, 150px); } }
 
 .pv-choose { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 24px; align-items: start; }
 @media (max-width: 900px) { .pv-choose { grid-template-columns: 1fr; } }

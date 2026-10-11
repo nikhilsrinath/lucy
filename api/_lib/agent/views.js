@@ -35,6 +35,16 @@ export function addView(ctx, view) {
   return id;
 }
 
+/**
+ * Notes a read tool's `reading` for this turn: [{ metric, value, previous? }],
+ * plain numbers from the same rows as its view. The turn's mood is read from
+ * them (src/shared/cofounders/reading.js); they are never shown.
+ */
+export function addReadings(ctx, reading) {
+  if (!Array.isArray(reading) || !reading.length) return;
+  ctx.readings = [...(ctx.readings || []), ...reading];
+}
+
 const MARKER = /\[\[\s*show\s*:\s*(v\d+)\s*\]\]/gi;
 
 /**

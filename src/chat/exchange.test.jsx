@@ -38,8 +38,8 @@ describe('the current exchange', () => {
         const card = { action_id: 'a', title: 'Record payment', status: 'proposed' };
         const out = exchangeResponse([
             msg('q', 'user', 'Did Nova pay?'), msg('a', 'assistant', 'Yes.'), msg('c', 'assistant', 'x', { kind: 'action', card }),
-        ], { mood: 'win', headline_word: 'Nice.', tag: 'Good news' });
-        expect(out).toEqual({ mood: 'win', headline_word: 'Nice.', tag: 'Good news', answer: 'Yes.', card });
+        ], { mood: 'happy', headline_word: 'Nice.', tag: 'Good news' });
+        expect(out).toEqual({ mood: 'happy', headline_word: 'Nice.', tag: 'Good news', answer: 'Yes.', card });
         const ask = exchangeResponse([
             msg('q', 'user', 'Log 12k'), msg('i', 'assistant', 'What was it for?', { kind: 'input', input: { options: [{ label: 'Travel', value: 't' }, { label: 'Software', value: 's' }] } }),
         ], { mood: 'thinking', headline_word: 'Hmm…', tag: 'Needs info' });
@@ -50,7 +50,7 @@ describe('the current exchange', () => {
 describe('the chat screen', () => {
     it.each(PERSONAS.map((p) => [p.name, p]))('never renders more than one exchange (%s)', (_name, persona) => {
         // Even handed two exchanges, the screen shows only the current one.
-        const html = renderToStaticMarkup(<Exchange a={fakeAssistant(TWO)} persona={persona} mood="win" tag="Good news" onOpen={() => {}} />);
+        const html = renderToStaticMarkup(<Exchange a={fakeAssistant(TWO)} persona={persona} mood="happy" tag="Good news" onOpen={() => {}} />);
         expect(count(html, 'class="mc-q"')).toBe(1);
         expect(count(html, 'class="mc-who"')).toBe(1);
         expect(count(html, 'class="mc-x"')).toBe(1);
@@ -73,13 +73,21 @@ describe('the chat screen', () => {
 
     it('takes the mood from the server, and is "thinking" only while loading', () => {
         const persona = PERSONAS.find((p) => p.id === 'mark');
-        const mood = { mood: 'celebrate', headline_word: 'Ship it!', tag: 'Big win' };
-        expect(stageFor({ persona, mood, streaming: false, empty: false })).toEqual({ mood: 'celebrate', word: 'Ship it!', tag: 'Big win' });
+        const mood = { mood: 'laughing', headline_word: 'Ship it!', tag: 'Big win' };
+        expect(stageFor({ persona, mood, streaming: false, empty: false })).toEqual({ mood: 'laughing', word: 'Ship it!', tag: 'Big win' });
+        for (const m of ['neutral', 'explaining', 'happy', 'serious', 'surprised', 'disappointed']) {
+            expect(stageFor({ persona, mood: { mood: m, headline_word: '', tag: 'x' }, streaming: false, empty: false })).toEqual({ mood: m, word: persona.headlines[m], tag: 'x' });
+        }
         expect(stageFor({ persona, mood, streaming: true, empty: false })).toMatchObject({ mood: 'thinking', word: "Let's test it." });
-        expect(stageFor({ persona, mood: null, streaming: false, empty: false })).toMatchObject({ mood: 'win', tag: 'For you' });
+        expect(stageFor({ persona, mood: null, streaming: false, empty: false })).toMatchObject({ mood: 'neutral', tag: 'For you' });
         // An answer stored under the old default no longer rests on "thinking".
         const old = { mood: 'thinking', headline_word: "Let's test it.", tag: 'Thinking it through' };
-        expect(stageFor({ persona, mood: old, streaming: false, empty: false })).toEqual({ mood: 'win', word: "It's working.", tag: 'Here you go' });
+        expect(stageFor({ persona, mood: old, streaming: false, empty: false })).toEqual({ mood: 'neutral', word: "Here's where we are.", tag: 'Here you go' });
+        // An exchange stored under the four old names is shown under today's.
+        expect(stageFor({ persona, mood: { mood: 'warning', headline_word: 'This is a problem.', tag: 'Needs attention' }, streaming: false, empty: false })).toEqual({ mood: 'serious', word: 'This is a problem.', tag: 'Needs attention' });
+        expect(stageFor({ persona, mood: { mood: 'celebrate', headline_word: 'Ship it!', tag: 'Big win' }, streaming: false, empty: false })).toEqual({ mood: 'laughing', word: 'Ship it!', tag: 'Big win' });
+        expect(stageFor({ persona, mood: { mood: 'win', headline_word: "It's working.", tag: 'Good news' }, streaming: false, empty: false })).toEqual({ mood: 'happy', word: "It's working.", tag: 'Good news' });
+        expect(stageFor({ persona, mood: { mood: 'win', headline_word: "It's working.", tag: 'Here you go' }, streaming: false, empty: false })).toMatchObject({ mood: 'neutral' });
         // A question the cofounder asks is still "thinking".
         const ask = { mood: 'thinking', headline_word: "Let's test it.", tag: 'Needs info' };
         expect(stageFor({ persona, mood: ask, streaming: false, empty: false })).toMatchObject({ mood: 'thinking', tag: 'Needs info' });
@@ -89,11 +97,11 @@ describe('the chat screen', () => {
         const persona = PERSONAS.find((p) => p.id === 'mark');
         const idle = (facts) => stageFor({ persona, mood: null, streaming: false, empty: true, brief: facts && { facts } });
         const clear = { overdueCount: 0, tasksOverdue: 0, netCash: 5000 };
-        expect(idle(null)).toEqual({ mood: 'win', word: "It's working.", tag: 'Ask me anything' });
-        expect(idle(clear)).toMatchObject({ mood: 'win' });
-        expect(idle({ ...clear, netCash: null })).toMatchObject({ mood: 'win' });
-        expect(idle({ ...clear, overdueCount: 2 })).toEqual({ mood: 'warning', word: 'This is a problem.', tag: 'Needs attention' });
-        expect(idle({ ...clear, tasksOverdue: 1 })).toMatchObject({ mood: 'warning' });
-        expect(idle({ ...clear, netCash: -1 })).toMatchObject({ mood: 'warning' });
+        expect(idle(null)).toEqual({ mood: 'neutral', word: "Here's where we are.", tag: 'Ask me anything' });
+        expect(idle(clear)).toMatchObject({ mood: 'neutral' });
+        expect(idle({ ...clear, netCash: null })).toMatchObject({ mood: 'neutral' });
+        expect(idle({ ...clear, overdueCount: 2 })).toEqual({ mood: 'serious', word: 'This is a problem.', tag: 'Needs attention' });
+        expect(idle({ ...clear, tasksOverdue: 1 })).toMatchObject({ mood: 'serious' });
+        expect(idle({ ...clear, netCash: -1 })).toMatchObject({ mood: 'serious' });
     });
 });

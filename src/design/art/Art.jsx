@@ -10,7 +10,7 @@ import './art.css';
 const html = (__html) => ({ __html });
 
 /** The upper-body sticker for a mood. `pop` replays the entrance when the key changes. */
-export function CofounderAvatar({ id, mood = 'win', className = '', label }) {
+export function CofounderAvatar({ id, mood = 'neutral', className = '', label }) {
     return (
         <span className={`cf-avatar ${className}`.trim()} role={label ? 'img' : undefined} aria-label={label}
             aria-hidden={label ? undefined : true}>
@@ -20,7 +20,7 @@ export function CofounderAvatar({ id, mood = 'win', className = '', label }) {
 }
 
 /** The small round face: tab bar, the "who" label, lists. */
-export function CofounderFace({ id, mood = 'win', size, className = '', label, style }) {
+export function CofounderFace({ id, mood = 'neutral', size, className = '', label, style }) {
     return (
         <span className={`cf-face ${className}`.trim()} style={{ ...(size ? { width: size, height: size } : null), ...style }}
             role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true}>
@@ -34,7 +34,7 @@ export function MoodBackground({ id, mood, className = '' }) {
     return <span className={`cf-bg ${className}`.trim()} aria-hidden="true" dangerouslySetInnerHTML={html(backgroundSvg(id, mood))} />;
 }
 
-/** All four backgrounds stacked; the current one fades in (about 450 ms). */
+/** All eight backgrounds stacked; the current one fades in (about 450 ms). */
 export function MoodBackdrop({ id, mood }) {
     return (
         <div className="cf-backdrop" aria-hidden="true">

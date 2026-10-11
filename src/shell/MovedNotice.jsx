@@ -32,8 +32,8 @@ export default function MovedNotice() {
                 </div>
             )}>
             <div style={{ position: 'relative', height: 220, borderRadius: 18, overflow: 'hidden', border: '2px solid #141414' }}>
-                <MoodBackground id={p.art} mood="celebrate" />
-                <CofounderAvatar id={p.art} mood="celebrate" label={p.name}
+                <MoodBackground id={p.art} mood="laughing" />
+                <CofounderAvatar id={p.art} mood="laughing" label={p.name}
                     className="" />
             </div>
             <h2 style={{ fontSize: 24, fontWeight: 700, letterSpacing: '-.02em', margin: '18px 0 6px' }}>Your cofounder is now {p.name}. Change?</h2>

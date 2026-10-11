@@ -85,6 +85,7 @@ const list_clients = {
         clients: out,
       },
       entities: shown.slice(0, 10).map((c) => entityOf('client', c)),
+      reading: [{ metric: 'pipeline', value: all.filter((c) => ['lead', 'contacted'].includes(c.status)).length }],
       view: {
         type: 'list',
         title: args.inactive_days ? `Quiet for ${args.inactive_days}+ days` : stage === 'pipeline' ? 'Open pipeline' : 'Clients',

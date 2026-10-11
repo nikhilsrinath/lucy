@@ -1,7 +1,7 @@
 import { getTool, allowed } from '../registry.js';
 import { propose, cancel } from '../pipeline.js';
 import { KINDS, loadKind, rankCandidates, entityOf } from '../resolvers.js';
-import { addView } from '../views.js';
+import { addView, addReadings } from '../views.js';
 import { situations } from '../cofounders.js';
 import { detectSituation } from '../../../../src/shared/cofounders/detect.js';
 import { isCancel } from '../../../../src/shared/cashIntent.js';
@@ -154,6 +154,7 @@ async function runRead(ctx, intent, decision) {
     errorKind: out.failed ? 'tool_failed' : null,
     text,
     view: out.show && res?.view ? res.view : null,
+    reading: res?.reading || null,
     entities: res?.entities || [],
     navigate: res?.navigate || null,
     status: tool.status || null,
@@ -161,6 +162,7 @@ async function runRead(ctx, intent, decision) {
 }
 
 function emitRead(ctx, emit, r) {
+  addReadings(ctx, r.reading);
   if (r.entities?.length) emit('entities', { entities: r.entities });
   if (r.navigate) emit('navigate', r.navigate);
   if (r.text) emit('text', { text: forChannel(r.text, ctx) });
@@ -234,7 +236,7 @@ async function execute(ctx, decision, turn, ids, { emitOutcome }) {
     const args = cleanArgs(intent, decision.parameters);
     const out = await propose(tool, args, ctx, ids);
     if (proposalOutcome(out) === 'escalate' && intent.escalate === 'unresolved') return { handled: false, reasonCode: 'unresolved' };
-    if (out.kind === 'card') turn.noteCard(tool.name, args);
+    if (out.kind === 'card') turn.noteCard(tool.name, args, out.card);
     emitOutcome(out, emit);
     return { handled: true, ok: out.kind !== 'none', clarified: out.kind === 'choice' || out.kind === 'input', errorKind: out.kind === 'none' ? 'not_found' : null };
   }
@@ -390,7 +392,7 @@ export async function tryLocal(ctx, input, turn, helpers, { mode = routerMode() 
           if (!isNew && pending.param && words.tokens.length <= 8 && !/\?\s*$/.test(words.clean)) {
             const out = await propose(tool, { ...(pending.args || {}), [pending.param]: words.clean }, ctx, ids);
             if (out.kind !== 'error') {
-              if (out.kind === 'card') turn.noteCard(tool.name, pending.args || {});
+              if (out.kind === 'card') turn.noteCard(tool.name, pending.args || {}, out.card);
               helpers.emitOutcome(out, turn.emit);
               log({ intent: `ANSWER:${tool.name}`.slice(0, 64), route: 'local', confidence: 1, ok: out.kind !== 'none', clarified: out.kind === 'input' || out.kind === 'choice', reasonCode: 'answered' });
               return { handled: true, route: 'local', intent: tool.name, ok: true };

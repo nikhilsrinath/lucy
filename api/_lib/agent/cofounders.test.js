@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { cofounders, situations, actionVocabulary, sharedRules, cleanPersona, cofounderOf, DEFAULT_PERSONA } from './cofounders.js';
+import { cofounders, situations, actionVocabulary, sharedRules, cleanPersona, cofounderOf, moodCore, DEFAULT_PERSONA } from './cofounders.js';
 import { buildSystemPrompt, AGENT_PROMPT_VERSION } from './prompt.js';
 import { assemblePrompt } from './assemble.js';
 import { toolsFor, ALL_TOOLS, deletes } from './registry.js';
@@ -10,9 +10,10 @@ import { decide } from '../autonomy/policy.js';
 import { fakeDb, fakeCtx } from './testing/fakeDb.js';
 import { PERSONAS as CLIENT_PERSONAS } from '../../../src/design/personas.js';
 import { RETIRED, COFOUNDER_IDS, resolveCofounderId } from '../../../src/shared/cofounders/legacy.js';
-import { detectSituation, situationOfTurn } from '../../../src/shared/cofounders/detect.js';
-import { decideMood, moodFor, takeMood } from '../../../src/shared/cofounders/mood.js';
-import { MOODS } from '../../../src/shared/cofounders/parse.js';
+import { detectSituation, situationOfTurn, detectCue } from '../../../src/shared/cofounders/detect.js';
+import { decideMood, moodFor, takeMood, legacyMood, DEFAULT_TAGS, SUGGESTABLE } from '../../../src/shared/cofounders/mood.js';
+import { readMood } from '../../../src/shared/cofounders/reading.js';
+import { MOODS, METRIC_KINDS } from '../../../src/shared/cofounders/parse.js';
 import { QUIZ, rank, founderVector } from '../../../src/shared/cofounders/match.js';
 
 // ai_actions lives in memory here; everything else is the real code.
@@ -76,9 +77,10 @@ describe('the cofounder files', () => {
   });
 
   it('carry the headline word for every mood', () => {
-    expect(cofounderOf('steve').headlines).toEqual({ warning: 'Not good enough.', win: 'Insanely great.', thinking: 'Why?', celebrate: 'Real artists ship.' });
-    expect(cofounderOf('elon').headlines).toEqual({ warning: 'Fix it. Now.', win: 'Good. Next.', thinking: 'First principles.', celebrate: 'Liftoff!' });
-    expect(cofounderOf('mark').headlines).toEqual({ warning: 'This is a problem.', win: "It's working.", thinking: "Let's test it.", celebrate: 'Ship it!' });
+    expect(cofounderOf('steve').headlines).toEqual({ neutral: 'Here it is.', thinking: 'Why?', explaining: "Here's the thing.", happy: 'Insanely great.', serious: 'Not good enough.', surprised: 'Wait. What?', disappointed: "That's not it.", laughing: 'Real artists ship.' });
+    expect(cofounderOf('elon').headlines).toEqual({ neutral: "Here's the data.", thinking: 'First principles.', explaining: 'Physics first.', happy: 'Good. Next.', serious: 'Fix it. Now.', surprised: "That's wild.", disappointed: 'Back to the pad.', laughing: 'Liftoff!' });
+    expect(cofounderOf('mark').headlines).toEqual({ neutral: "Here's where we are.", thinking: "Let's test it.", explaining: 'Look at the data.', happy: "It's working.", serious: 'This is a problem.', surprised: "Didn't expect that.", disappointed: 'We missed.', laughing: 'Ship it!' });
+    for (const c of all()) expect(Object.keys(c.headlines)).toEqual(MOODS);
   });
 
   it('are the same cofounders in the app, id for id', () => {
@@ -175,34 +177,30 @@ describe('the retired cofounders are gone', () => {
 
 describe('mood mapping', () => {
   const EXPECTED = {
-    overdue_invoice: 'warning', low_runway: 'warning', slipping_deadline: 'warning', unusual_spend: 'warning', gst_due: 'warning',
-    payment_received: 'win', task_done: 'win',
+    overdue_invoice: 'serious', low_runway: 'serious', slipping_deadline: 'serious', gst_due: 'serious',
+    unusual_spend: 'surprised', record_high: 'surprised',
+    payment_received: 'happy', task_done: 'happy',
     missing_info: 'thinking', quick_pick: 'thinking', discount_request: 'thinking', hiring_decision: 'thinking',
-    deal_won: 'celebrate', milestone: 'celebrate', record_high: 'celebrate',
+    deal_won: 'laughing', milestone: 'laughing',
+    deal_lost: 'disappointed',
   };
+  const core = moodCore();
 
-  it('covers every situation id', () => {
+  it('there are eight moods, and every situation has one', () => {
+    expect(MOODS).toEqual(['neutral', 'thinking', 'explaining', 'happy', 'serious', 'surprised', 'disappointed', 'laughing']);
     expect(situations().map((s) => s.id).sort()).toEqual(Object.keys(EXPECTED).sort());
+    expect(Object.keys(DEFAULT_TAGS).sort()).toEqual([...MOODS].sort());
   });
 
   it.each(Object.entries(EXPECTED))('%s → %s', (id, mood) => {
-    expect(decideMood({ situation: id }, situations())).toMatchObject({ mood, by: 'rule' });
+    expect(decideMood({ detected: id }, core)).toMatchObject({ mood, by: 'keywords', situation: id });
     // The model's suggestion never wins over the rule.
-    for (const suggested of MOODS) expect(decideMood({ situation: id, suggested }, situations()).mood).toBe(mood);
+    for (const suggested of MOODS) expect(decideMood({ detected: id, suggested }, core).mood).toBe(mood);
     for (const c of all()) {
-      const out = moodFor(c, { situation: id, suggested: 'win' }, situations());
+      const out = moodFor(c, { detected: id, suggested: 'happy' }, core);
       expect(out).toMatchObject({ mood, headline_word: c.headlines[mood], situation: id });
       expect(out.tag).toBeTruthy();
     }
-  });
-
-  it('uses the model\'s suggestion only when no rule applies, and strips its marker', () => {
-    expect(decideMood({ suggested: 'celebrate' }, situations())).toMatchObject({ mood: 'celebrate', by: 'model' });
-    expect(decideMood({ suggested: 'furious' }, situations())).toMatchObject({ mood: 'win', by: 'default' });
-    // An ordinary answer never rests on "thinking".
-    expect(decideMood({}, situations())).toEqual({ mood: 'win', tag: 'Here you go', by: 'default' });
-    expect(takeMood('Paid in full.\n[[mood:win]]')).toEqual({ text: 'Paid in full.', suggested: 'win' });
-    expect(takeMood('Plain.')).toEqual({ text: 'Plain.', suggested: null });
   });
 
   it('detects situations from the message, the insight and what the turn produced', () => {
@@ -211,6 +209,7 @@ describe('mood mapping', () => {
     expect(detectSituation({ message: 'how much runway do we have?' }, S)).toBe('low_runway');
     expect(detectSituation({ message: 'they want a discount' }, S)).toBe('discount_request');
     expect(detectSituation({ message: 'Zephyr accepted the quote' }, S)).toBe('deal_won');
+    expect(detectSituation({ message: 'Kite went with someone else' }, S)).toBe('deal_lost');
     expect(detectSituation({ message: 'hello there' }, S)).toBeNull();
     expect(detectSituation({ message: 'x', source: 'insight:overdue:inv-1' }, S)).toBe('overdue_invoice');
     // What the turn produced outranks the words.
@@ -219,7 +218,239 @@ describe('mood mapping', () => {
     expect(situationOfTurn({ outcome: { cards: [{ tool: 'record_payment' }] } }, S)).toBe('payment_received');
     expect(situationOfTurn({ outcome: { cards: [{ tool: 'complete_task' }] } }, S)).toBe('task_done');
     expect(situationOfTurn({ outcome: { cards: [{ tool: 'move_client_stage', args: { stage: 'deal' } }] } }, S)).toBe('deal_won');
-    expect(situationOfTurn({ outcome: { cards: [{ tool: 'move_client_stage', args: { stage: 'lost' } }] } }, S)).toBeNull();
+    expect(situationOfTurn({ outcome: { cards: [{ tool: 'move_client_stage', args: { stage: 'lost' } }] } }, S)).toBe('deal_lost');
+    expect(situationOfTurn({ outcome: { cards: [{ tool: 'move_client_stage', args: { stage: 'contacted' } }] } }, S)).toBeNull();
+  });
+});
+
+/* ── the ladder: which mood a turn ends on ───────────────────────────────── */
+
+describe('the mood ladder', () => {
+  const core = moodCore();
+  const mood = (turn) => decideMood(turn, core);
+  const zeroRevenue = [{ metric: 'money_in', value: 0, previous: 0 }];
+
+  it('walks its steps in order, the first that applies winning', () => {
+    // 1. A failure beats everything.
+    expect(mood({ outcome: { failed: true, asked: 'input', cards: [{ tool: 'record_payment', status: 'executed' }] }, detected: 'deal_won' }))
+      .toEqual({ mood: 'disappointed', tag: "Didn't work", by: 'failure', situation: null });
+    // 2. A question.
+    expect(mood({ outcome: { asked: 'input', cards: [{ tool: 'record_payment' }] }, detected: 'deal_won' })).toMatchObject({ mood: 'thinking', tag: 'Needs info', by: 'question', situation: 'missing_info' });
+    expect(mood({ outcome: { asked: 'choice' } })).toMatchObject({ mood: 'thinking', by: 'question', situation: 'quick_pick' });
+    // 3. A card carried out.
+    expect(mood({ outcome: { cards: [{ tool: 'record_payment', status: 'executed' }] }, detected: 'overdue_invoice' })).toMatchObject({ mood: 'happy', by: 'outcome', situation: 'payment_received' });
+    expect(mood({ outcome: { cards: [{ tool: 'convert_quotation', status: 'executed' }] } })).toMatchObject({ mood: 'laughing', tag: 'Big win' });
+    expect(mood({ outcome: { cards: [{ tool: 'move_client_stage', args: { stage: 'lost' }, status: 'proposed' }] } })).toMatchObject({ mood: 'disappointed', tag: 'Lost one', situation: 'deal_lost' });
+    // A card carried out that means no situation says nothing by itself.
+    expect(mood({ outcome: { cards: [{ tool: 'create_task', status: 'executed' }] } })).toMatchObject({ mood: 'neutral', by: 'default' });
+    // 4. A card waiting for a tap.
+    expect(mood({ outcome: { cards: [{ tool: 'create_task', status: 'proposed', risk: 'low' }] } })).toEqual({ mood: 'neutral', tag: 'Ready for you', by: 'outcome', situation: null });
+    expect(mood({ outcome: { cards: [{ tool: 'create_invoice_draft', status: 'proposed', risk: 'high' }] } })).toEqual({ mood: 'serious', tag: 'Check this', by: 'outcome', situation: null });
+    expect(mood({ outcome: { cards: [{ tool: 'create_task', status: 'proposed', risk: 'low' }] }, detected: 'hiring_decision' })).toMatchObject({ mood: 'thinking', tag: 'Your call', by: 'outcome' });
+    // 5. The insight that started the turn, even over the figures.
+    expect(mood({ detected: 'overdue_invoice', source: 'insight:overdue:inv-1', message: 'any overdue?', readings: [{ metric: 'overdue', value: 0 }] })).toMatchObject({ mood: 'serious', by: 'source' });
+    // 6. The figures beat the words.
+    expect(mood({ detected: 'overdue_invoice', message: 'any overdue invoices?', readings: [{ metric: 'overdue', value: 0 }] })).toMatchObject({ mood: 'happy', tag: 'All clear', by: 'reading' });
+    // 7. The words.
+    expect(mood({ detected: 'overdue_invoice', message: 'any overdue invoices?' })).toMatchObject({ mood: 'serious', by: 'keywords' });
+    // 8. A cue, over the model.
+    expect(mood({ message: 'haha nice one', suggested: 'serious' })).toEqual({ mood: 'laughing', tag: 'Good one', by: 'cue', situation: null });
+    expect(mood({ message: 'why is this the rule?' })).toMatchObject({ mood: 'explaining', tag: "Here's how", by: 'cue' });
+    // 9. The model, over the shape.
+    expect(mood({ suggested: 'serious', outcome: { viewed: true } })).toMatchObject({ mood: 'serious', by: 'model' });
+    // 10. The shape of the reply.
+    expect(mood({ outcome: { viewed: true } })).toMatchObject({ mood: 'explaining', tag: 'Take a look', by: 'shape' });
+    expect(mood({ outcome: { reply: 'Do this:\n1. Call them\n2. Send the quote\n' } })).toMatchObject({ mood: 'explaining', by: 'shape' });
+    expect(mood({ outcome: { reply: 'One thing:\n- call them\n' } })).toMatchObject({ mood: 'neutral' });
+    // 11. Nothing: at rest, never "thinking".
+    expect(mood({})).toEqual({ mood: 'neutral', tag: 'Here you go', by: 'default', situation: null });
+    expect(mood({ outcome: { asked: null, cards: [] }, message: 'ok' })).toMatchObject({ mood: 'neutral' });
+  });
+
+  it('lets the model suggest a calm or warm mood only, and strips its marker', () => {
+    for (const suggested of SUGGESTABLE) expect(mood({ suggested })).toMatchObject({ mood: suggested, by: 'model' });
+    for (const suggested of ['thinking', 'surprised', 'disappointed', 'laughing', 'furious', 'win']) expect(mood({ suggested })).toMatchObject({ mood: 'neutral', by: 'default' });
+    expect(takeMood('Paid in full.\n[[mood:happy]]')).toEqual({ text: 'Paid in full.', suggested: 'happy' });
+    expect(takeMood('Plain.')).toEqual({ text: 'Plain.', suggested: null });
+    expect(buildSystemPrompt({ ...fakeCtx(), persona: 'steve' }, [])).toMatch(/\[\[mood:neutral\]\], \[\[mood:happy\]\], \[\[mood:explaining\]\] or \[\[mood:serious\]\]/);
+  });
+
+  it('does not show the same peak twice running on words alone', () => {
+    expect(mood({ message: 'lol', prevMood: 'laughing' })).toMatchObject({ mood: 'happy', tag: 'Good one', by: 'cue' });
+    expect(mood({ message: 'lol', prevMood: 'happy' })).toMatchObject({ mood: 'laughing' });
+    expect(mood({ message: 'lol' })).toMatchObject({ mood: 'laughing' });
+    expect(mood({ detected: 'deal_lost', prevMood: 'disappointed' })).toMatchObject({ mood: 'serious', tag: 'Lost one', by: 'keywords' });
+    expect(mood({ detected: 'record_high', prevMood: 'surprised' })).toMatchObject({ mood: 'explaining' });
+    // Records are not words: an outcome, an insight, a figure or a failure repeats.
+    expect(mood({ outcome: { cards: [{ tool: 'convert_quotation', status: 'executed' }] }, prevMood: 'laughing' })).toMatchObject({ mood: 'laughing' });
+    expect(mood({ detected: 'deal_won', source: 'insight:deal_won:c1', prevMood: 'laughing' })).toMatchObject({ mood: 'laughing', by: 'source' });
+    expect(mood({ message: 'revenue this month?', readings: zeroRevenue, prevMood: 'disappointed' })).toMatchObject({ mood: 'disappointed', by: 'reading' });
+    expect(mood({ outcome: { failed: true }, prevMood: 'disappointed' })).toMatchObject({ mood: 'disappointed' });
+  });
+
+  it('finds a cue in the words', () => {
+    const cue = (m) => detectCue(m, core.cues)?.mood || null;
+    expect(cue('hahaha that is brutal')).toBe('laughing');
+    expect(cue('ok 😂')).toBe('laughing');
+    expect(cue('how do I raise a proforma?')).toBe('explaining');
+    expect(cue('Explain GST on exports')).toBe('explaining');
+    expect(cue('thanks')).toBe('neutral');
+    // "how" alone is a lookup, not a request to be taught.
+    expect(cue('how much does Acme owe me')).toBeNull();
+    expect(cue('this is not funny')).toBeNull();
+    expect(cue('')).toBeNull();
+  });
+
+  it('shows a stored exchange under today\'s names', () => {
+    expect(legacyMood({ mood: 'warning', headline_word: 'Not good enough.', tag: 'Needs attention' })).toEqual({ mood: 'serious', headline_word: '', tag: 'Needs attention' });
+    expect(legacyMood({ mood: 'celebrate', headline_word: 'Liftoff!', tag: 'Big win' })).toMatchObject({ mood: 'laughing', tag: 'Big win' });
+    expect(legacyMood({ mood: 'win', headline_word: 'x', tag: 'Good news' })).toMatchObject({ mood: 'happy', tag: 'Good news' });
+    expect(legacyMood({ mood: 'win', headline_word: 'x', tag: 'Here you go' })).toMatchObject({ mood: 'neutral', tag: 'Here you go' });
+    expect(legacyMood({ mood: 'thinking', headline_word: 'x', tag: 'Thinking it through' })).toMatchObject({ mood: 'neutral' });
+    const kept = { mood: 'thinking', headline_word: 'Why?', tag: 'Needs info' };
+    expect(legacyMood(kept)).toBe(kept);
+    expect(legacyMood({ mood: 'furious', tag: 'x' })).toMatchObject({ mood: 'neutral' });
+    expect(legacyMood(null)).toBeNull();
+  });
+});
+
+/* ── reading the answer: the figures, against what was asked ─────────────── */
+
+describe('reading the answer', () => {
+  const { metrics } = moodCore();
+  const read = (message, readings, audience) => readMood(message, readings, metrics, audience);
+
+  it('knows every metric and its kind', () => {
+    expect(Object.fromEntries(metrics.map((m) => [m.id, m.kind]))).toEqual({
+      money_in: 'gain', invoiced: 'gain', pipeline: 'gain', net: 'balance', money_out: 'cost', payables: 'cost',
+      overdue_tasks: 'problem', open_tasks: 'cost', overdue: 'problem',
+    });
+    for (const m of metrics) expect(METRIC_KINDS).toContain(m.kind);
+    expect(metrics.filter((m) => !m.money).map((m) => m.id).sort()).toEqual(['open_tasks', 'overdue_tasks', 'pipeline']);
+  });
+
+  it.each([
+    // gain: more is good
+    ['revenue this month?', [{ metric: 'money_in', value: 0, previous: 500 }], 'disappointed', 'Nothing yet'],
+    ['how much revenue', [{ metric: 'money_in', value: 700, previous: 1000 }], 'serious', 'Down'],
+    ['sales this month', [{ metric: 'money_in', value: 1300, previous: 1000 }], 'happy', 'Up'],
+    ['sales this month', [{ metric: 'money_in', value: 100, previous: 0 }], 'happy', 'Up'],
+    ['sales this month', [{ metric: 'money_in', value: 1100, previous: 1000 }], 'neutral', 'Here you go'],
+    ['total revenue', [{ metric: 'money_in', value: 5000 }], 'neutral', 'Here you go'],
+    ['any leads?', [{ metric: 'pipeline', value: 0 }], 'disappointed', 'Nothing yet'],
+    // balance: signed
+    ['what is our profit', [{ metric: 'net', value: -200 }], 'serious', 'In the red'],
+    ['what is our profit', [{ metric: 'net', value: 200 }], 'happy', 'In the green'],
+    ['what is our profit', [{ metric: 'net', value: 0 }], 'neutral', 'Here you go'],
+    // cost: less is good
+    ['expenses this month?', [{ metric: 'money_out', value: 0, previous: 900 }], 'happy', 'All clear'],
+    ['how much did we spend', [{ metric: 'money_out', value: 1300, previous: 1000 }], 'serious', 'Up'],
+    ['how much did we spend', [{ metric: 'money_out', value: 700, previous: 1000 }], 'happy', 'Down'],
+    ['how much did we spend', [{ metric: 'money_out', value: 1000, previous: 1000 }], 'neutral', 'Here you go'],
+    ['kharcha kitna hua', [{ metric: 'money_out', value: 400, previous: 0 }], 'neutral', 'Here you go'],
+    // problem: any at all is bad
+    ['any overdue invoices?', [{ metric: 'overdue', value: 0 }], 'happy', 'All clear'],
+    ['any overdue invoices?', [{ metric: 'overdue', value: 62000 }], 'serious', 'Needs attention'],
+    ['what is overdue?', [{ metric: 'open_tasks', value: 4 }, { metric: 'overdue_tasks', value: 0 }], 'happy', 'All clear'],
+    ['what is overdue?', [{ metric: 'open_tasks', value: 4 }, { metric: 'overdue_tasks', value: 1 }], 'serious', 'Needs attention'],
+    ['anything pending?', [{ metric: 'open_tasks', value: 0 }, { metric: 'overdue_tasks', value: 0 }], 'happy', 'All clear'],
+  ])('%s %j → %s (%s)', (message, readings, mood, tag) => {
+    expect(read(message, readings)).toMatchObject({ mood, tag });
+  });
+
+  it('the question picks the figure: one lookup, two faces', () => {
+    const month = [{ metric: 'money_in', value: 0, previous: 0 }, { metric: 'invoiced', value: 0, previous: 0 }, { metric: 'money_out', value: 0, previous: 0 }, { metric: 'net', value: 0 }];
+    expect(read('what is our revenue this month?', month)).toMatchObject({ mood: 'disappointed', metric: 'money_in' });
+    expect(read('what are our expenses this month?', month)).toMatchObject({ mood: 'happy', metric: 'money_out' });
+  });
+
+  it('judges the figures together when the question names none', () => {
+    expect(read('how is the money?', [{ metric: 'net', value: 900 }, { metric: 'overdue', value: 100 }])).toMatchObject({ mood: 'serious', tag: 'Needs attention' });
+    expect(read('how is the money?', [{ metric: 'net', value: -5 }, { metric: 'overdue', value: 0 }])).toMatchObject({ mood: 'serious' });
+    expect(read('how is the money?', [{ metric: 'net', value: 900 }, { metric: 'overdue', value: 0 }])).toMatchObject({ mood: 'happy', tag: 'In the green' });
+    expect(read('show me the list', [{ metric: 'open_tasks', value: 4 }, { metric: 'overdue_tasks', value: 0 }])).toBeNull();
+    expect(read('show clients', [{ metric: 'pipeline', value: 0 }])).toBeNull();
+  });
+
+  it('says nothing without figures, and never reads money in a shared space', () => {
+    expect(read('revenue?', [])).toBeNull();
+    expect(read('revenue?', [{ metric: 'money_in', value: 'n/a' }, { metric: 'unknown', value: 3 }])).toBeNull();
+    expect(read('revenue?', [{ metric: 'money_in', value: 0 }], 'shared')).toBeNull();
+    expect(read('what is overdue?', [{ metric: 'overdue_tasks', value: 2 }, { metric: 'overdue', value: 9 }], 'shared')).toMatchObject({ mood: 'serious', metric: 'overdue_tasks' });
+    // The later reading of a metric wins.
+    expect(read('revenue?', [{ metric: 'money_in', value: 0 }, { metric: 'money_in', value: 10, previous: 0 }])).toMatchObject({ mood: 'happy' });
+  });
+});
+
+/* ── a whole turn: what was asked, what came back, which face ────────────── */
+
+describe('a turn ends on the face its answer calls for', () => {
+  beforeEach(() => store.clear());
+  const ask = async (message, db, model, over = {}) => {
+    const ctx = fakeCtx({ db, ...over });
+    ctx.persona = 'steve';
+    Object.assign(ctx, over.ctx || {});
+    const { events, emit } = collect();
+    await runChat(ctx, { message, chatId: 'c1', messageId: 'm1' }, emit, { callModelImpl: model, router: 'off' });
+    return events.at(-1);
+  };
+  const say = (content) => ({ role: 'assistant', content });
+
+  it('no revenue is disappointing, no expenses is good news — from the same empty books', async () => {
+    const revenue = await ask('what is our revenue this month?', fakeDb({}), scripted(call('money_for_period', {}), say('Nothing has come in this month.\n[[mood:happy]]')));
+    expect(revenue).toMatchObject({ event: 'mood', mood: 'disappointed', tag: 'Nothing yet', headline_word: "That's not it." });
+    const spend = await ask('what are our expenses this month?', fakeDb({}), scripted(call('money_for_period', {}), say('Nothing spent this month.')));
+    expect(spend).toMatchObject({ event: 'mood', mood: 'happy', tag: 'All clear', headline_word: 'Insanely great.' });
+  });
+
+  it('a lookup that fails, and a model that is down, are disappointing', async () => {
+    const broken = fakeDb({});
+    broken.from = () => { throw new Error('down'); };
+    const failed = await ask('what is our revenue this month?', broken, scripted(call('money_for_period', {}), say('I could not read that.')));
+    expect(failed).toMatchObject({ mood: 'disappointed', tag: "Didn't work" });
+    const ctx = fakeCtx({ db: fakeDb({}) });
+    const { events, emit } = collect();
+    await expect(runChat(ctx, { message: 'hello', chatId: 'c1', messageId: 'm1' }, emit, { callModelImpl: async () => { throw new Error('no model'); }, router: 'off' })).rejects.toThrow();
+    expect(events.at(-1)).toMatchObject({ event: 'mood', mood: 'disappointed' });
+  });
+
+  it('an ordinary answer rests, and the model may only nudge it', async () => {
+    expect(await ask('give the new plan a name', fakeDb({}), scripted(say('Call it Studio.')))).toMatchObject({ mood: 'neutral', tag: 'Here you go' });
+    expect(await ask('give the new plan a name', fakeDb({}), scripted(say('Call it Studio.\n[[mood:laughing]]')))).toMatchObject({ mood: 'neutral' });
+    expect(await ask('is the new plan a good idea?', fakeDb({}), scripted(say('It is risky.\n[[mood:serious]]')))).toMatchObject({ mood: 'serious' });
+  });
+
+  it('a period is compared with the window of equal length before it', async () => {
+    // Today is 26 Sep: this month so far is 1–26 Sep, and the 26 days before it are 6–31 Aug.
+    const db = fakeDb({
+      income_entries: [
+        { id: 'i1', org_id: 'org-1', amount: 1000, document_id: null, received_on: '2026-09-10' },
+        { id: 'i2', org_id: 'org-1', amount: 400, document_id: null, received_on: '2026-08-20' },
+        { id: 'i3', org_id: 'org-1', amount: 9000, document_id: null, received_on: '2026-08-02' },
+      ],
+      expenses: [
+        { id: 'e1', org_id: 'org-1', amount: 300, status: 'paid', incurred_on: '2026-09-05', category: 'software' },
+        { id: 'e2', org_id: 'org-1', amount: 1200, status: 'paid', incurred_on: '2026-08-30', category: 'software' },
+      ],
+    });
+    const tool = ALL_TOOLS.find((t) => t.name === 'money_for_period');
+    const { reading } = await tool.run({}, fakeCtx({ db }));
+    expect(reading).toEqual([
+      { metric: 'money_in', value: 1000, previous: 400 },
+      { metric: 'invoiced', value: 0, previous: 0 },
+      { metric: 'money_out', value: 300, previous: 1200 },
+      { metric: 'net', value: 700 },
+    ]);
+    const model = () => scripted(call('money_for_period', {}), say('Here are the figures.'));
+    expect(await ask('revenue this month?', db, model())).toMatchObject({ mood: 'happy', tag: 'Up' });
+    expect(await ask('how much did we spend this month?', db, model())).toMatchObject({ mood: 'happy', tag: 'Down' });
+    expect(await ask('are we making a profit?', db, model())).toMatchObject({ mood: 'happy', tag: 'In the green' });
+  });
+
+  it('the previous face is taken from the request, and only a known mood', async () => {
+    const model = () => scripted(say('Ha.'));
+    expect(await ask('lol', fakeDb({}), model(), { ctx: { prevMood: 'laughing' } })).toMatchObject({ mood: 'happy' });
+    expect(await ask('lol', fakeDb({}), model())).toMatchObject({ mood: 'laughing', headline_word: 'Real artists ship.' });
   });
 });
 

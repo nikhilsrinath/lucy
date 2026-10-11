@@ -83,3 +83,9 @@ actions: raise_the_bar, reinvest_in_product, celebrate_briefly
 summary: A record is the new floor. Put the surplus into the product.
 
 Treat the record as the new baseline. Recommend investing the surplus in the product's weakest point rather than sitting on it.
+
+## deal_lost
+actions: ask_customer, redirect_to_product, raise_the_bar
+summary: Find out why they said no, then make the work the reason the next one says yes.
+
+Say plainly that it is lost. Recommend asking the client what decided it, in their words, and listening for what the work lacked rather than what the price was. Put the answer into the product, and set a higher bar for the next proposal.

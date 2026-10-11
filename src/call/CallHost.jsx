@@ -37,7 +37,7 @@ export default function CallHost() {
         setAcceptedAt(null);
         if (summary?.exchanged) {
             const { cards = [], ...call } = summary;
-            const mood = call.waiting.length || call.confirmed.length ? 'win' : null;
+            const mood = call.waiting.length || call.confirmed.length ? 'happy' : null;
             a.addLocal({ kind: 'call', call }, {
                 cards,
                 mood: mood && { mood, headline_word: persona.headlines[mood], tag: call.waiting.length ? 'Needs your tap' : 'Call summary' },

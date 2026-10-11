@@ -1,20 +1,24 @@
 /* ══════════════════════════════════════════════════════════════════════════
-   The cofounders, drawn. Three characters × four mood poses, as sticker
+   The cofounders, drawn. Three characters × eight mood poses, as sticker
    images cut from the artwork sheets (thick dark outline, flat colours, upper
    body; the white sticker border is CSS, on the wrapper).
 
-     warning    one finger raised
-     win        fists up, sparks
-     thinking   hand on chin, a question mark
-     celebrate  arms crossed, laughing
+     neutral       at rest, looking at you
+     happy         a fist up, sparks
+     thinking      hand on chin, a question mark
+     explaining    a finger or open hands raised, making the point
+     surprised     both hands up, wide eyes
+     serious       hands clasped under the chin
+     disappointed  head in hand, a scribble overhead
+     laughing      arms crossed, head back
 
    stickers/<id>/<mood>.webp is the upper body on a transparent 400×464
    canvas: the body stands on the bottom edge, centred, at one scale for all
-   four moods, so it never changes size when the mood does.
+   eight moods, so it never changes size when the mood does.
    stickers/<id>/<mood>-face.webp is the head of the same pose, 160×160.
    ══════════════════════════════════════════════════════════════════════════ */
 
-export const AVATAR_MOODS = ['warning', 'win', 'thinking', 'celebrate'];
+export const AVATAR_MOODS = ['neutral', 'thinking', 'explaining', 'happy', 'serious', 'surprised', 'disappointed', 'laughing'];
 export const AVATAR_IDS = ['steve', 'elon', 'mark'];
 export const AVATAR_SIZE = { width: 400, height: 464 };
 export const FACE_SIZE = 160;
@@ -28,6 +32,6 @@ export function avatarUrl(id, mood) {
 }
 
 /** The round face of the same pose: tab bar, beside a reply, lists. */
-export function faceUrl(id, mood = 'win') {
+export function faceUrl(id, mood = 'neutral') {
     return known(id, mood) ? files[`./stickers/${id}/${mood}-face.webp`] || '' : '';
 }

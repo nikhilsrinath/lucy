@@ -32,7 +32,7 @@ function load() {
   }
   const problems = validate(Object.values(cofounders), core);
   if (problems.length) throw new Error(`cofounders/ is invalid: ${problems.slice(0, 5).join('; ')}`);
-  return { cofounders, situations: core.situations, actions: core.actions, rules };
+  return { cofounders, situations: core.situations, actions: core.actions, cues: core.cues, metrics: core.metrics, rules };
 }
 
 let loaded = null;
@@ -42,6 +42,8 @@ export const DEFAULT_PERSONA = DEFAULT_COFOUNDER_ID;
 export const cofounders = () => all().cofounders;
 export const situations = () => all().situations;
 export const actionVocabulary = () => all().actions;
+/** What a mood is decided from (src/shared/cofounders/mood.js): the situations, the cues and the metrics. */
+export const moodCore = () => ({ situations: all().situations, cues: all().cues, metrics: all().metrics });
 export const sharedRules = () => all().rules;
 
 /** A known cofounder id (a retired one maps to its successor), or the default. Never trusts the client beyond the lookup. */

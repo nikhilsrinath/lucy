@@ -130,8 +130,8 @@ describe('nothing is written without a confirm', () => {
     await runChat(ctx, { message: 'what is overdue?', chatId: 'c1', messageId: 'm1' }, emit, { callModelImpl: model });
     expect(events.find((e) => e.event === 'entities').entities[0]).toMatchObject({ type: 'task', id: T1 });
     expect(events.at(-2)).toMatchObject({ event: 'text', text: expect.stringMatching(/One overdue task/) });
-    // The turn ends with its mood: something overdue is a warning, whatever the model says.
-    expect(events.at(-1)).toMatchObject({ event: 'mood', mood: 'warning', headline_word: 'Not good enough.' });
+    // The turn ends with its mood: a task that is overdue is serious, whatever the model says.
+    expect(events.at(-1)).toMatchObject({ event: 'mood', mood: 'serious', tag: 'Needs attention', headline_word: 'Not good enough.' });
     const toolMsg = model.seen[1].messages.find((m) => m.role === 'tool');
     expect(toolMsg.content).toMatch(/^<data tool="list_tasks">/);
     expect(toolMsg.content).toMatch(/"total_matching":1/);

@@ -5,6 +5,7 @@ import { KINDS, isUuid } from './resolvers.js';
 import { todayIn, DEFAULT_TZ } from '../../../src/shared/dates.js';
 import { PLANS, DEFAULT_PLAN } from '../../../src/services/planConfig.js';
 import { cleanPersona } from './cofounders.js';
+import { MOODS } from '../../../src/shared/cofounders/parse.js';
 
 /**
  * Everything a tool may know about who is asking, built fresh per request.
@@ -158,6 +159,9 @@ export async function buildAgentContext({ user = null, person = null, buddy = fa
     // The chosen cofounder: a mind and a manner (cofounders.js). A retired id
     // maps to its successor; anything unknown is the default.
     persona: cleanPersona(body.context?.persona),
+    // The mood of the exchange this message replaces, so a face that rests on
+    // words alone is not repeated (mood.js). Only ever a known mood name.
+    prevMood: MOODS.includes(body.context?.prev_mood) ? body.context.prev_mood : null,
     cache: new Map(),
   };
 

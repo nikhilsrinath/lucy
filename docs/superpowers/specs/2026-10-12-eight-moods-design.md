@@ -1,6 +1,6 @@
 # Eight moods and how one is chosen
 
-Date: 2026-10-12. Status: design approved in chat, not implemented. Builds on `2026-10-10-cofounder-minds-design.md`, whose "Mood" section this replaces.
+Date: 2026-10-12. Status: implemented. Builds on `2026-10-10-cofounder-minds-design.md`, whose "Mood" section this replaces.
 
 ## Goal
 
@@ -40,7 +40,7 @@ The old four are retired: `warning` → `serious`, `win` → `happy`, `celebrate
 | 7 | The founder's words match a situation | that situation's mood | that situation's tag | `keywords` |
 | 8 | A cue is in the founder's message | the cue's mood | Good one / Here's how / Here you go | `cue` |
 | 9 | The model suggested a mood it is allowed to suggest | that mood | the mood's default tag | `model` |
-| 10 | A view was shown, or the reply has a list of two or more steps | explaining | Here's how | `shape` |
+| 10 | A view was shown, or the reply has a list of two or more steps | explaining | Take a look / Here's how | `shape` |
 | 11 | Nothing above | neutral | Here you go | `default` |
 
 Step 6 sits above step 7 on purpose: figures outrank words. "Any overdue invoices?" matches the `overdue_invoice` keywords, but when the answer is that nothing is overdue the face is `happy`, not `serious`. The situation's playbook is still loaded for the model as before; only the mood changes.
@@ -68,22 +68,24 @@ The mood follows the figures the answer is built on, judged against what the fou
 | `list_tasks` | `open_tasks`, `overdue_tasks` |
 | `list_clients` | `pipeline` (leads, contacted and deals, when the pipeline was asked for) |
 
-`previous` is the same figure for the window of equal length that ends the day before `from`; `money_for_period` already loads the rows it needs. Tools about people (attendance, leave, team pulse) return no readings: people are never judged by a face.
+`previous` is the same figure for the window of equal length that ends the day before `from`; `money_for_period` already loads the rows it needs. `finance_summary` reports `payables` only when it computes the figures live. Tools about people (attendance, leave, team pulse) return no readings: people are never judged by a face.
 
 **Metrics.** A new `# Metrics` section in `situations.md` names each metric, its kind and the phrases that mean the founder is asking about it:
 
 ```
 # Metrics
-- money_in: gain; revenue, sales, income, money in, earned, earning, collected, came in, kamai, kitna aaya
-- invoiced: gain; invoiced, billed, billing
-- pipeline: gain; leads, pipeline, prospects, deals in
-- net: balance; net, profit, cash flow, net cash, bacha
-- money_out: cost; expense, expenses, spend, spent, spending, costs, money out, kharcha
-- payables: cost; we owe, vendor bills, payable, bills to pay
-- open_tasks: cost; pending tasks, open tasks, to do, left to do
-- overdue: problem; overdue, late payment, unpaid, baki
-- overdue_tasks: problem; overdue tasks, late tasks, behind
+- money_in: gain, money; revenue, sales, income, money in, earned, earning, earnings, collected, came in, received, kamai, kitna aaya
+- invoiced: gain, money; invoiced, billed, billing
+- pipeline: gain; leads, lead, pipeline, prospects, deals in
+- net: balance, money; net, profit, cash flow, net cash, bacha
+- money_out: cost, money; expense, expenses, spend, spent, spending, costs, cost, money out, kharcha
+- payables: cost, money; we owe, vendor bills, payable, payables, bills to pay
+- overdue_tasks: problem; overdue, late, behind, overdue tasks, late tasks
+- open_tasks: cost; pending, open tasks, to do, left to do, pending tasks
+- overdue: problem, money; overdue, late payment, unpaid, baki
 ```
+
+`money` marks a metric that is never read in a shared space. "overdue" names both the task metric and the invoice metric; whichever the answer has a figure for is the focus.
 
 **Focus.** The focus is the first metric, in file order, that has a phrase in the founder's message and a reading in the turn. Its verdict:
 
@@ -107,7 +109,9 @@ Rows are checked top to bottom within a kind. A row that needs `previous` is ski
 
 **No focus.** When the message names no metric that came back ("how is the money?"), the readings are judged together: any `problem` above zero or `balance` below zero → `serious`, "Needs attention"; otherwise a `balance` above zero → `happy`, "In the green"; otherwise no verdict, and the ladder continues.
 
-**Empty books.** When the turn has both `money_in` and `money_out` and both are zero, a money metric gives `neutral` with the tag "Nothing recorded yet": a company with nothing recorded is neither disappointing nor thrifty.
+**Empty books are still read.** Revenue at zero is `disappointed` and expenses at zero is `happy` even when nothing at all is recorded: that is the behaviour asked for, and a new company sees it on its first questions. (An earlier draft kept empty books `neutral`.)
+
+**A cost that starts from nothing** (`previous` is zero) is `neutral`, not "Up".
 
 **Shared spaces.** In a Telegram group, readings of money metrics are dropped, as money situations are.
 
@@ -128,7 +132,7 @@ Rows are checked top to bottom within a kind. A row that needs `previous` is ski
 | deal_won, milestone | laughing | Big win |
 | deal_lost (new) | disappointed | Lost one |
 
-`deal_lost`: title "A deal was lost", `money: true`, keywords `lost the deal, deal lost, we lost, went with someone else, went with another, rejected the quote, declined the quote, backed out, cancelled the order, pulled out, deal cancel ho gaya, mana kar diya`, source `insight:deal_lost`. `situationOfTurn` maps a `move_client_stage` card whose stage is `lost` to it, next to the existing `deal`/`won` rule. Each cofounder gets a playbook (actions from the existing vocabulary, e.g. `ask_customer`, `look_at_data`, `fix_root_cause`) and an example, following the existing content rules (no digits in examples, no banned phrases).
+`deal_lost`: title "A deal was lost", `money: true`, keywords `lost the deal, deal lost, we lost, went with someone else, went with another, rejected the quote, declined the quote, backed out, cancelled the order, pulled out, deal cancel ho gaya, mana kar diya`, source `insight:deal_lost`. `situationOfTurn` maps a `move_client_stage` card whose stage is `lost` to it, next to the existing `deal`/`won` rule. Each cofounder gets a playbook (actions from the existing vocabulary, e.g. `ask_customer`, `look_at_data`, `fix_root_cause`), following the existing content rules. No example was added: each cofounder already has the six examples the tests allow.
 
 ## Cues
 
@@ -136,7 +140,7 @@ Cues set a mood from the founder's words when no situation matched. They have no
 
 ```
 # Cues
-- laughing: haha, hahaha, lol, lmao, rofl, 😂, 🤣, just kidding, joke, funny, mazaak
+- laughing: haha, hahaha, hehe, lol, lmao, rofl, 😂, 🤣, just kidding
 - explaining: how do i, how do we, how to, how should, how does, why is, why are, why did, why does, explain, what does, what should, walk me through, difference between, help me understand, kaise, kyun, samjhao
 - neutral: thanks, thank you, thx, shukriya, hello, hi, hey, good morning, good evening, namaste
 ```
@@ -186,17 +190,16 @@ These are short lines in each founder's manner, not quotations.
 ## Art
 
 - Source sheets: `docs/art-sources/cofounder-moods/{steve,elon,mark}.png`, a 4 × 2 grid in the order neutral, happy, thinking, explaining / surprised, serious, disappointed, laughing, each pose with a label under it.
-- Cut each pose (without its label, white background removed) to `src/design/art/stickers/<id>/<mood>.webp` at 400 × 464 with the body on the bottom edge, and `<mood>-face.webp` at 160 × 160, at one scale per cofounder. The eight old files per cofounder are deleted.
+- Cut each pose with a script kept outside the repo (it needs `sharp`, which is not a dependency): without its label, white background removed, to `src/design/art/stickers/<id>/<mood>.webp` at 400 × 464 with the body on the bottom edge, and `<mood>-face.webp` at 160 × 160, at one scale per cofounder. The eight old files per cofounder are deleted.
 - `AVATAR_MOODS` and `BG_MOODS` follow `MOODS`.
 - Backgrounds (`backgrounds.js`): `serious`, `happy`, `thinking`, `laughing` keep the palettes and scenes of `warning`, `win`, `thinking`, `celebrate`. Four new palettes and scenes: `neutral` (soft slate blue, quiet), `explaining` (teal), `surprised` (hot orange with rays), `disappointed` (dusk grey-violet, no rays). Each cofounder's motif gets a setting for the new moods (Elon's rocket: grounded for `disappointed`, mid-climb for `explaining`).
-- `mood.css` gains head/tag colours for any new light background, as `mood-thinking` has today.
 - `/dev/cofounders` shows all eight.
 
 ## Tests
 
 - `cofounders.test.js`: the expected mood of every situation; one case per ladder step, in order, including that an earlier step beats a later one; the model gate (a suggested `laughing` or `thinking` is ignored); step-down for `keywords` and `cue`, none for `outcome` or `source`, none without `prev_mood`; `legacyMood`; `detectCue` (including "how much" matching nothing); `readMood`, one case per row of the verdict table, plus no focus, empty books, a shared space, and a reading beating a keyword situation ("any overdue invoices?" with none overdue is `happy`); all eight headlines per cofounder; a `deal_lost` playbook and example per cofounder.
 - `loop.test.js`: a failed card ends the turn `disappointed`; an overdue insight ends it `serious`; "revenue this month" with nothing received ends it `disappointed`, and "expenses this month" with nothing spent ends it `happy`.
-- `tools.test.js`: each tool in the readings table returns its readings, and `previous` covers the window of equal length before the period.
+- `cofounders.test.js` also checks that `money_for_period` reports `previous` for the window of equal length before the period.
 - `art.test.js`: a sticker, a face and a background for every cofounder × mood.
 - `exchange.test.jsx`: a stored old-name mood renders under its new name.
 

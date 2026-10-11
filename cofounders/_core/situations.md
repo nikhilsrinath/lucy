@@ -2,11 +2,11 @@
 
 Each section is one situation a cofounder has a playbook for. The server detects the situation from the message, the page, the insight that started the turn and what the turn produced (a card, a question). The mood is fixed here, per situation, so it never depends on the model.
 
-Fields: `title`, `mood` (warning | win | thinking | celebrate), `tag` (the short label under the headline word), `money` (true means it is never loaded in a Telegram group), `keywords` (phrases in the message), `sources` (insight source prefixes), `tools` (a proposed or finished card from one of these tools means this situation), `problem` (the label in the founder quiz, optional).
+Fields: `title`, `mood` (neutral | thinking | explaining | happy | serious | surprised | disappointed | laughing), `tag` (the short label under the headline word), `money` (true means it is never loaded in a Telegram group), `keywords` (phrases in the message), `sources` (insight source prefixes), `tools` (a proposed or finished card from one of these tools means this situation), `problem` (the label in the founder quiz, optional).
 
 ## overdue_invoice
 title: An invoice is overdue
-mood: warning
+mood: serious
 tag: Needs attention
 money: true
 keywords: overdue, owes me, owe me, owes us, late on, days late, hasn't paid, has not paid, not paid, unpaid, chase, payment pending, paisa nahi, baki hai, udhaar
@@ -16,7 +16,7 @@ problem: Clients pay late
 
 ## low_runway
 title: Runway is getting short
-mood: warning
+mood: serious
 tag: Needs attention
 money: true
 keywords: runway, running out of cash, cash is low, low on cash, burn rate, can we afford, how long can we last, cash crunch, paise khatam
@@ -25,7 +25,7 @@ problem: Cash is tight
 
 ## slipping_deadline
 title: A deadline has slipped
-mood: warning
+mood: serious
 tag: Needs attention
 money: false
 keywords: missed the deadline, deadline slipped, slipping, running late, delayed, behind schedule, overdue task, won't make it, not going to make it, late ho gaya
@@ -34,8 +34,8 @@ problem: Work keeps slipping
 
 ## unusual_spend
 title: Spending looks unusual
-mood: warning
-tag: Needs attention
+mood: surprised
+tag: Unusual
 money: true
 keywords: spending too much, unusual spend, expenses are up, costs are up, why is spend, overspent, over budget, big purchase, kharcha zyada
 sources: insight:spend, insight:expense_spike
@@ -43,7 +43,7 @@ problem: Costs keep creeping up
 
 ## gst_due
 title: A GST filing is due
-mood: warning
+mood: serious
 tag: Needs attention
 money: true
 keywords: gst due, gst filing, gstr, gst return, file gst, gst deadline, tax due
@@ -52,7 +52,7 @@ problem: GST and compliance
 
 ## payment_received
 title: A payment came in
-mood: win
+mood: happy
 tag: Good news
 money: true
 keywords: paid us, paid the invoice, payment received, payment came in, came in by upi, got the payment, settled, paisa aa gaya, payment aa gaya, did they pay
@@ -61,7 +61,7 @@ tools: record_payment, mark_invoice_paid
 
 ## task_done
 title: Work got finished
-mood: win
+mood: happy
 tag: Good news
 money: false
 keywords: finished, completed, done with, wrapped up, shipped, delivered, ho gaya, khatam kar diya
@@ -98,7 +98,7 @@ problem: Hiring the right people
 
 ## deal_won
 title: A deal was won
-mood: celebrate
+mood: laughing
 tag: Big win
 money: true
 keywords: accepted the quote, accepted the quotation, signed, deal won, we won, closed the deal, they said yes, deal ho gaya, order confirmed
@@ -108,7 +108,7 @@ problem: Not enough new deals
 
 ## milestone
 title: A milestone was reached
-mood: celebrate
+mood: laughing
 tag: Big win
 money: false
 keywords: milestone, launched, went live, first customer, hundredth, 100th, anniversary, project completed
@@ -116,11 +116,20 @@ sources: insight:milestone, insight:project_done
 
 ## record_high
 title: A record was set
-mood: celebrate
-tag: Big win
+mood: surprised
+tag: New record
 money: true
 keywords: best month, record month, highest ever, biggest deal, biggest invoice, all-time high, sabse zyada
 sources: insight:record
+
+## deal_lost
+title: A deal was lost
+mood: disappointed
+tag: Lost one
+money: true
+keywords: lost the deal, deal lost, we lost, went with someone else, went with another, rejected the quote, declined the quote, backed out, cancelled the order, pulled out, deal cancel ho gaya, mana kar diya
+sources: insight:deal_lost
+problem: Losing deals we should win
 
 # Actions
 
@@ -180,3 +189,25 @@ The advisory moves a playbook can list. None of them is a tool call; they name w
 - double_down: put more behind what is already working
 - upfront_payment: move to a deposit or payment upfront
 - hire_builder: hire someone who has done the hard part with their own hands
+
+# Cues
+
+Words in the founder's message that set a mood when no situation applies. A cue has no playbook. Checked in this order; the first with a matching phrase wins.
+
+- laughing: haha, hahaha, hehe, lol, lmao, rofl, 😂, 🤣, just kidding
+- explaining: how do i, how do we, how to, how should, how does, how can, why is, why are, why did, why does, explain, what does, what should, walk me through, difference between, help me understand, kaise, kyun, samjhao
+- neutral: thanks, thank you, thx, shukriya, hello, hi, hey, good morning, good evening, namaste
+
+# Metrics
+
+The figures an answer can carry, how each one reads, and how asking for it is worded. `kind` is gain (more is good), balance (signed), cost (less is good) or problem (any at all is bad); `money` means it is never read in a Telegram group. The focus of a question is the first metric here that the message names and the answer has a figure for.
+
+- money_in: gain, money; revenue, sales, income, money in, earned, earning, earnings, collected, came in, received, kamai, kitna aaya
+- invoiced: gain, money; invoiced, billed, billing
+- pipeline: gain; leads, lead, pipeline, prospects, deals in
+- net: balance, money; net, profit, cash flow, net cash, bacha
+- money_out: cost, money; expense, expenses, spend, spent, spending, costs, cost, money out, kharcha
+- payables: cost, money; we owe, vendor bills, payable, payables, bills to pay
+- overdue_tasks: problem; overdue, late, behind, overdue tasks, late tasks
+- open_tasks: cost; pending, open tasks, to do, left to do, pending tasks
+- overdue: problem, money; overdue, late payment, unpaid, baki

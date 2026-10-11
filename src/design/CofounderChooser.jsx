@@ -18,7 +18,7 @@ import './chooser.css';
    can be skipped: all three cards are always in the hand.
 
    One card is in front at a time (arrows, swipe, arrow keys, the dots, or a
-   tap on a card behind). Its face carries the cofounder's celebrate drawing,
+   tap on a card behind). Its face carries the cofounder's laughing drawing,
    name, IQ in the corners like a card's rank, and speciality. Flipping it
    (tap, Enter or the button) shows the back: the same sample situation
    answered their way, the blind spot and "Hear voice" (the browser's own
@@ -151,8 +151,8 @@ export default function CofounderChooser({ value, answers: saved = null, onPick,
                                 <div className={`cc-flip${cur && flipped ? ' turned' : ''}`}>
                                     <div className="cc-front">
                                         <div className="cc-window">
-                                            <MoodBackground id={p.art} mood="celebrate" />
-                                            <CofounderAvatar id={p.art} mood="celebrate" />
+                                            <MoodBackground id={p.art} mood="laughing" />
+                                            <CofounderAvatar id={p.art} mood="laughing" />
                                             <span className="cc-rank-corner tl"><small>IQ</small><b>{p.iq}</b></span>
                                             <span className="cc-rank-corner br" aria-hidden="true"><small>IQ</small><b>{p.iq}</b></span>
                                             {pos >= 0 && <span className={`cc-match${pos === 0 ? ' best' : ''}`}>{pos === 0 ? 'Best match' : `No. ${pos + 1}`} {score}%</span>}

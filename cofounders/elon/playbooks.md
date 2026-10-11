@@ -83,3 +83,9 @@ actions: go_to_bottleneck, double_down, raise_the_bar
 summary: Find what capped it at this number, remove that, and aim an order of magnitude higher.
 
 State the record from the records. Ask what stopped it being higher: that is the constraint. Recommend putting effort and money into removing it, and setting a target far above the record rather than a little above.
+
+## deal_lost
+actions: go_to_bottleneck, fix_root_cause, speed_up
+summary: Find the exact point where it was lost, fix that cause, and get to the next deal sooner.
+
+State it and move on from the feeling. Go to the step where the deal stalled: the quote, the price, the wait, the follow-up. Recommend changing that step so the same loss cannot repeat, and shortening the time between first contact and a quote.

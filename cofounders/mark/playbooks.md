@@ -83,3 +83,9 @@ actions: look_at_data, double_down, share_with_team
 summary: Find out what caused it, put more behind that, and check that it lasts.
 
 State the record from the records. Look at what was different this time: a client, a channel, a kind of work. Recommend putting more behind it, and watching the following period to see whether it holds.
+
+## deal_lost
+actions: look_at_data, ask_customer, run_test
+summary: Check whether it is one loss or a pattern, ask what decided it, and test a change on the next quotes.
+
+Acknowledge it. Look across the recent deals that were lost for what they share: a stage, a price point, a kind of client. Recommend asking this client what decided it, then trying one change on the next few quotes and measuring whether more of them close.

@@ -5,7 +5,9 @@
  * (src/design/personas.js), and both hand the text to these.
  */
 
-export const MOODS = ['warning', 'win', 'thinking', 'celebrate'];
+export const MOODS = ['neutral', 'thinking', 'explaining', 'happy', 'serious', 'surprised', 'disappointed', 'laughing'];
+/** How a metric's figure reads: more is good, a signed balance, less is good, or any at all is a problem. */
+export const METRIC_KINDS = ['gain', 'balance', 'cost', 'problem'];
 export const VECTOR_AXES = [
   'risk_tolerance', 'cash_vs_growth', 'speed_vs_polish', 'relationship_vs_transaction',
   'detail_vs_big_picture', 'directness', 'pushback_level',
@@ -43,11 +45,24 @@ function fields(body) {
   return { fields: out, prose: lines.slice(i).join('\n').trim() };
 }
 
-/** cofounders/_core/situations.md → { situations, actions }. */
+/** `# Heading` parts of a markdown text → { heading: body }. */
+function chapters(md) {
+  const out = {};
+  let cur = null;
+  for (const line of String(md || '').replace(/\r\n/g, '\n').split('\n')) {
+    const m = line.match(/^#\s+(.+)$/);
+    if (m) { cur = m[1].trim().toLowerCase(); out[cur] = []; } else if (cur) out[cur].push(line);
+  }
+  return Object.fromEntries(Object.entries(out).map(([k, v]) => [k, v.join('\n')]));
+}
+
+/** `- key: value` lines of a block → [[key, value]]. */
+const bullets = (body) => String(body || '').split('\n').map((l) => l.match(/^- ([a-z_]+):\s*(.+)$/)).filter(Boolean).map((m) => [m[1], m[2].trim()]);
+
+/** cofounders/_core/situations.md → { situations, actions, cues, metrics }. */
 export function parseSituations(md) {
-  const text = String(md || '').replace(/\r\n/g, '\n');
-  const cut = text.indexOf('\n# Actions');
-  const situations = sections(cut < 0 ? text : text.slice(0, cut)).map(({ id, body }) => {
+  const top = chapters(md);
+  const situations = sections(top.situations || '').map(({ id, body }) => {
     const { fields: f } = fields(body);
     return {
       id,
@@ -61,11 +76,16 @@ export function parseSituations(md) {
       problem: f.problem || null,
     };
   });
-  const actions = (cut < 0 ? '' : text.slice(cut)).split('\n')
-    .map((l) => l.match(/^- ([a-z_]+):\s*(.+)$/))
-    .filter(Boolean)
-    .map((m) => ({ id: m[1], meaning: m[2].trim() }));
-  return { situations, actions };
+  const actions = bullets(top.actions).map(([id, meaning]) => ({ id, meaning }));
+  // `- mood: phrase, phrase` — words in the message that set a mood when no situation does.
+  const cues = bullets(top.cues).map(([mood, phrases]) => ({ mood, phrases: list(phrases).map((p) => p.toLowerCase()) }));
+  // `- metric: kind[, money]; phrase, phrase` — a figure an answer can carry, and how asking for it is worded.
+  const metrics = bullets(top.metrics).map(([id, rest]) => {
+    const [head, phrases = ''] = rest.split(';');
+    const [kind, ...flags] = list(head);
+    return { id, kind, money: flags.includes('money'), phrases: list(phrases).map((p) => p.toLowerCase()) };
+  });
+  return { situations, actions, cues, metrics };
 }
 
 /** playbooks.md → { [situationId]: { actions, summary, prose } }. */
@@ -122,8 +142,10 @@ export function buildCofounder({ profile, persona, mind, playbooks, examples }) 
 }
 
 /** Everything a set of cofounders must satisfy. Returns a list of problems (empty = valid). */
-export function validate(cofounders, { situations, actions }) {
+export function validate(cofounders, { situations, actions, cues = [], metrics = [] }) {
   const problems = [];
+  for (const c of cues) if (!MOODS.includes(c.mood) || !c.phrases.length) problems.push(`cue "${c.mood}"`);
+  for (const m of metrics) if (!METRIC_KINDS.includes(m.kind) || !m.phrases.length) problems.push(`metric ${m.id}: kind "${m.kind}"`);
   const known = new Set(actions.map((a) => a.id));
   for (const s of situations) {
     if (!MOODS.includes(s.mood)) problems.push(`situation ${s.id}: mood "${s.mood}"`);

@@ -279,6 +279,9 @@ export function AssistantProvider({ orgId: orgIdProp, userId = null, personaId =
                     .slice(-6)
                     .map((m) => ({ action_id: m.actionId, tool: m.card.tool, title: m.card.title, status: m.card.status, summary: m.card.summary || m.card.error || '' })),
                 source: source || undefined,
+                // The mood of the exchange this one replaces, so the same strong
+                // face is not shown twice running on words alone.
+                prev_mood: before.mood?.mood || undefined,
             },
             voice,
             channel: voice ? 'voice' : source ? 'insight' : 'chat',

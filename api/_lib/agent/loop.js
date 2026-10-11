@@ -1,14 +1,13 @@
 import { toolsFor, toModelTools, getTool, allowed } from './registry.js';
 import { assemblePrompt } from './assemble.js';
-import { cofounderOf, situations } from './cofounders.js';
+import { cofounderOf, moodCore } from './cofounders.js';
 import { takeMood, moodFor } from '../../../src/shared/cofounders/mood.js';
-import { situationOfTurn } from '../../../src/shared/cofounders/detect.js';
 import { callModel, addUsage } from './model.js';
 import { propose, modelView, confirm, cancel } from './pipeline.js';
 import { loadAction } from './actions.js';
 import { buildContext as brainContext } from '../brainRetrieval.js';
 import { proposePlan } from './plans.js';
-import { addView, takeViews } from './views.js';
+import { addView, addReadings, takeViews } from './views.js';
 import { tryLocal, resumeLocal, isLocalResume } from './local/engine.js';
 import { modelDown } from './local/render.js';
 import { logRoute } from './local/telemetry.js';
@@ -34,11 +33,12 @@ import { logRoute } from './local/telemetry.js';
  *   view      { view }                 a figures/list/timeline/insights block
  *                                      the model chose to show ([[show:vN]])
  *   mood      { mood, headline_word, tag, situation }
- *                                      last event of a turn: how the reply
- *                                      lands (warning, win, thinking,
- *                                      celebrate), decided here from the
- *                                      situation and what the turn produced —
- *                                      the model's [[mood:…]] is a suggestion
+ *                                      last event of a turn: which of the
+ *                                      eight faces the reply lands with,
+ *                                      decided here from what the turn
+ *                                      produced, the figures in the answer
+ *                                      and what was asked (mood.js) — the
+ *                                      model's [[mood:…]] is a suggestion
  *
  * Together a turn's events are the exchange the screen shows:
  *   { mood, headline_word, tag, answer, card?, picks? }
@@ -87,25 +87,40 @@ export function wantsBrain(ctx, message) {
 }
 
 /**
- * Watches a turn's events so its mood can be decided when it ends: a question
- * asked, a card proposed or carried out, and the mood the model suggested.
+ * Watches a turn's events so its mood can be decided when it ends: whether it
+ * failed, a question asked, a card proposed or carried out, a view shown, the
+ * words said, and the mood the model suggested. The figures the read tools
+ * reported are on ctx.readings (views.js).
  */
-function trackTurn(ctx, emit) {
-  const outcome = { asked: null, cards: [] };
+function trackTurn(ctx, emit, message = '') {
+  const outcome = { failed: false, asked: null, cards: [], viewed: false, reply: '' };
   const turn = {
     detected: null,
     suggested: null,
-    /** A card this turn proposed, with the arguments it was proposed from. */
-    noteCard(tool, args, status = 'proposed') { outcome.cards.push({ tool, args, status }); },
+    /** Whether the last read tool of the turn failed. */
+    toolFailed: false,
+    /** A card this turn proposed, with the arguments it was proposed from. `card` is the card shown. */
+    noteCard(tool, args, card = null) {
+      outcome.cards.push({ tool, args, status: card?.status === 'executed' ? 'executed' : 'proposed', risk: card?.risk || null });
+    },
+    /** The turn could not do what was asked. */
+    fail() { outcome.failed = true; },
     emit(event, data) {
       if (event === 'input' || event === 'choice') outcome.asked = event;
       else if (event === 'card_update' && data?.card?.status === 'executed') outcome.cards.unshift({ tool: data.card.tool, status: 'executed' });
+      else if (event === 'card_update' && data?.card?.status === 'failed') outcome.failed = true;
+      // A notice with nothing to offer is a refusal or a dead end.
+      else if (event === 'notice' && !data?.offer) outcome.failed = true;
+      else if (event === 'view') outcome.viewed = true;
+      else if (event === 'text') outcome.reply += `${data?.text || ''}\n`;
       emit(event, data);
     },
     finish() {
-      const all = situations();
-      const situation = situationOfTurn({ detected: turn.detected, outcome, audience: ctx.audience }, all);
-      emit('mood', moodFor(cofounderOf(ctx.persona), { situation, suggested: turn.suggested }, all));
+      if (turn.toolFailed) outcome.failed = true;
+      emit('mood', moodFor(cofounderOf(ctx.persona), {
+        outcome, detected: turn.detected, source: ctx.source, message, suggested: turn.suggested,
+        readings: ctx.readings || [], prevMood: ctx.prevMood || null, audience: ctx.audience,
+      }, moodCore()));
     },
   };
   return turn;
@@ -155,7 +170,7 @@ export async function runResume(ctx, resume, emit, ids) {
   if (resume.param) args[resume.param] = resume.value;
   const turn = trackTurn(ctx, emit);
   const out = await propose(tool, args, ctx, ids);
-  if (out.kind === 'card') turn.noteCard(tool.name, args);
+  if (out.kind === 'card') turn.noteCard(tool.name, args, out.card);
   emitOutcome(out, turn.emit);
   turn.finish();
 }
@@ -222,7 +237,7 @@ async function runControl(name, args, ctx, emit) {
  * older caller is ignored).
  */
 export async function runChat(ctx, input, emit, opts = {}) {
-  const turn = trackTurn(ctx, emit);
+  const turn = trackTurn(ctx, emit, String(input?.message || ''));
   const started = Date.now();
 
   // Understand locally first. Handled here means no model was called.
@@ -252,6 +267,7 @@ export async function runChat(ctx, input, emit, opts = {}) {
     // works. Never an invented answer.
     const timeout = err?.name === 'TimeoutError' || err?.name === 'AbortError';
     emit('text', { text: modelDown(ctx) });
+    turn.fail();
     logRoute(ctx, { intent: local.decision?.intent || 'OPEN_ENDED', route: 'llm', reasonCode: 'model_error', ok: false, errorKind: timeout ? 'model_timeout' : 'model_failed', llmUsed: true, latencyMs: Date.now() - started });
     turn.finish();
     err.explained = true;
@@ -336,7 +352,7 @@ async function chatTurn(ctx, { message, chatId, messageId }, turn, { callModelIm
           const out = tool.kind === 'plan'
             ? await proposePlan(args, ctx, { ...ids, reason })
             : await propose(tool, args, ctx, { ...ids, reason });
-          if (out.kind === 'card') turn.noteCard(name, args);
+          if (out.kind === 'card') turn.noteCard(name, args, out.card);
           content = emitOutcome(out, emit);
           if (out.stops) halt = true;
         }
@@ -349,9 +365,12 @@ async function chatTurn(ctx, { message, chatId, messageId }, turn, { callModelIm
           if (res.entities?.length) emit('entities', { entities: res.entities });
           if (res.navigate) emit('navigate', res.navigate);
           const viewId = res.view ? addView(ctx, res.view) : null;
+          addReadings(ctx, res.reading);
+          turn.toolFailed = false;
           content = { status: 'ok', data: res.data, ...(viewId ? { view_id: viewId } : {}) };
         } catch (err) {
           console.error(`[agent] ${name}.run`, err);
+          turn.toolFailed = true;
           content = { status: 'error', message: 'That lookup failed.' };
         }
       }
