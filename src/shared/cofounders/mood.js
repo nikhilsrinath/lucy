@@ -14,7 +14,7 @@ import { readMood } from './reading.js';
  *
  *   failure    the turn failed                       → disappointed
  *   question   a detail or a choice was asked for    → thinking
- *   outcome    a card was carried out, or is waiting → its situation's mood
+ *   outcome    a card was carried out, or is waiting → its situation's mood (waiting, with none: thinking)
  *   source     an insight started the turn           → its situation's mood
  *   reading    the answer's figures (reading.js)     → their verdict
  *   keywords   the words match a situation           → its mood
@@ -85,7 +85,8 @@ export function decideMood(turn = {}, core = {}) {
     const waiting = cards.find((c) => c.status !== 'executed');
     if (waiting) {
       if (found) return of(found, 'outcome');
-      return waiting.risk && waiting.risk !== 'low' ? plain('serious', 'outcome', 'Check this') : plain('neutral', 'outcome', 'Ready for you');
+      // A card to decide on is a decision, not bad news, whatever its risk.
+      return plain('thinking', 'outcome', 'Your call');
     }
     if (found && fromSource(found, source)) return of(found, 'source');
     const read = readMood(message, readings, core.metrics || [], audience);

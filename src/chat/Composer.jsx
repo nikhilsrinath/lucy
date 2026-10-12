@@ -19,14 +19,6 @@ import { orgStore } from '../services/orgStore';
    3. Direct 0ms execution without LLM calls for instant business queries
    ══════════════════════════════════════════════════════════════════════════ */
 
-const SUGGESTIONS = [
-    { label: 'Who owes me?', prompt: 'Who owes me money?' },
-    { label: 'Log an expense', prompt: 'Log an expense' },
-    { label: 'New quote', prompt: 'Make a quote' },
-    { label: 'Add a task', prompt: 'Add a task' },
-    { label: "How's the month?", prompt: 'How did we do this month?', needsBrain: true },
-];
-
 const placeholderFor = (section, name) => ({
     chat: `Message ${name}, or type / for commands`,
     home: `Tell ${name} what happened, or type /`,
@@ -38,7 +30,7 @@ const placeholderFor = (section, name) => ({
     settings: `Ask ${name} a question`,
 }[section] || `Message ${name}`);
 
-export default function Composer({ section, persona, brainBuilt = false }) {
+export default function Composer({ section, persona }) {
     const a = useAssistant();
     const shell = useShell();
     const moneyData = useMoneyData();
@@ -339,13 +331,6 @@ export default function Composer({ section, persona, brainBuilt = false }) {
     return (
         <div className="sb-composer">
             <div className="in">
-                {onChat && !wizard && (
-                    <div className="sb-sugg" role="group" aria-label="Suggestions">
-                        {SUGGESTIONS.filter((s) => !s.needsBrain || brainBuilt).map((s) => (
-                            <button key={s.label} type="button" disabled={streaming} onClick={() => go(s.prompt)}>{s.label}</button>
-                        ))}
-                    </div>
-                )}
                 {wizard && (
                     <SlashWizard
                         wizard={wizard}

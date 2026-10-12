@@ -34,7 +34,7 @@ The old four are retired: `warning` → `serious`, `win` → `happy`, `celebrate
 | 1 | The turn failed | disappointed | Didn't work | `failure` |
 | 2 | A detail or a choice was asked for | thinking | the situation's tag (`missing_info` / `quick_pick`) | `question` |
 | 3 | A card was carried out and its tool belongs to a situation | that situation's mood | that situation's tag | `outcome` |
-| 4 | A card is waiting for a tap | the situation's mood if one applies; else `serious` when the card's risk is not `low`; else `neutral` | situation's tag / Check this / Ready for you | `outcome` |
+| 4 | A card is waiting for a tap | the situation's mood if one applies; else `thinking`, whatever the card's risk | situation's tag / Your call | `outcome` |
 | 5 | The turn was started by an insight that matches a situation | that situation's mood | that situation's tag | `source` |
 | 6 | The answer's figures give a verdict (see "Reading the answer") | the verdict's mood | the verdict's tag | `reading` |
 | 7 | The founder's words match a situation | that situation's mood | that situation's tag | `keywords` |

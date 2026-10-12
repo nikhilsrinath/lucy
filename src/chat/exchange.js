@@ -20,6 +20,33 @@ export function currentExchange(messages = []) {
     };
 }
 
+const optionsOf = (m) => m.choice?.options || m.input?.options || [];
+
+/**
+ * What in the exchange is waiting for the person to choose, if anything: a
+ * card still open (or being carried out), or a question with quick picks.
+ * This is what the decision dialog shows. A card whose time has run out is
+ * not a decision any more. The last one wins: a re-previewed card replaces
+ * the one it was made from.
+ */
+export function pendingDecision(items = [], { streaming = false, now = Date.now() } = {}) {
+    for (let i = items.length - 1; i >= 0; i--) {
+        const m = items[i];
+        if (m.kind === 'action' && m.card) {
+            const { status, expires_at } = m.card;
+            const lapsed = !!expires_at && Math.round((Date.parse(expires_at) - now) / 60000) <= 0;
+            if (status === 'executing' || status === 'confirmed' || (status === 'proposed' && !lapsed)) return m;
+        }
+        if (!streaming && (m.kind === 'choice' || m.kind === 'input') && optionsOf(m).length) return m;
+    }
+    return null;
+}
+
+/** What a decision is called: on the panel's button and as the dialog's name. */
+export const decisionTitle = (m) => (m.kind === 'action'
+    ? (m.card.kind === 'plan' ? m.card.goal || m.card.title : m.card.title)
+    : m.choice?.question || m.content);
+
 /**
  * The exchange as the response shape the product defines:
  *   { mood, headline_word, tag, answer, card?, picks? }

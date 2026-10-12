@@ -1,4 +1,4 @@
-import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { useAssistant } from '../components/assistant/assistantStore';
 import { useAuth } from '../context/AuthContext';
@@ -14,7 +14,8 @@ import { useBriefActions } from './useBriefActions';
 import Brief from './BriefCard';
 import Exchange from './ExchangeView';
 import Composer from './Composer';
-import { currentExchange } from './exchange';
+import DecisionDialog from './DecisionDialog';
+import { currentExchange, pendingDecision } from './exchange';
 import { stageFor } from './stage';
 import './chat.css';
 import './mood.css';
@@ -28,10 +29,14 @@ import './mood.css';
    only while a reply is loading is it "thinking". Before anything is asked
    the mood comes from today's brief (stage.js).
 
-   Below: a white panel holding ONLY the current exchange — the question and
-   the cofounder's answer with its card, plan, view or quick picks — and the
-   composer. Asking something new replaces it. There is no chat list and no
-   history.
+   Below: a white panel holding ONLY the current exchange — the question as a
+   caption and the cofounder's answer set large, with its view or finished
+   card — and the composer. Asking something new replaces it. There is no
+   chat list and no history.
+
+   A decision — a proposed change, a plan, a question with quick picks — opens
+   in the middle of the blurred screen (DecisionDialog). Put away, it waits
+   behind a button in the panel.
 
    Before anything is asked the panel shows today's brief (brief.js): built in
    the browser, never sent to the model.
@@ -57,6 +62,11 @@ export default function ChatScreen() {
     const { question, items } = currentExchange(a.messages);
     const empty = !question && !items.length;
     const stage = stageFor({ persona, mood: a.mood, streaming: a.streaming, empty, brief });
+
+    // What waits for a choice opens by itself; `later` is the one put away.
+    const decision = pendingDecision(items, { streaming: a.streaming });
+    const [later, setLater] = useState(null);
+    const decideLater = useCallback(() => setLater(decision?.id ?? null), [decision?.id]);
 
     // /chat?files=1 (the old /library) opens the Files sheet.
     useEffect(() => {
@@ -118,10 +128,10 @@ export default function ChatScreen() {
                             onInsight={runInsightAction} onDismiss={dismissInsight} checking={insightsLoading}
                             building={building} buildError={buildError} />
                     ) : (
-                        <Exchange a={a} persona={persona} mood={stage.mood} tag={stage.tag} onOpen={open} />
+                        <Exchange a={a} persona={persona} onOpen={open} decisionId={decision?.id} onDecide={() => setLater(null)} />
                     )}
                 </div>
-                <Composer section="chat" persona={persona} brainBuilt={shell.brainBuilt} />
+                <Composer section="chat" persona={persona} />
                 {toast && (
                     <div className="mc-toast" role="status">
                         <span>Done. You can undo for 10 minutes.</span>
@@ -130,6 +140,9 @@ export default function ChatScreen() {
                 )}
             </div>
 
+            {decision && !a.streaming && later !== decision.id && (
+                <DecisionDialog m={decision} a={a} persona={persona} stage={stage} onOpen={open} onLater={decideLater} />
+            )}
             {a.note && <div className="sb sb-toast" role="status">{a.note}</div>}
             <Sheet open={!chosen && !chooserSeen && !!chooserKey} onClose={closeChooser} title="Choose your cofounder" size="wide">
                 <CofounderChooser value={persona.id} cta={(p) => `Continue with ${p.name}`}

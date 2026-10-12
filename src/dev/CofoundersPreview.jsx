@@ -3,6 +3,8 @@ import { PERSONAS, SITUATIONS, ACTIONS } from '../design/personas';
 import CofounderChooser from '../design/CofounderChooser';
 import { CofounderAvatar, CofounderFace, MoodBackground, MoodBackdrop } from '../design/art/Art';
 import { backgroundSvg, BG_MOODS } from '../design/art/backgrounds';
+import DecisionDialog from '../chat/DecisionDialog';
+import { decisionTitle } from '../chat/exchange';
 import '../chat/chat.css';
 import '../chat/mood.css';
 import './preview.css';
@@ -12,7 +14,8 @@ import './preview.css';
    drawings only: no sign-in, no model, no data.
 
    /dev/cofounders?shot=<id>-<mood> shows one chat screen frame on its own,
-   which is what the screenshots are taken from. */
+   which is what the screenshots are taken from. Add &decide to open that
+   frame's decision dialog over it. */
 
 const MEANING = new Map(ACTIONS.map((a) => [a.id, a.meaning]));
 const kb = (s) => `${(new Blob([s]).size / 1024).toFixed(1)} KB`;
@@ -30,11 +33,31 @@ const DEMO = {
     laughing: { q: 'Did Zephyr accept the quote?', situation: 'deal_won', card: { type: 'Convert to invoice', title: 'Zephyr Health', amt: '₹1,77,000', cls: '', meta: 'QT-0012 · IGST 18% included', p: 'Create invoice' } },
 };
 
+const TOOL = { 'Payment reminder': 'send_payment_reminder', 'Record payment': 'record_payment', 'Convert to invoice': 'convert_quotation' };
+const noop = () => {};
+const FAKE = { streaming: false, confirmCard: noop, cancelCard: noop, undoCard: noop, retryCard: noop, answer: noop };
+
+/** The demo's card or picks as the message the decision dialog is handed. */
+function demoDecision(demo, say) {
+    if (demo.card) {
+        return {
+            id: 'demo', kind: 'action', card: {
+                status: 'proposed', tool: TOOL[demo.card.type], title: demo.card.title, confirmLabel: demo.card.p, reason: say,
+                preview: { rows: [['Amount', demo.card.amt], ['Reference', demo.card.meta]] }, fields: [{ key: 'note', label: 'Note', value: '' }],
+            },
+        };
+    }
+    if (demo.picks) return { id: 'demo', kind: 'input', content: say, input: { options: demo.picks.map((p) => ({ label: p, value: p })) } };
+    return null;
+}
+
 /** A static frame of the chat screen, built from the same pieces and styles. */
-export function Frame({ persona, mood }) {
+export function Frame({ persona, mood, decide = false }) {
     const demo = DEMO[mood];
     const stage = { headline_word: persona.headlines[mood], tag: demo.tag || SITUATIONS.find((x) => x.id === demo.situation)?.tag };
     const say = demo.say || persona.playbooks[demo.situation].summary;
+    const decision = demoDecision(demo, say);
+    const size = say.length <= 90 ? 'xl' : say.length <= 240 ? 'lg' : 'md';
     return (
         <div className="pv-phone">
             <section className={`sb-chat mc mood-${mood}`}>
@@ -52,25 +75,25 @@ export function Frame({ persona, mood }) {
                 <div className="mc-panel">
                     <div className="mc-scroll">
                         <div className="mc-x">
-                            <div className="mc-q">{demo.q}</div>
-                            <div className="mc-who"><CofounderFace id={persona.art} mood={mood} size={22} /><b>{persona.name}</b><span>· now · {stage.tag}</span></div>
+                            <p className="mc-q"><span>You asked</span>{demo.q}</p>
                             <div className="mc-a">
-                                <div className="sb-say">{say}</div>
-                                {demo.card && (
-                                    <div className="pv-card">
-                                        <div className="top"><span>{demo.card.type}</span><em>Undo 10 min</em></div>
-                                        <div className="main"><b>{demo.card.title}</b><span className={`amt ${demo.card.cls}`}>{demo.card.amt}</span></div>
-                                        <div className="meta">{demo.card.meta}</div>
-                                        <div className="btns"><span className="p">{demo.card.p}</span><span>Edit</span><span>Cancel</span></div>
-                                    </div>
+                                <div className={`sb-say mc-say ${size}`}>{say}</div>
+                                {decision && (
+                                    <span className="mc-wait">
+                                        <span><small>Needs your decision</small><b>{decisionTitle(decision)}</b></span>
+                                        <em>{demo.card ? 'Review' : 'Choose'}</em>
+                                    </span>
                                 )}
-                                {demo.picks && <div className="mc-picks">{demo.picks.map((p) => <span key={p} className="mc-pick">{p}</span>)}</div>}
                             </div>
                         </div>
                     </div>
                     <div className="pv-composer"><span>Ask {persona.name} anything…</span><i>↑</i></div>
                 </div>
             </section>
+            {decide && decision && (
+                <DecisionDialog m={decision} a={FAKE} persona={persona} onOpen={noop} onLater={noop}
+                    stage={{ mood, word: stage.headline_word, tag: stage.tag }} />
+            )}
         </div>
     );
 }
@@ -82,7 +105,8 @@ export default function CofoundersPreview() {
     if (shot) {
         const [id, mood] = shot.split('-');
         const persona = PERSONAS.find((p) => p.id === id);
-        if (persona && BG_MOODS.includes(mood)) return <div className="pv pv-shot"><Frame persona={persona} mood={mood} /></div>;
+        const decide = new URLSearchParams(window.location.search).has('decide');
+        if (persona && BG_MOODS.includes(mood)) return <div className="pv pv-shot"><Frame persona={persona} mood={mood} decide={decide} /></div>;
     }
 
     const s = SITUATIONS.find((x) => x.id === situation);

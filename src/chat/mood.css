@@ -1,9 +1,14 @@
 /* The Buddy screen (buddy-mood-chat.html): a mood stage on top, a white panel
    holding the one exchange and the composer below. Prefix mc-, scoped under
-   .sb-chat.mc so it outranks the shared chat styles. */
+   .sb-chat.mc so it outranks the shared chat styles. The decision dialog
+   (mcd-) is portaled to <body> and carries .mc itself. */
 
-.sb-chat.mc { position: relative; overflow: hidden; background: #fff; --mc-ink: #141414; --mc-lime: #c8f169;
-  --mc-stage: 340px; --mc-panel-top: 236px; }
+.mc { --mc-ink: #141414; --mc-lime: #c8f169; }
+/* The stage takes a little under half the screen; the panel starts where it
+   ends and the stage runs on behind the panel's rounded top. */
+.sb-chat.mc { position: relative; overflow: hidden; background: #fff;
+  --mc-panel-top: clamp(236px, 43vh, 430px); --mc-stage: calc(var(--mc-panel-top) + 104px); }
+@supports (height: 1dvh) { .sb-chat.mc { --mc-panel-top: clamp(236px, 43dvh, 430px); } }
 
 /* ── the stage ─────────────────────────────────────────────────────────── */
 .mc .mc-stage { position: absolute; inset: 0 0 auto 0; height: var(--mc-stage); z-index: 0; }
@@ -25,7 +30,9 @@
 .mc.mood-thinking .mc-head .word { -webkit-text-stroke-color: #fff; text-shadow: 3px 3px 0 rgba(58,42,0,.25); }
 .mc.mood-thinking .mc-head .tag { background: #fff; color: #2a1d00; }
 
-.mc .mc-avatar { position: absolute; right: 2px; top: calc(44px + var(--sat, 0px)); width: 176px; z-index: 10; }
+/* The sticker fills the stage from under the top bar down to the panel, which
+   covers the last of its body. Sized by height, so it grows with the stage. */
+.mc .mc-avatar { position: absolute; right: 0; top: calc(40px + var(--sat, 0px)); height: calc(var(--mc-panel-top) - 22px); max-width: 68%; z-index: 10; }
 
 /* ── the panel ─────────────────────────────────────────────────────────── */
 .mc .mc-panel { position: absolute; left: 10px; right: 10px; top: calc(var(--mc-panel-top) + var(--sat, 0px)); bottom: 6px; max-width: 760px; margin: 0 auto; background: #fff; border-radius: 24px; z-index: 12; display: flex; flex-direction: column; box-shadow: 0 -6px 20px -10px rgba(0,0,0,.25), 0 0 0 1px rgba(20,20,20,.06); overflow: hidden; }
@@ -33,14 +40,32 @@
 
 .mc .mc-x { display: flex; flex-direction: column; animation: mcRise .4s ease; }
 @keyframes mcRise { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
-.mc .mc-q { align-self: flex-end; max-width: 84%; background: var(--soft, #f3f2ee); border-radius: 16px 16px 4px 16px; padding: 9px 13px; font-size: 15px; line-height: 1.4; white-space: pre-wrap; overflow-wrap: anywhere; }
-.mc .mc-who { display: flex; align-items: center; gap: 7px; margin: 12px 0 6px; font-size: 12.5px; }
-.mc .mc-who b { font-weight: 700; }
-.mc .mc-who span { color: #77756e; font-weight: 500; }
-.mc .mc-a { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-.mc .mc-a .sb-say { font-size: 15px; line-height: 1.5; color: #1e1e1e; max-width: none; }
-.mc .mc-hint { display: block; color: #77756e; font-size: 12.5px; margin-top: 2px; }
-.mc .mc-typing { padding: 6px 0; }
+/* What was asked: a caption, not a bubble. */
+.mc .mc-q { margin: 0 0 10px; font-size: 13.5px; line-height: 1.4; color: #55534d; overflow-wrap: anywhere; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; }
+.mc .mc-q span { font: 700 10.5px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: #8b897f; margin-right: 8px; }
+.mc .mc-a { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* The answer: a short one is a headline, a longer one steps down (sizeOf). */
+.mc .mc-say { max-width: none; color: var(--mc-ink); letter-spacing: -.02em; text-wrap: pretty; }
+.mc .mc-say.xl { font: 800 29px/1.1 "Bricolage Grotesque", Inter, system-ui, sans-serif; }
+.mc .mc-say.lg { font: 700 21px/1.24 "Bricolage Grotesque", Inter, system-ui, sans-serif; letter-spacing: -.015em; }
+.mc .mc-say.md { font-size: 16.5px; line-height: 1.5; letter-spacing: -.005em; color: #1e1e1e; }
+.mc .mc-say.err { color: var(--r-tx, #b42318); }
+.mc .mc-say strong, .mc .mc-say b { font-weight: inherit; color: inherit; background: linear-gradient(transparent 58%, var(--mc-lime) 58%); padding: 0 2px; }
+.mc .mc-say.md strong, .mc .mc-say.md b { font-weight: 700; }
+.mc .mc-say :is(p, ul, ol) + :is(p, ul, ol) { margin-top: .5em; }
+.mc .mc-hint { display: block; color: #77756e; font: 500 12.5px/1.4 Inter, system-ui, sans-serif; letter-spacing: 0; margin-top: 6px; }
+.mc .mc-typing { padding: 10px 0; }
+.mc .mc-typing i { width: 10px; height: 10px; background: var(--mc-ink); }
+.mc .mc-a .sb-acts { margin-top: -4px; }
+
+/* A decision that was put away: opens the dialog again. */
+.mc .mc-wait { display: flex; align-items: center; gap: 10px; width: calc(100% - 4px); min-height: 56px; padding: 9px 10px 9px 14px; background: #fff7d6; color: var(--mc-ink); border: 2px solid var(--mc-ink); border-radius: 14px; box-shadow: 3px 3px 0 var(--mc-ink); cursor: pointer; text-align: left; }
+.mc .mc-wait > span { flex: 1; min-width: 0; }
+.mc .mc-wait small { display: block; font: 700 10.5px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; color: #6b5a12; margin-bottom: 5px; }
+.mc .mc-wait b { display: block; font-size: 15px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mc .mc-wait em { flex: none; display: inline-flex; align-items: center; gap: 2px; font-style: normal; font-weight: 700; font-size: 13px; background: var(--mc-ink); color: #fff; border-radius: 10px; padding: 9px 8px 9px 12px; }
+.mc .mc-wait:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 var(--mc-ink); }
 
 /* Cards in the sticker style: ink border, hard shadow. */
 .mc .mc-a .sb-ac, .mc .mc-a .sb-cd { border: 2px solid var(--mc-ink); border-radius: 14px; box-shadow: 3px 3px 0 var(--mc-ink); max-width: none; margin: 0 4px 4px 0; }
@@ -66,23 +91,69 @@
 .mc .mc-toast { position: absolute; left: 12px; right: 12px; bottom: 12px; background: var(--mc-ink); color: #fff; border-radius: 14px; padding: 10px 12px 10px 14px; font-size: 13.5px; display: flex; justify-content: space-between; align-items: center; gap: 10px; z-index: 40; animation: mcRise .3s ease; }
 .mc .mc-toast button { background: var(--mc-lime); color: var(--mc-ink); border: 0; border-radius: 8px; min-height: 32px; padding: 5px 12px; font: 700 12.5px Inter, system-ui, sans-serif; cursor: pointer; }
 
+/* ── the decision dialog ───────────────────────────────────────────────────
+   Over the blurred screen: the mood scene on top (background, word, tag,
+   sticker), the thing to choose below it. */
+.mcd { position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: calc(14px + var(--sat, 0px)) 14px calc(14px + var(--sab, 0px)); }
+.mcd .mcd-scrim { position: absolute; inset: 0; background: rgba(20,20,20,.42); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); animation: mcdFade .2s ease both; }
+.mcd .mcd-box { position: relative; width: 100%; max-width: 440px; max-height: 100%; display: flex; flex-direction: column; background: #fff; border: 2px solid var(--mc-ink); border-radius: 24px; box-shadow: 6px 6px 0 var(--mc-ink); overflow: hidden; outline: none; animation: mcdIn .32s cubic-bezier(.3,1.4,.5,1) both; }
+@keyframes mcdFade { from { opacity: 0; } }
+@keyframes mcdIn { from { opacity: 0; transform: translateY(18px) scale(.94); } }
+
+.mcd .mcd-scene { position: relative; flex: none; height: 192px; overflow: hidden; border-bottom: 2px solid var(--mc-ink); }
+.mcd .mcd-head { position: absolute; left: 16px; top: 18px; width: 50%; z-index: 2; color: #fff; }
+.mcd .mcd-head .word { font: 800 27px/1 "Bricolage Grotesque", Inter, system-ui, sans-serif; letter-spacing: -.02em; -webkit-text-stroke: 5px var(--mc-ink); paint-order: stroke fill; text-shadow: 3px 3px 0 rgba(0,0,0,.28); overflow-wrap: break-word; }
+.mcd .mcd-head .tag { display: inline-block; margin-top: 10px; font: 700 10.5px/1 "JetBrains Mono", ui-monospace, monospace; letter-spacing: .08em; text-transform: uppercase; background: var(--mc-ink); color: #fff; padding: 6px 8px; border-radius: 6px; }
+.mcd.mood-thinking .mcd-head { color: #2a1d00; }
+.mcd.mood-thinking .mcd-head .word { -webkit-text-stroke-color: #fff; text-shadow: 3px 3px 0 rgba(58,42,0,.25); }
+.mcd.mood-thinking .mcd-head .tag { background: #fff; color: #2a1d00; }
+.mcd .mcd-avatar { position: absolute; right: 4px; bottom: -8px; height: 196px; z-index: 1; }
+.mcd .mcd-box:focus-visible { outline: none; }
+
+.mcd .mcd-body { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+.mcd .mcd-body .sb-ctx { padding: 12px 16px 0; }
+/* The dialog is the frame; the card inside it has none of its own. */
+.mcd .mcd-body .sb-ac { max-width: none; border: 0; border-radius: 0; box-shadow: none; background: none; opacity: 1; }
+.mcd .mcd-body .sb-acb h4 { font: 800 22px/1.15 "Bricolage Grotesque", Inter, system-ui, sans-serif; letter-spacing: -.02em; }
+.mcd .mcd-body .sb-acf { padding-bottom: 6px; }
+.mcd .mcd-body .sb-acf .sb-btn { height: 44px; padding: 0 16px; font-size: 14px; border: 2px solid var(--mc-ink); border-radius: 12px; box-shadow: 2px 2px 0 var(--mc-ink); font-weight: 700; }
+.mcd .mcd-body .sb-acf .sb-btn.p { flex: 1 1 140px; }
+.mcd .mcd-body .sb-acf .sb-btn.ghost { border-color: transparent; box-shadow: none; }
+.mcd .mcd-ask { padding: 18px 16px 8px; }
+.mcd .mcd-ask .q { font: 800 23px/1.14 "Bricolage Grotesque", Inter, system-ui, sans-serif; letter-spacing: -.02em; color: var(--mc-ink); text-wrap: pretty; }
+.mcd .mcd-ask .mc-picks { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+.mcd .mcd-ask .mc-pick { min-height: 48px; border: 2px solid var(--mc-ink); border-radius: 12px; box-shadow: 2px 2px 0 var(--mc-ink); padding: 8px 12px; font-size: 14.5px; font-weight: 700; }
+.mcd .mcd-ask .mc-pick:only-child, .mcd .mcd-ask .mc-pick:last-child:nth-child(odd) { grid-column: 1 / -1; }
+.mcd .mcd-ask .mc-pick:active:not(:disabled) { transform: translate(1px, 1px); box-shadow: 1px 1px 0 var(--mc-ink); }
+
+.mcd .mcd-foot { flex: none; display: flex; justify-content: center; padding: 2px 16px 12px; }
+.mcd .mcd-later { min-height: 40px; padding: 0 14px; border-radius: 10px; font-size: 13.5px; font-weight: 600; color: #55534d; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.mcd .mcd-later:hover { color: var(--mc-ink); background: #f3f2ee; }
+
 /* ── wider screens: same stage, roomier ────────────────────────────────── */
 @media (min-width: 761px) {
-  .sb-chat.mc { --mc-stage: 380px; --mc-panel-top: 262px; }
   .mc .mc-head { top: 86px; left: 26px; }
   .mc .mc-head .word { font-size: 46px; }
-  .mc .mc-avatar { width: 204px; right: 18px; top: 40px; }
+  .mc .mc-avatar { right: 18px; }
   .mc .mc-panel { bottom: 16px; left: 16px; right: 16px; }
   .mc .mc-scroll { padding: 22px 22px 12px; }
   .mc .sb-composer { padding: 10px 16px 14px; }
+  .mc .mc-say.xl { font-size: 38px; }
+  .mc .mc-say.lg { font-size: 25px; }
+  .mcd .mcd-scene { height: 200px; }
+  .mcd .mcd-avatar { height: 196px; }
+  .mcd .mcd-head .word { font-size: 31px; }
 }
 @media (max-height: 640px) {
-  .sb-chat.mc { --mc-stage: 280px; --mc-panel-top: 186px; }
-  .mc .mc-avatar { width: 138px; top: calc(40px + var(--sat, 0px)); }
+  .sb-chat.mc { --mc-panel-top: 216px; }
   .mc .mc-head { top: calc(64px + var(--sat, 0px)); }
   .mc .mc-head .word { font-size: 28px; }
+  .mc .mc-say.xl { font-size: 24px; }
+  .mcd .mcd-scene { height: 128px; }
+  .mcd .mcd-avatar { height: 126px; }
+  .mcd .mcd-head .word { font-size: 22px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mc .mc-x, .mc .mc-toast { animation: none; }
+  .mc .mc-x, .mc .mc-toast, .mcd .mcd-scrim, .mcd .mcd-box { animation: none; }
 }

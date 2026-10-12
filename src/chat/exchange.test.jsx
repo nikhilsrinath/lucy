@@ -1,8 +1,9 @@
 import React from 'react';
 import { describe, it, expect } from 'vitest';
 import { renderToStaticMarkup } from 'react-dom/server';
-import { currentExchange, exchangeResponse } from './exchange';
+import { currentExchange, exchangeResponse, pendingDecision } from './exchange';
 import Exchange from './ExchangeView';
+import { DecisionBody } from './DecisionDialog';
 import { stageFor } from './stage';
 import { PERSONAS } from '../design/personas';
 
@@ -52,7 +53,7 @@ describe('the chat screen', () => {
         // Even handed two exchanges, the screen shows only the current one.
         const html = renderToStaticMarkup(<Exchange a={fakeAssistant(TWO)} persona={persona} mood="happy" tag="Good news" onOpen={() => {}} />);
         expect(count(html, 'class="mc-q"')).toBe(1);
-        expect(count(html, 'class="mc-who"')).toBe(1);
+        expect(count(html, 'mc-say')).toBe(1);
         expect(count(html, 'class="mc-x"')).toBe(1);
         expect(html).toContain('Did Nova pay?');
         expect(html).toContain('Yes, it came in by UPI.');
@@ -64,12 +65,75 @@ describe('the chat screen', () => {
         expect(renderToStaticMarkup(<Exchange a={fakeAssistant([])} persona={PERSONAS[0]} mood="thinking" onOpen={() => {}} />)).toBe('');
     });
 
-    it('shows quick picks as chips and a typing state while loading', () => {
-        const picks = [msg('q', 'user', 'Log 12k'), msg('i', 'assistant', 'What was it for?', { kind: 'input', input: { options: [{ label: 'Travel', value: 't' }] } })];
-        expect(renderToStaticMarkup(<Exchange a={fakeAssistant(picks)} persona={PERSONAS[0]} mood="thinking" onOpen={() => {}} />)).toMatch(/class="mc-pick"[^>]*>Travel/);
+    it('shows a typing state while loading', () => {
         const loading = { ...fakeAssistant([msg('q', 'user', 'Hi'), msg('r', 'assistant', '')]), streaming: true };
-        expect(renderToStaticMarkup(<Exchange a={loading} persona={PERSONAS[0]} mood="thinking" onOpen={() => {}} />)).toContain('mc-typing');
+        expect(renderToStaticMarkup(<Exchange a={loading} persona={PERSONAS[0]} onOpen={() => {}} />)).toContain('mc-typing');
     });
+
+    it('sets a short answer as a headline and steps a long one down', () => {
+        const say = (text) => renderToStaticMarkup(<Exchange a={fakeAssistant([msg('q', 'user', 'Hi'), msg('r', 'assistant', text)])} persona={PERSONAS[0]} onOpen={() => {}} />);
+        expect(say('Seven open, two due this week.')).toContain('mc-say xl');
+        expect(say('word '.repeat(30))).toContain('mc-say lg');
+        expect(say('word '.repeat(80))).toContain('mc-say md');
+        // Markdown marks do not count towards the length.
+        expect(say(`**${'a'.repeat(88)}**`)).toContain('mc-say xl');
+    });
+});
+
+describe('a decision', () => {
+    const future = new Date(Date.now() + 10 * 60000).toISOString();
+    const card = (status, extra = {}) => msg('c', 'assistant', 'x', { kind: 'action', card: { action_id: 'a', tool: 'create_cash_entry', title: 'Record expense', status, expires_at: future, ...extra } });
+    const ask = msg('i', 'assistant', 'What was it for?', { kind: 'input', input: { options: [{ label: 'Travel', value: 't' }, { label: 'Software', value: 's' }] } });
+    const stage = { mood: 'thinking', word: 'Hmm…', tag: 'Needs info' };
+
+    it('is a card still open or a question with picks, and nothing else', () => {
+        expect(pendingDecision([msg('a', 'assistant', 'Yes.')])).toBeNull();
+        expect(pendingDecision([card('proposed')])?.id).toBe('c');
+        expect(pendingDecision([card('executing')])?.id).toBe('c');
+        for (const done of ['executed', 'cancelled', 'expired', 'undone', 'failed']) expect(pendingDecision([card(done)])).toBeNull();
+        // Out of time: the card says "Expired", so there is nothing to decide.
+        expect(pendingDecision([card('proposed', { expires_at: new Date(Date.now() - 1000).toISOString() })])).toBeNull();
+        expect(pendingDecision([ask])?.id).toBe('i');
+        expect(pendingDecision([ask], { streaming: true })).toBeNull();
+        expect(pendingDecision([msg('n', 'assistant', 'Which client?', { kind: 'input', input: {} })])).toBeNull();
+        // A re-previewed card replaces the one it came from.
+        expect(pendingDecision([card('expired'), { ...card('proposed'), id: 'c2' }])?.id).toBe('c2');
+    });
+
+    it('is a button in the panel, not a card or chips', () => {
+        const a = fakeAssistant([msg('q', 'user', '200'), card('proposed')]);
+        const waiting = renderToStaticMarkup(<Exchange a={a} persona={PERSONAS[0]} onOpen={() => {}} decisionId="c" />);
+        expect(waiting).toContain('class="mc-wait"');
+        expect(waiting).toContain('Record expense');
+        expect(waiting).not.toContain('sb-ac');
+        const picks = renderToStaticMarkup(<Exchange a={fakeAssistant([msg('q', 'user', 'Log 12k'), ask])} persona={PERSONAS[0]} onOpen={() => {}} decisionId="i" />);
+        expect(picks).toContain('class="mc-wait"');
+        expect(picks).not.toContain('mc-pick');
+        // Once it is no longer waiting, the card itself is shown.
+        const done = renderToStaticMarkup(<Exchange a={fakeAssistant([msg('q', 'user', '200'), card('cancelled')])} persona={PERSONAS[0]} onOpen={() => {}} />);
+        expect(done).toContain('Cancelled. Nothing was changed.');
+        expect(done).not.toContain('mc-wait');
+    });
+
+    it('shows the mood on top and the choice below it', () => {
+        const persona = PERSONAS.find((p) => p.id === 'mark');
+        const body = (m) => renderToStaticMarkup(<DecisionBody m={m} a={fakeAssistant([])} persona={persona} stage={stage} onOpen={() => {}} onLater={() => {}} />);
+        const withCard = body(card('proposed'));
+        expect(withCard.indexOf('mcd-scene')).toBeLessThan(withCard.indexOf('mcd-body'));
+        expect(withCard).toContain('Hmm…');
+        expect(withCard).toContain('Needs info');
+        expect(withCard).toContain('cf-avatar');
+        expect(withCard).toContain('Record expense');
+        expect(withCard).toContain('Confirm');
+        expect(withCard).toContain('Decide later');
+        const withPicks = body(ask);
+        expect(withPicks).toMatch(/class="mc-pick"[^>]*>Travel/);
+        expect(withPicks).toContain('What was it for?');
+        expect(withPicks).toContain('Type it instead');
+    });
+});
+
+describe('the stage', () => {
 
     it('takes the mood from the server, and is "thinking" only while loading', () => {
         const persona = PERSONAS.find((p) => p.id === 'mark');
