@@ -33,6 +33,8 @@ const ICONS = { home: IconHome, work: IconWork, business: IconBusiness, team: Ic
 const area = (id) => SECTIONS.find((s) => s.id === id);
 const SIDE_NAV = NAV_AREAS.filter((id) => id !== 'chat');
 
+const NO_COMPOSER = new Set(['home', 'work', 'business', 'team']);
+
 export default function AppShell({ children, composer = true }) {
     const location = useLocation();
     const { persona } = useCofounder();
@@ -117,8 +119,9 @@ export default function AppShell({ children, composer = true }) {
 
             <main className="sb-main" id="sb-main">
                 {children}
-                {/* On Buddy the composer sits inside the chat panel (ChatScreen). */}
-                {composer && current && current !== 'chat' && <Composer section={current} persona={persona} brainBuilt={shell.brainBuilt} />}
+                {/* On Buddy the composer sits inside the chat panel (ChatScreen); Home, Work,
+                    Business (with Money and Clients) and Team have none. */}
+                {composer && current && current !== 'chat' && !NO_COMPOSER.has(currentArea) && <Composer section={current} persona={persona} />}
             </main>
             <FilesSheet />
             <CallHost />

@@ -8,12 +8,14 @@ import { useAssistant } from '../components/assistant/assistantStore';
 import { useShell } from '../shell/shellContext';
 import { useSectionList } from '../shell/useSectionList';
 import { useCofounder } from '../design/useCofounder';
+import { Button, Badge, Card, ListRow, Initials, IconTile } from '../design/ui';
 import { IconIn, IconOut, IconPlus, IconChevronRight, IconFile, IconSparkle, IconLock, IconAlert } from '../design/icons';
 import { inr } from '../chat/brief';
 import { useMoneyData, docClient } from '../money/useMoneyData';
 import BusinessNav from './BusinessNav';
 import { useAddFlow } from './useAddFlow';
 import '../money/money.css';
+import '../design/ios.css';
 import './business.css';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -25,7 +27,8 @@ import './business.css';
    opens its record there. Quick actions and the New button share one list
    (useAddFlow), and the cofounder's asks go to Buddy.
 
-   Styled neobrutalist in business.css, scoped under `.nb`.
+   Styled in the iOS grouped look (design/ios.css) with its own layouts in
+   business.css, scoped under `.nb`.
    ══════════════════════════════════════════════════════════════════════════ */
 
 const STAGES = [
@@ -44,35 +47,25 @@ const fmt = (d) => (d ? new Date(`${String(d).slice(0, 10)}T00:00:00`).toLocaleD
 const billBalance = (b) => Math.max(0, (Number(b.total) || 0) - (Number(b.amount_paid) || 0));
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-/** A round initials badge; the colour is stable per name so a client keeps it. */
-function Ini({ name = '' }) {
-    const ini = String(name).trim().split(/\s+/).map((w) => w[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || '·';
-    const hue = [...String(name)].reduce((s, ch) => s + ch.charCodeAt(0), 0) % 4;
-    return <span className={`nb-ini c${hue}`} aria-hidden="true">{ini}</span>;
-}
+const Ini = Initials;
 
 function Row({ lead, title, sub, tag, amount, amountIn, late, onClick }) {
     return (
-        <button type="button" className={`nb-row${late ? ' late' : ''}`} onClick={onClick}>
-            {lead}
-            <span className="t"><b>{title}</b>{sub && <small>{sub}</small>}</span>
-            {tag && <span className="tag">{tag}</span>}
-            {amount !== undefined
-                ? <span className={`amt${amountIn ? ' in' : ''}`}>{amount}</span>
-                : <span className="chev"><IconChevronRight /></span>}
-        </button>
+        <ListRow lead={lead} title={title} sub={sub} amount={amount} amountIn={amountIn} className={late ? 'late' : undefined} onClick={onClick}
+            trail={tag ? <Badge tone="r" className="tag">{tag}</Badge> : null} />
     );
 }
 
-function Panel({ id, title, count, link, tone, children }) {
+/** A titled group: the heading sits on the page, the rows in a white card. */
+function Panel({ id, title, count, link, children }) {
     return (
-        <section className={`nb-panel t-${tone}`} aria-labelledby={id}>
-            <header>
+        <section className="nb-panel" aria-labelledby={id}>
+            <div className="sh">
                 <h2 id={id}>{title}</h2>
-                {count ? <span className="n">{count}</span> : null}
-                {link && <Link to={link.to}>{link.label}<IconChevronRight size={12} /></Link>}
-            </header>
-            {children}
+                {count ? <span className="c">{count}</span> : null}
+                {link && <Link to={link.to}>{link.label}<IconChevronRight size={13} /></Link>}
+            </div>
+            <Card list>{children}</Card>
         </section>
     );
 }
@@ -135,20 +128,16 @@ export default function BusinessScreen() {
     const plNeg = figures.pl.net < 0;
 
     return (
-        <div className="sb-scroll nb">
-            <div className="sb-page" style={{ maxWidth: 1120 }}>
-                <header className="nb-head">
+        <div className="sb-scroll nb ios">
+            <div className="nb-page">
+                <header className="sb-ph">
                     <div>
                         <h1>Business</h1>
-                        <span className="when">{now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</span>
+                        <p>{now.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}</p>
                     </div>
                     <div className="acts">
-                        <button type="button" className="nb-btn nb-press" onClick={() => shell.openFiles()}>
-                            <IconFile size={16} /><span className="lbl">Documents</span>
-                        </button>
-                        <button type="button" className="nb-btn p nb-press" onClick={add.open}>
-                            <IconPlus size={14} /><span className="lbl">New</span>
-                        </button>
+                        <Button onClick={() => shell.openFiles()}><IconFile size={16} /><span className="lbl">Documents</span></Button>
+                        <Button variant="primary" onClick={add.open}><IconPlus size={14} /><span className="lbl">New</span></Button>
                     </div>
                 </header>
 
@@ -163,19 +152,19 @@ export default function BusinessScreen() {
                                 <span className={`pl${plNeg ? ' neg' : ''}`}>
                                     {plNeg ? 'Loss' : 'Profit'} in {monthName}: {inr(Math.abs(figures.pl.net))}
                                 </span>
-                                <span className="go">Reports<IconChevronRight size={12} /></span>
+                                <span className="go">Reports<IconChevronRight size={13} /></span>
                             </span>
                         </button>
                         <div className="nb-side">
                             <button type="button" className="nb-collect nb-press" onClick={() => navigate('/money/invoices?type=invoice')}>
-                                <span className="top"><IconIn />To collect
+                                <span className="top"><IconTile tone="g"><IconIn /></IconTile>To collect
                                     {lateCount > 0 && <span className="nb-flag"><IconAlert size={12} />{lateCount} late</span>}
                                 </span>
                                 <span className="val nb-fig">{inr(owedTotal)}</span>
                                 <span className="note">{owed.length ? plural(owed.length, 'unpaid invoice', 'unpaid invoices') : 'Everyone has paid up'}</span>
                             </button>
                             <button type="button" className="nb-pay nb-press" onClick={() => navigate('/money/bills')}>
-                                <span className="top"><IconOut />To pay
+                                <span className="top"><IconTile tone="a"><IconOut /></IconTile>To pay
                                     {dueSoon > 0 && <span className="nb-flag warn">{dueSoon} due now</span>}
                                 </span>
                                 <span className="val nb-fig">{inr(toPayTotal)}</span>
@@ -193,7 +182,7 @@ export default function BusinessScreen() {
                                 const Icon = x.icon;
                                 return (
                                     <button key={x.id} type="button" className="nb-press" onClick={x.run}>
-                                        <span className={`nb-chip ${x.tone}`} aria-hidden="true"><Icon /></span>
+                                        <IconTile tone={x.tone === 'n' ? 'b' : x.tone}><Icon /></IconTile>
                                         <span><b>{x.short}</b><small>{x.sub.split(',')[0]}</small></span>
                                     </button>
                                 );
@@ -205,7 +194,7 @@ export default function BusinessScreen() {
                 {(seeDocs || seeClients) && (
                     <div className="nb-cols">
                         {seeDocs && (
-                            <Panel id="nb-owed" title="Waiting to be paid" count={owed.length} tone="mint"
+                            <Panel id="nb-owed" title="Waiting to be paid" count={owed.length}
                                 link={{ to: '/money/invoices?type=invoice', label: 'Invoices' }}>
                                 {!owed.length && <p className="nb-empty">Nobody owes you money right now.</p>}
                                 {owed.slice(0, 5).map((d) => {
@@ -226,7 +215,7 @@ export default function BusinessScreen() {
                         )}
 
                         {seeClients && (
-                            <Panel id="nb-pipe" title="Client pipeline" count={leads.length} tone="blue" link={{ to: '/clients', label: 'Board' }}>
+                            <Panel id="nb-pipe" title="Client pipeline" count={leads.length} link={{ to: '/clients', label: 'Board' }}>
                                 <div className="nb-stages">
                                     {STAGES.map((s) => (
                                         <Link key={s.id} to="/clients" className={`s-${s.id}`} aria-label={`${s.label}: ${stageCount[s.id]}`}>
@@ -252,7 +241,7 @@ export default function BusinessScreen() {
                 {(seeBills || seeMoney) && (
                     <div className="nb-cols">
                         {seeBills && (
-                            <Panel id="nb-pay" title="Bills to pay" count={toPay.length} tone="sun" link={{ to: '/money/bills', label: 'Bills' }}>
+                            <Panel id="nb-pay" title="Bills to pay" count={toPay.length} link={{ to: '/money/bills', label: 'Bills' }}>
                                 {!toPay.length && <p className="nb-empty">No vendor bills waiting.</p>}
                                 {toPay.slice(0, 4).map((b) => {
                                     const vendor = byId.vendor[b.vendor_id]?.company_name || 'Vendor';
@@ -267,11 +256,11 @@ export default function BusinessScreen() {
                         )}
 
                         {seeMoney && (
-                            <Panel id="nb-recent" title="Recent money" tone="grey" link={{ to: '/money/transactions', label: 'All' }}>
+                            <Panel id="nb-recent" title="Recent money" link={{ to: '/money/transactions', label: 'All' }}>
                                 {!recent.length && <p className="nb-empty">No money recorded yet. Tell {persona.name}, or tap New.</p>}
                                 {recent.map((r) => (
                                     <Row key={`${r.direction}-${r.id}`} onClick={() => navigate(r.direction === 'in' ? '/money/transactions' : '/money/expenses')}
-                                        lead={<span className={`nb-chip ${r.direction === 'in' ? 'g' : 'n'}`} aria-hidden="true">{r.direction === 'in' ? <IconIn /> : <IconOut />}</span>}
+                                        lead={<IconTile tone={r.direction === 'in' ? 'g' : 'n'}>{r.direction === 'in' ? <IconIn /> : <IconOut />}</IconTile>}
                                         title={r.party || r.description || (r.direction === 'in' ? 'Money in' : 'Expense')}
                                         sub={[fmt(r.day), categoryLabel(r.category)].filter(Boolean).join(' · ')}
                                         amount={`${r.direction === 'in' ? '+' : '−'}${inr(r.amount)}`} amountIn={r.direction === 'in'} />
@@ -284,7 +273,7 @@ export default function BusinessScreen() {
                 <section className="nb-ask" aria-labelledby="nb-ask">
                     <div className="hd">
                         <h2 id="nb-ask">Ask {persona.name}</h2>
-                        <Link to="/chat">Open Buddy<IconChevronRight size={12} /></Link>
+                        <Link to="/chat">Open Buddy<IconChevronRight size={13} /></Link>
                     </div>
                     <div className="nb-prompts">
                         {ASKS.map(([label, prompt]) => (
@@ -298,7 +287,7 @@ export default function BusinessScreen() {
             </div>
 
             {add.element}
-            {note && <div className="sb sb-toast" role="status">{note}</div>}
+            {note && <div className="sb sb-toast ios" role="status">{note}</div>}
         </div>
     );
 }
