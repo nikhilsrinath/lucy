@@ -3,7 +3,7 @@ import { KINDS, resolveEntity } from '../resolvers.js';
 /**
  * Navigation. The agent can take the person to a screen or a record, and it
  * is also how it answers honestly when there is no tool for what was asked:
- * "I can't change salaries from chat — here's the employee page", with the
+ * "I can't change bank details from chat — here's Settings", with the
  * page opened rather than described.
  *
  * Opening a page reads nothing and writes nothing, so it needs no card. The

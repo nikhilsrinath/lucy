@@ -11,6 +11,15 @@ import planTools from './tools/plan.js';
 import pulseTools from './tools/pulse.js';
 import messageTools from './tools/messages.js';
 import autonomyTools from './tools/autonomy.js';
+import peopleTools from './tools/people.js';
+import letterTools from './tools/letters.js';
+import timeoffTools from './tools/timeoff.js';
+import attendanceTools from './tools/attendance.js';
+import announcementTools from './tools/announcements.js';
+import timesheetTools from './tools/timesheets.js';
+import catalogTools from './tools/catalog.js';
+import shareTools from './tools/share.js';
+import settingsTools from './tools/settings.js';
 
 /**
  * The one catalogue of what EdgeAI can do.
@@ -48,6 +57,15 @@ export const ALL_TOOLS = [
   ...pulseTools,
   ...messageTools,
   ...autonomyTools,
+  ...peopleTools,
+  ...letterTools,
+  ...timeoffTools,
+  ...attendanceTools,
+  ...announcementTools,
+  ...timesheetTools,
+  ...catalogTools,
+  ...shareTools,
+  ...settingsTools,
 ];
 
 const BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]));

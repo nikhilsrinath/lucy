@@ -98,7 +98,11 @@ export function worldSeed() {
     recurring_invoices: [],
     income_entries: [{ id: 'ie-old', payment_method: 'bank_transfer', created_at: '2026-09-01' }],
     expenses: [{ id: 'ex-old', payment_method: 'upi', created_at: '2026-09-01' }],
-    leave_requests: [], leave_types: [], attendance_days: [],
+    leave_requests: [], attendance_days: [], announcements: [], timesheet_entries: [], departments: [],
+    leave_types: [
+      { id: id('80000000', 1), org_id: 'org-1', name: 'Sick leave', code: 'SL', annual_quota: 12, is_paid: true, is_active: true, sort_order: 1 },
+      { id: id('80000000', 2), org_id: 'org-1', name: 'Casual leave', code: 'CL', annual_quota: 12, is_paid: true, is_active: true, sort_order: 2 },
+    ],
     finance_categories: [
       ['furniture', 'Furniture & fixtures', 'out', 'Assets', 'capex'],
       ['computers', 'Computers & devices', 'out', 'Assets', 'capex'],
@@ -131,5 +135,5 @@ export const OWNER_PERMS = {
   tasks: ALL, clients: ALL, employees: ALL, projects: ALL, financial_documents: ALL, vendors: ALL,
   expenses: ALL, income_entries: ALL, project_allocations: ALL, leave_requests: ALL, attendance_days: ALL,
   recurring_invoices: ALL, payments: ALL, purchase_invoices: ALL, document_line_items: ALL,
-  usage_counters: ALL, catalog_items: ALL,
+  usage_counters: ALL, catalog_items: ALL, employee_compensation: ALL, records: ALL, announcements: ALL, timesheets: ALL, leave_types: ALL, organizations: ALL,
 };

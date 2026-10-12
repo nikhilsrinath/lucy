@@ -84,8 +84,27 @@ What to add comes from `buddy_route_summary` (0074): signatures that keep reachi
 node scripts/eval-router.js            # no key, no network
 ```
 
-Two datasets over the fixture company: the router's own set (267 messages in 12 categories) and the agent's eval cases (`scripts/eval-agent.cases.js`, written for the model before the router existed), run with a model that only counts its calls. `node scripts/eval-agent.js` still measures the model itself, with the router off.
+Two datasets over the fixture company: the router's own set (318 messages in 12 categories) and the agent's eval cases (`scripts/eval-agent.cases.js`, written for the model before the router existed), run with a model that only counts its calls. `node scripts/eval-agent.js` still measures the model itself, with the router off.
+
+## Guided actions (2026-10-13)
+
+Some changes need several details before there is anything to confirm: a new team member, an offer letter. These are still one tool and one card. The tool lists its questions as `slots` and calls `askNext` (`../helpers.js`) at the top of `resolve()`; `propose()` turns the first open slot into a question with chips, exactly as it does for any missing field. The answer comes back as `pending` and is fed to the same tool with no model call (`engine.js`).
+
+| Slot option | Meaning |
+| --- | --- |
+| `optional` | may be skipped ("skip", "no", the Skip chip); it is then `null` |
+| `when(values, ctx)` | only asked when this holds (an end date for an internship; pay when the role may write it) |
+| `free` | the answer is running text; the router takes it whole, however long |
+| `read(raw, ctx, values)` | raw answer to `{ value }` or `{ error }`; an unreadable answer is asked again with the reason |
+
+While a slot question is open, an answer is never taken for a lookup ("Head of finance and tasks" is a job title). Only "cancel", or a recognised change or navigation command, interrupts. Only the essentials are slots; everything else is a field on the card.
+
+Also local since this change, each from a strict pattern: one changed detail of a client or team member (`UPDATE_CLIENT`, `UPDATE_EMPLOYEE`: the record decides the tool, and a detail that fits two records goes to the model), a note or blocker on a task, a vendor bill, deleting a draft document, a Telegram message in the words given, a reminder at a time, a scheduled check, starting and stopping a follow-through. A tool the company has not switched on (`tool.available`) is handed to the model, which explains what is missing. Commands whose remaining words are content (a message, a note, a bill) are marked `single`, so an "and" or a comma in the text is not read as a second action.
+
+The team's day is local too: applying for, deciding and withdrawing leave ("apply for sick leave from 5th to 7th Oct", "approve Ravi's leave"), attendance ("mark Ravi absent today", "check me in", "I am working from home today"), the notice board ("announce that the office is closed on Monday") and time on a project ("log 3 hours on Acme website"). A statement about a day ahead ("Ravi is on leave tomorrow") is left as the question it may be.
+
+So are an NDA ("create an NDA with Kite"), the catalogue ("add Logo design to the catalogue at 25k", "change the price of Support retainer to 25k"), emailing an issued document to its client ("email INV-2026-0012 to the client") and the plain details of the company profile ("change our address to …"). A sentence about bank details, GSTIN or credentials matches no pattern and goes to the model, which has no tool for them either.
 
 ## What stays with the model
 
-Plans and goals, advice and explanation, original writing (emails, messages to teammates, posts), follow-through and timed reminders, the same change to many records, several actions in one message, purchase bills, client detail updates, profit/runway (the P&L treatments), notes on tasks, relative date shifts ("push it back by 3 days"), anything negated in a way a filter cannot express, and anything the engine does not recognise.
+Plans and goals, advice and explanation, original writing (emails, messages to teammates, posts), follow-through and reminders the patterns do not read exactly, the same change to many records, several actions in one message, profit/runway (the P&L treatments), relative date shifts ("push it back by 3 days"), anything negated in a way a filter cannot express, and anything the engine does not recognise.

@@ -244,8 +244,8 @@ describe('the mood ladder', () => {
     // A card carried out that means no situation says nothing by itself.
     expect(mood({ outcome: { cards: [{ tool: 'create_task', status: 'executed' }] } })).toMatchObject({ mood: 'neutral', by: 'default' });
     // 4. A card waiting for a tap.
-    expect(mood({ outcome: { cards: [{ tool: 'create_task', status: 'proposed', risk: 'low' }] } })).toEqual({ mood: 'neutral', tag: 'Ready for you', by: 'outcome', situation: null });
-    expect(mood({ outcome: { cards: [{ tool: 'create_invoice_draft', status: 'proposed', risk: 'high' }] } })).toEqual({ mood: 'serious', tag: 'Check this', by: 'outcome', situation: null });
+    expect(mood({ outcome: { cards: [{ tool: 'create_task', status: 'proposed', risk: 'low' }] } })).toEqual({ mood: 'thinking', tag: 'Your call', by: 'outcome', situation: null });
+    expect(mood({ outcome: { cards: [{ tool: 'create_invoice_draft', status: 'proposed', risk: 'high' }] } })).toEqual({ mood: 'thinking', tag: 'Your call', by: 'outcome', situation: null });
     expect(mood({ outcome: { cards: [{ tool: 'create_task', status: 'proposed', risk: 'low' }] }, detected: 'hiring_decision' })).toMatchObject({ mood: 'thinking', tag: 'Your call', by: 'outcome' });
     // 5. The insight that started the turn, even over the figures.
     expect(mood({ detected: 'overdue_invoice', source: 'insight:overdue:inv-1', message: 'any overdue?', readings: [{ metric: 'overdue', value: 0 }] })).toMatchObject({ mood: 'serious', by: 'source' });

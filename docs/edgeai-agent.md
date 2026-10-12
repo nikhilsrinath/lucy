@@ -62,6 +62,25 @@ Other modes: `cancel`, `status` (latest state of cards in a reopened thread).
 | Tasks | `create_task`, `update_task`, `complete_task`, `reopen_task` | `delete_task` |
 | Clients / CRM | `create_client`, `update_client`, `move_client_stage`, `add_client_note` | `delete_client` |
 | Finance | `create_invoice_draft`, `create_quotation_draft`, `create_proforma_draft`, `convert_quotation` | `create_cash_entry`, `record_payment`, `mark_invoice_paid`, `issue_document`, `create_vendor`, `create_purchase_bill`, `cancel_financial_document`, `delete_financial_document` |
+| Team | `apply_leave`, `cancel_leave`, `mark_attendance`, `post_announcement`, `log_time` | `create_employee`, `update_employee`, `create_offer_letter`, `send_offer_letter`, `create_nda`, `decide_leave` |
+| Catalogue / sharing / company | `create_catalog_item`, `update_catalog_item` | `send_document_email`, `update_company_profile` |
+
+Team notes:
+
+- **Adding someone is guided.** `create_employee` asks for the name, job title, kind of employment, start date and pay in turn (`helpers.askNext`, see `docs/local-router.md`); email, phone and department are fields on the card. Pay is a separate `employee_compensation` row, asked for and written only when the role holds that resource.
+- **An offer letter is exactly what the form saves.** `create_offer_letter` writes a `records` row whose `data` uses the offer form's own field names (`src/components/OfferForm.jsx`), numbered by `next_document_number`. Someone already on the team fills the letter from their record. A complete letter is saved as `pending` ("Not sent"); one still missing an address, department, manager, responsibilities or accept-by date is a `draft` to finish on Team. The plan's offer-letter limit is checked against `usage_counters`.
+- **Sending is its own card.** `send_offer_letter` mints the signing link on confirm (`api/_lib/portalLink.js`, the same `portal_tokens` row the app mints) and emails it through the executor's `portal_email` op; the email is shown and editable first, cannot be undone, and is approved only in the app. It is offered only where the server can build links (`PORTAL_ALLOWED_ORIGINS` or `APP_URL`, and the portal secret).
+- **Leave follows the database's rules** (0029): a request is always filed as pending; nobody decides their own (`decide_leave` says so before the card rather than at confirm); the applicant can only withdraw a pending one (`cancel_leave`). Days are counted by `src/shared/leave.js`, the function the leave form uses. Overlapping pending or approved leave is refused.
+- **Attendance is one row per person per day.** `mark_attendance` corrects the day's row if there is one and inserts otherwise. A person's own mark or check-in is `source: 'self'`; anyone else's is `'admin'`, which the person can then no longer overwrite. A day ahead is refused (that is leave).
+- **Own work needs no HR permission.** Filing your own leave, marking your own day and logging your own time are allowed by each table's "self" policy, so those tools are offered to anyone who can create tasks; acting for someone else asks for the resource's own permission, and RLS decides either way.
+- **Time is a draft entry.** `log_time` writes `timesheet_entries` as `draft` for the person asking, as the Timesheets page does; submitting and approving stay there. More than 24 hours in a day is refused.
+- **Announcements are the in-app board** (`post_announcement`); the Telegram group is `send_telegram_group_message`. "Announce in the group…" is the latter.
+- **None of the people, letter, leave, attendance or time tools is offered in a team group** (`privateOnly`).
+- **An NDA is the NDA form's own row** (`create_nda`): the other party may be a client (whose name, address, contact and email fill it) or a new name. Complete, it is `pending`; without the place of signing or their signatory it is a `draft`. The plan's NDA limit is checked. MoUs and certificates are not made from chat: the app no longer creates them (Team shows old ones for download only).
+- **Catalogue items are defaults** (`catalog_items`): a price changed by `update_catalog_item` never restates an issued document.
+- **A document is emailed as its own link** (`send_document_email`): the client's portal page, minted on confirm by the same `portal_email` op as an offer letter. Drafts are refused with an "Issue it first" offer; nothing about the document changes.
+- **The company profile is an allow-list** (`update_company_profile`, `tools/settings.js`): name, tagline, address, phone, email, website, signatory name and title. Banking and tax ids (`org_banking`), credentials (`org_secrets`), roles and the plan are never written from chat.
+- **Recurring invoices have no tool.** The redesigned app has no screen for them (`/recurring` redirects to Money), so a schedule made from chat would be invisible there.
 
 Finance notes:
 

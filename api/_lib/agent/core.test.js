@@ -74,9 +74,10 @@ describe('registry', () => {
   it('classifies money, deletes and anything irreversible as high risk', () => {
     const high = ALL_TOOLS.filter((t) => t.risk === 'high').map((t) => t.name).sort();
     expect(high).toEqual([
-      'cancel_financial_document', 'create_cash_entry', 'create_purchase_bill', 'create_vendor',
+      'cancel_financial_document', 'create_cash_entry', 'create_employee', 'create_nda', 'create_offer_letter', 'create_purchase_bill', 'create_vendor', 'decide_leave',
       'delete_client', 'delete_financial_document', 'delete_task', 'issue_document',
-      'mark_invoice_paid', 'record_payment', 'send_payment_reminder', 'send_telegram_group_message', 'send_telegram_message',
+      'mark_invoice_paid', 'record_payment', 'send_document_email', 'send_offer_letter', 'send_payment_reminder', 'send_telegram_group_message', 'send_telegram_message',
+      'update_company_profile', 'update_employee',
     ]);
     for (const t of ALL_TOOLS.filter((x) => x.risk === 'high')) {
       expect(!t.undoable || typeof t.undoable === 'function', t.name).toBe(true);

@@ -5,6 +5,7 @@ import { addView, addReadings } from '../views.js';
 import { situations } from '../cofounders.js';
 import { detectSituation } from '../../../../src/shared/cofounders/detect.js';
 import { isCancel } from '../../../../src/shared/cashIntent.js';
+import { isSkip } from '../helpers.js';
 import { understand, cleanRoute, T_LOCAL } from './understand.js';
 import { getIntent, cleanArgs, describeIntent } from './intents.js';
 import { renderResult, renderTalk, renderGst, nameOf, forChannel, pageLabel } from './render.js';
@@ -233,6 +234,9 @@ async function execute(ctx, decision, turn, ids, { emitOutcome }) {
   if (!tool) return { handled: false };
 
   if (tool.kind === 'write') {
+    // A tool this company has not switched on (Telegram, follow-through): the
+    // model explains what is missing rather than a bare refusal from here.
+    if (tool.available && !tool.available(ctx)) return { handled: false, reasonCode: 'unavailable' };
     const args = cleanArgs(intent, decision.parameters);
     const out = await propose(tool, args, ctx, ids);
     if (proposalOutcome(out) === 'escalate' && intent.escalate === 'unresolved') return { handled: false, reasonCode: 'unresolved' };
@@ -381,15 +385,23 @@ export async function tryLocal(ctx, input, turn, helpers, { mode = routerMode() 
       } else {
         const tool = getTool(pending.tool);
         if (tool?.kind === 'write') {
-          if (isCancel(message) || /^(?:no|nope|nah|stop|cancel)[\s!.]*$/i.test(words.clean)) {
+          // One of the tool's own questions (helpers.askNext): an optional one
+          // may be skipped with "no", and its answer is a job title or an
+          // address, not a request to look something up.
+          const slot = (tool.slots || []).find((s) => s.key === pending.param) || null;
+          const skips = !!slot?.optional && isSkip(words.clean);
+          if (!skips && (isCancel(message) || /^(?:no|nope|nah|stop|cancel)[\s!.]*$/i.test(words.clean))) {
             emitTalk(ctx, turn.emit, 'CANCEL_PROPOSAL');
             log({ intent: 'CANCEL_PROPOSAL', route: 'local', confidence: 1, reasonCode: 'dropped_question' });
             return { handled: true, route: 'local', intent: 'CANCEL_PROPOSAL', ok: true };
           }
           // Something new altogether is read as itself.
-          const fresh = await understand(message, envFor(ctx, { pending: null }));
-          const isNew = fresh.executionRoute === 'local' && fresh.confidence >= T_LOCAL && !['ACKNOWLEDGE', 'BARE_ANSWER', 'CONFIRM_HINT'].includes(fresh.intent) && words.tokens.length > 2;
-          if (!isNew && pending.param && words.tokens.length <= 8 && !/\?\s*$/.test(words.clean)) {
+          const fresh = skips ? null : await understand(message, envFor(ctx, { pending: null }));
+          const command = fresh && (describeIntent(fresh.intent)?.readOnly === false || ['OPEN_PAGE', 'OPEN_RECORD'].includes(fresh.intent));
+          const isNew = !!fresh && fresh.executionRoute === 'local' && fresh.confidence >= T_LOCAL && !['ACKNOWLEDGE', 'BARE_ANSWER', 'CONFIRM_HINT'].includes(fresh.intent) && words.tokens.length > 2
+            && (!slot || command);
+          const fits = slot?.free ? words.clean.length <= 2000 : words.tokens.length <= 8;
+          if (!isNew && pending.param && fits && !/\?\s*$/.test(words.clean)) {
             const out = await propose(tool, { ...(pending.args || {}), [pending.param]: words.clean }, ctx, ids);
             if (out.kind !== 'error') {
               if (out.kind === 'card') turn.noteCard(tool.name, pending.args || {}, out.card);

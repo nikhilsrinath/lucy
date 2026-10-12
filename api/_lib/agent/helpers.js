@@ -54,6 +54,50 @@ export function choiceFrom(param, noun, resolution, subOf = () => null) {
     resolution.candidates.map((c) => ({ entity: c.entity, sub: subOf(c.row) })));
 }
 
+/* ── asking for the essentials, one at a time ─────────────────────────────── */
+
+/** What a person says to pass over a question they need not answer. */
+const SKIP = /^(?:skip(?: it| this)?|none|no|nope|nah|not now|later|n\/a|na|nothing|leave it(?: blank| empty)?|do not know|not sure|-)[\s.!]*$/i;
+export const isSkip = (v) => typeof v === 'string' && SKIP.test(v.trim());
+export const SKIP_OPTION = { label: 'Skip', value: 'skip' };
+
+/**
+ * The questions a tool asks before it can draw its card, in order. A tool
+ * lists them as `slots` and calls this at the top of resolve():
+ *
+ *   { key, question(values, ctx), options?(values, ctx), read?(raw, ctx, values),
+ *     optional?, when?(values, ctx), free? }
+ *
+ *   optional  the person may skip it ("skip", "no"); it is then null
+ *   when      the question is only put when this holds
+ *   free      the answer is running text (an address, a paragraph): the
+ *             router takes it whole, however long (local/engine.js)
+ *   read      raw answer → { value } | { error }; an unreadable answer is
+ *             asked again with the reason
+ *
+ * Returns the first question still open as needsInput, or { values } once
+ * every slot is answered or skipped. Nothing is ever guessed.
+ */
+export async function askNext(args, slots, ctx) {
+  const values = {};
+  for (const slot of slots) {
+    const raw = args[slot.key];
+    const ask = (why = '') => {
+      const question = typeof slot.question === 'function' ? slot.question(values, ctx) : slot.question;
+      const options = typeof slot.options === 'function' ? slot.options(values, ctx) : slot.options || [];
+      return needsInput(slot.key, why ? `${why} ${question}` : question, slot.optional && !options.some((o) => o.value === 'skip') ? [...options, SKIP_OPTION] : options);
+    };
+    if (slot.when && !slot.when(values, ctx)) { values[slot.key] = null; continue; }
+    if (slot.optional && (raw === null || isSkip(raw))) { values[slot.key] = null; continue; }
+    if (raw === undefined || raw === null || String(raw).trim() === '') return ask();
+    if (!slot.read) { values[slot.key] = String(raw).trim(); continue; }
+    const r = await slot.read(raw, ctx, values);
+    if (r.error) return ask(r.error);
+    values[slot.key] = r.value;
+  }
+  return { values };
+}
+
 /* ── dates said as words ──────────────────────────────────────────────────── */
 
 const CLEAR = /^(?:none|no(?: deadline| date)?|clear(?: it)?|remove(?: it)?|null|n\/a|-)$/i;

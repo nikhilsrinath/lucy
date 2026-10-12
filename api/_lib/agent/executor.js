@@ -1,5 +1,6 @@
 import { AgentError, friendlyDbError } from './db.js';
 import { sendOrgMail } from '../mailer.js';
+import { mintPortalLink } from '../portalLink.js';
 import { deliverPrivate, deliverGroup, DeliveryError } from '../telegram/outbound.js';
 import * as jobs from '../autonomy/jobs.js';
 import { startFollowup, cancelWorkflow } from '../autonomy/workflows.js';
@@ -25,6 +26,7 @@ import { startFollowup, cancelWorkflow } from '../autonomy/workflows.js';
  *   { op: 'delete', table, id, version, before }
  *   { op: 'rpc',    fn, params }
  *   { op: 'email',  orgId, userId, to, subject, text, fromName }
+ *   { op: 'portal_email', orgId, userId, documentId, scope, to, subject, text, fromName }   (text carries {{link}})
  *   { op: 'telegram', orgId, employeeId, text, senderName, orgName, fromBuddy? }
  *   { op: 'telegram_group', orgId, text, mentionEmployeeId?, orgName, fromBuddy, senderName }   (0073)
  *   { op: 'job',      orgId, kind, dedupeKey, runAt, actor, payload }   (0072)
@@ -127,12 +129,13 @@ async function applyOp(db, op) {
       return { op: 'insertMany', table: op.table, ids: (data || []).map((r) => r.id), before: null, after: data || [], ok: true };
     }
     case 'update': {
-      let q = db.from(op.table).update(op.patch).eq('id', op.id);
+      // idColumn: a table keyed by something other than `id` (employee_compensation).
+      let q = db.from(op.table).update(op.patch).eq(op.idColumn || 'id', op.id);
       if (op.version) q = q.eq('updated_at', op.version);
       const { data, error } = await q.select().maybeSingle();
       if (error) throw error;
       if (!data) await explainMiss(db, op);
-      return { op: 'update', table: op.table, id: op.id, before: op.before || null, after: data, ok: true };
+      return { op: 'update', table: op.table, id: op.id, ...(op.idColumn ? { idColumn: op.idColumn } : {}), before: op.before || null, after: data, ok: true };
     }
     case 'delete': {
       let q = db.from(op.table).delete().eq('id', op.id);
@@ -146,6 +149,17 @@ async function applyOp(db, op) {
       try {
         const sent = await sendOrgMail(op);
         return { op: 'email', table: null, id: null, before: null, after: { to: op.to, subject: op.subject, messageId: sent.messageId }, ok: true };
+      } catch (err) {
+        throw new AgentError(err?.message || 'The email could not be sent.', { code: 'email' });
+      }
+    }
+    case 'portal_email': {
+      // A document's own link, minted now and mailed: `text` carries {{link}}
+      // where it goes. Nothing is minted for a send that is never confirmed.
+      try {
+        const link = await mintPortalLink({ orgId: op.orgId, documentId: op.documentId, scope: op.scope || 'sign', recipientEmail: op.to, issuedBy: op.userId || null });
+        const sent = await sendOrgMail({ ...op, text: String(op.text || '').split('{{link}}').join(link.url) });
+        return { op: 'portal_email', table: null, id: null, before: null, after: { to: op.to, subject: op.subject, messageId: sent.messageId, link_expires_at: link.expiresAt }, ok: true };
       } catch (err) {
         throw new AgentError(err?.message || 'The email could not be sent.', { code: 'email' });
       }
@@ -207,7 +221,8 @@ async function applyOp(db, op) {
  * drawn, or their role cannot write it.
  */
 async function explainMiss(db, op) {
-  const { data: now } = await db.from(op.table).select('id, updated_at').eq('id', op.id).maybeSingle();
+  const col = op.idColumn || 'id';
+  const { data: now } = await db.from(op.table).select(`${col}, updated_at`).eq(col, op.id).maybeSingle();
   if (!now) throw new AgentError('That record no longer exists, or you can no longer see it.', { code: 'gone' });
   if (op.version && now.updated_at !== op.version && !sameInstant(now.updated_at, op.version)) {
     throw new AgentError('It was changed by someone else after this was proposed.', { code: 'stale' });
@@ -247,13 +262,13 @@ export function undoPlan(results) {
   for (const r of [...(results || [])].reverse()) {
     if (r.ok === false || r.followUp) continue;
     if (r.op === 'update') {
-      plan.push({ op: 'update', table: r.table, id: r.id, version: r.after?.updated_at || null, patch: r.before || {}, before: pick(r.after, Object.keys(r.before || {})) });
+      plan.push({ op: 'update', table: r.table, id: r.id, ...(r.idColumn ? { idColumn: r.idColumn } : {}), version: r.after?.updated_at || null, patch: r.before || {}, before: pick(r.after, Object.keys(r.before || {})) });
     } else if (r.op === 'insert') {
       plan.push({ op: 'delete', table: r.table, id: r.id, version: r.after?.updated_at || null, before: r.after });
     } else if (r.op === 'job') {
       // A scheduled job not yet run is cancelled; one that ran cannot be undone.
       plan.push({ op: 'cancel_job', orgId: r.after?.org_id, jobId: r.after?.job_id });
-    } else if (r.op === 'delete' || r.op === 'email' || r.op === 'telegram' || r.op === 'telegram_group' || r.op === 'workflow' || r.op === 'workflow_cancel') {
+    } else if (r.op === 'delete' || r.op === 'email' || r.op === 'portal_email' || r.op === 'telegram' || r.op === 'telegram_group' || r.op === 'workflow' || r.op === 'workflow_cancel') {
       return null;
     }
   }

@@ -262,6 +262,8 @@ const methodOf = (s) => {
 
 const write = (intent, parameters, extra = {}) => ({ intent, parameters, ...extra });
 const escalate = (intent, reason) => ({ llm: true, intent, reason });
+// The words after the command are its content (a message, a note, a bill's details): an "and" or a comma in them is not a second action.
+const ONE = { single: true };
 
 /* ── changes: strict sentence patterns ────────────────────────────────────── */
 
@@ -358,14 +360,396 @@ function draftDoc(type, client, amount, desc, advance) {
 
 const DOC_TYPE = (w) => (/quot|estimate/i.test(w) ? 'CREATE_QUOTATION' : /proforma/i.test(w) ? 'CREATE_PROFORMA' : 'CREATE_INVOICE');
 
+const escapeRe = (s) => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+/* ── when: a clock time and a day, said anywhere in a few words ───────────── */
+
+const TIME_WORD = { morning: '9am', noon: '12pm', afternoon: '2pm', evening: '6pm', tonight: '8pm' };
+const CLOCK_AT_END = /\s+(?:at\s+|by\s+|around\s+)?(\d{1,2}(?::\d{2})?\s?(?:am|pm))$|\s+at\s+(\d{1,2}(?::\d{2})?)$/i;
+
+/** "tomorrow at 10", "at 5pm", "Friday evening" → { date, time, rest } (rest: the words that were neither). */
+function takeWhen(text, today) {
+  let rest = ` ${String(text || '').trim()} `;
+  let time;
+  const clock = rest.match(/\s(?:at\s+|by\s+|around\s+)?(\d{1,2}(?::\d{2})?\s?(?:am|pm))(?=\s)/i) || rest.match(/\sat\s+(\d{1,2}(?::\d{2})?)(?=\s)/i);
+  if (clock) { time = clock[1].replace(/\s+/g, '').toLowerCase(); rest = rest.replace(clock[0], ' '); } else {
+    const word = rest.match(/\s(?:in the\s+|this\s+)?(morning|noon|afternoon|evening|tonight)(?=\s)/i);
+    if (word) { time = TIME_WORD[word[1].toLowerCase()]; rest = rest.replace(word[0], /tonight/i.test(word[1]) ? ' today ' : ' '); }
+  }
+  let date;
+  const hit = rest.trim() ? parseDate(rest, today, { prefer: 'future' }) : null;
+  if (hit) { date = hit.match; rest = rest.replace(new RegExp(`\\s(?:on\\s+|by\\s+)?${escapeRe(hit.match)}(?=\\s)`, 'i'), ' '); }
+  return { date, time, rest: rest.replace(/\s+/g, ' ').trim() };
+}
+
+/** "remind <who> [when] to <what> [when]" → a scheduled reminder, or the model's when the shape is anything else. */
+function buildReminder(who, restRaw, env) {
+  const m = String(restRaw).match(/^(?<head>.*?)\s*\b(?:to|about)\s+(?<msg>.+)$/i);
+  if (!m) return escalate('FOLLOW_THROUGH', 'A reminder whose words the pattern does not read.');
+  let msg = m.groups.msg.trim();
+  const head = takeWhen(m.groups.head, env.today);
+  if (head.rest) return escalate('FOLLOW_THROUGH', 'A reminder whose words the pattern does not read.');
+  let { date, time } = head;
+  // The time may come after what to do: "…to call the sponsor at 5pm tomorrow".
+  for (let pass = 0; pass < 2; pass++) {
+    const clock = time ? null : msg.match(CLOCK_AT_END);
+    if (clock) { time = (clock[1] || clock[2]).replace(/\s+/g, '').toLowerCase(); msg = msg.slice(0, clock.index).trim(); }
+    const dated = date ? null : tailDate(msg, env.today);
+    if (dated?.date) { date = dated.date; msg = dated.text; }
+  }
+  if (/\b(?:minutes?|mins?|hours?|hrs?)\b/i.test(restRaw) || (!time && !date) || !msg) return escalate('FOLLOW_THROUGH', 'A reminder whose time the pattern does not read.');
+  return write('SCHEDULE_REMINDER', { person: ME.test(who) ? 'me' : who.trim(), message: cap(unquote(msg)), date, time }, ONE);
+}
+
+/**
+ * The team member a phrase opens with — "Priya tomorrow at 10 to…" → Priya —
+ * tried as one word, then two. Null when it opens with nobody on the team.
+ */
+async function leadingPerson(text, env) {
+  const parts = String(text || '').trim().split(/\s+/);
+  for (const n of [1, 2]) {
+    if (parts.length <= n) break;
+    const who = parts.slice(0, n).join(' ').replace(/['’]s$/i, '');
+    if (ME.test(who) || /^(?:the|a|an|him|her|them|it|everyone|us|we|you)$/i.test(who)) return null;
+    const hit = await env.resolve(who, ['employee']);
+    if (hit.status !== 'none') return { who, one: hit.status === 'one', rest: parts.slice(n).join(' ') };
+  }
+  return null;
+}
+
+/* ── the team: adding someone, and one detail that changed ────────────────── */
+
+const NAME = '\\p{L}[\\p{L}.]*(?:\\s+\\p{Lu}[\\p{L}.]*){0,2}';
+const TEAM_KIND = 'employee|team member|teammate|staff member|new hire|new joiner|joiner|intern|contractor|freelancer|part[- ]timer|full[- ]timer';
+const EMPLOYMENT_OF = (kind) => (/intern/i.test(kind) ? 'intern' : /contractor|freelancer/i.test(kind) ? 'contract' : /part/i.test(kind) ? 'parttime' : /full/i.test(kind) ? 'fulltime' : undefined);
+
+function newEmployee(name, kind, role, { strict = false } = {}) {
+  const params = { employment_type: EMPLOYMENT_OF(kind || '') };
+  if (name) {
+    const introduced = /^(?:called|named)\s+/i.test(unquote(name));
+    const clean = unquote(name).replace(/^(?:called|named)\s+/i, '');
+    if (!clean || !short(clean, 4) || /\d/.test(clean) || !notWe(clean)) return null;
+    // "new employee handbook" is not a person: a name is capitalised, or introduced as one.
+    if (strict && !introduced && !/^\p{Lu}/u.test(clean)) return null;
+    params.full_name = clean;
+  }
+  if (role) {
+    const r = unquote(role);
+    if (!short(r, 6)) return null;
+    params.role = cap(r);
+  }
+  return write('CREATE_EMPLOYEE', params);
+}
+
+const FIELDS = [
+  ['role|job title|title|designation|position', 'employee', 'role'],
+  ['salary|pay|stipend|ctc|compensation', 'employee', 'pay'],
+  ['department|dept', 'employee', 'department'],
+  ['reporting manager|manager|supervisor', 'employee', 'reports_to'],
+  ['start date|joining date|date of joining', 'employee', 'start_date'],
+  ['gstin|gst number|gst no', 'client', 'gstin'],
+  ['billing address|address', 'client', 'address'],
+  ['contact person|contact name|contact', 'client', 'person_name'],
+  ['deal value|deal size|value', 'client', 'value'],
+  ['email address|email id|email|e-mail|mail', 'either', 'email'],
+  ['phone number|mobile number|contact number|phone|mobile|number', 'either', 'phone'],
+];
+const FIELD_WORDS = ['phone number', 'mobile number', 'contact number', ...FIELDS.flatMap(([w]) => w.split('|'))].join('|');
+
+/** Whether what was said can be that field's value: "Ravi's role is unclear" changes nothing. */
+const NOT_A_VALUE = /^(?:un\w+|not|wrong|missing|incorrect|outdated|old|empty|blank|too|very|still|also|what|why|how|a problem|an issue|fine|ok|okay|correct|right|the same)\b/i;
+const FIELD_SHAPE = (param, value) => (param === 'email' ? /^[\w.+-]+@[\w-]+\.[\w.-]+$/.test(value)
+  : param === 'phone' ? /^\+?[\d\s-]{7,16}$/.test(value)
+    : param === 'pay' || param === 'value' ? new RegExp(`^(?:${AMT}|unpaid)$`, 'i').test(value)
+      : param === 'gstin' ? /^[0-9A-Z]{15}$/i.test(value)
+        : !NOT_A_VALUE.test(value) && short(value, 8));
+
+/** "<who>'s <field> → <value>": which record it is decides the tool, never a guess. */
+async function fieldChange(whoRaw, fieldRaw, valueRaw, env) {
+  const who = unquote(whoRaw).replace(/^(?:the|our)\s+/i, '');
+  const value = unquote(valueRaw);
+  const field = FIELDS.find(([w]) => new RegExp(`^(?:${w})$`, 'i').test(fieldRaw.trim()));
+  if (!field || !who || !value || !short(who, 4) || !notWe(who)) return null;
+  let [, kind, param] = field;
+  if (!FIELD_SHAPE(param, value)) return null;
+  let ref = who;
+  if (kind === 'either') {
+    const hit = await env.resolve(who, ['client', 'employee'], { across: true });
+    if (hit.status !== 'one') return escalate('OPEN_ENDED', 'A changed detail with no one record it clearly belongs to.');
+    kind = hit.kind;
+    ref = hit.id;
+  }
+  return kind === 'client' ? write('UPDATE_CLIENT', { client: ref, [param]: value }) : write('UPDATE_EMPLOYEE', { person: ref, [param]: value });
+}
+
+/** "sends the deck" → "Send the deck": the task a person is to do, as its title. */
+function imperative(clause) {
+  const [verb, ...rest] = String(clause).trim().split(/\s+/);
+  const base = /ies$/i.test(verb) ? verb.replace(/ies$/i, 'y')
+    : /(?:sh|ch|ss|x|z|o)es$/i.test(verb) ? verb.replace(/es$/i, '')
+      : /[^s]s$/i.test(verb) ? verb.replace(/s$/i, '') : verb;
+  return cap([base, ...rest].join(' '));
+}
+
+/** What a vendor's bill said after the amount: its number, the tax, when it is due. */
+function billParts(restRaw) {
+  let rest = String(restRaw || '');
+  const out = {};
+  const take = (re, fn) => { const m = rest.match(re); if (m) { fn(m); rest = rest.replace(m[0], ' '); } };
+  take(/\bbill\s+(?:no\.?|number|#)\s*:?\s*([\w/-]+)/i, (m) => { out.bill_number = m[1]; });
+  take(/\b(?:plus|\+|excluding|excl\.?|before)\s+(?:(\d{1,2}(?:\.\d+)?)\s?%\s+)?(?:gst|tax)\b/i, (m) => { out.amount_is = 'subtotal'; if (m[1]) out.tax_rate = Number(m[1]); });
+  take(/\b(?:incl\.?|including|inclusive of|with)\s+(?:(\d{1,2}(?:\.\d+)?)\s?%\s+)?(?:gst|tax)\b/i, (m) => { out.amount_is = 'total'; if (m[1]) out.tax_rate = Number(m[1]); });
+  take(/\bdue\s+(?:on\s+|by\s+)?([^,]+?)(?=,|$)/i, (m) => { out.due_date = m[1].trim(); });
+  const left = rest.replace(/\b(?:and|with|the|is|for)\b/gi, ' ').replace(/[,;:.\s-]+/g, ' ').trim();
+  return { out, left };
+}
+
+function vendorBill(vendorRaw, amount, restRaw) {
+  const vendor = unquote(vendorRaw).replace(/^(?:the|our)\s+/i, '');
+  const { out, left } = billParts(restRaw);
+  if (left) return escalate('OPEN_ENDED', 'More detail on the bill than the pattern reads.');
+  if (!vendor || !short(vendor, 5) || !notWe(vendor)) return null;
+  return write('CREATE_PURCHASE_BILL', { vendor, amount: amount ? amount.trim() : undefined, ...out }, ONE);
+}
+
+/* ── the team's day ───────────────────────────────────────────────────────── */
+
+const ATTENDANCE_WORDS = 'present|absent|remote|wfh|working from home|working remotely|on leave|on half[- ]?day|half[- ]?day|on holiday|holiday';
+const DURATION = '\\d+(?:\\.\\d+)?\\s?(?:hours?|hrs?|h|minutes?|mins?|m)(?:\\s+(?:and\\s+)?\\d{1,2}\\s?(?:minutes?|mins?|m))?';
+
+/** The days a leave covers, as said after "leave": one day, or "from A to B". Null when the words are anything else. */
+function leaveRequest(typeRaw, half, restRaw, env) {
+  const type = /^(?:for|on|my|the|a|an|some|any|of|from|take|your)$/i.test(typeRaw || '') ? '' : (typeRaw || '');
+  let rest = String(restRaw || '').trim();
+  const params = { leave_type: type || undefined, half_day: half ? true : undefined };
+  const why = rest.match(/(?:\s*[,:–-]\s+|\s+because\s+|\s+as\s+i\s+|\s+since\s+i\s+)(?<reason>.+)$/i);
+  if (why) { params.reason = cap(unquote(why.groups.reason.replace(/^(?:of\s+)?/i, ''))); rest = rest.slice(0, why.index).trim(); }
+  rest = rest.replace(/^(?:for|on)\s+/i, '').trim();
+  if (rest) {
+    const range = rest.match(/^(?:from\s+)?(?<a>.+?)\s+(?:to|till|until|through|–|-)\s+(?<b>.+)$/i);
+    if (range && fullDate(range.groups.a, env.today) && fullDate(range.groups.b, env.today)) {
+      params.start_date = fullDate(range.groups.a, env.today);
+      params.end_date = fullDate(range.groups.b, env.today);
+    } else if (fullDate(rest, env.today)) {
+      // One day: it ends the day it starts.
+      params.start_date = fullDate(rest, env.today);
+      params.end_date = params.start_date;
+    } else return null;
+  }
+  return write('APPLY_LEAVE', params, ONE);
+}
+
+function leaveDecision(verb, who, why) {
+  const decision = /^(?:approve|accept|grant|sanction)$/i.test(verb) ? 'approved' : 'rejected';
+  return write('DECIDE_LEAVE', { employee: who ? unquote(who) : undefined, decision, comment: why ? cap(unquote(why)) : undefined }, ONE);
+}
+
+function attendanceMark(whoRaw, status, when, env) {
+  const who = unquote(whoRaw).replace(/^(?:the|our)\s+/i, '');
+  if (!who || !short(who, 3)) return null;
+  if (when && !fullDate(when, env.today)) return null;
+  return write('MARK_ATTENDANCE', { person: ME.test(who) || /^myself$/i.test(who) ? 'me' : who, status: status.toLowerCase(), date: when ? fullDate(when, env.today) : undefined });
+}
+
+/** "3 hours on Acme website yesterday: wireframes" → the project, the day, the note. */
+function timeLog(dur, projRaw, note, env) {
+  const dated = tailDate(projRaw, env.today);
+  const project = unquote(dated.text).replace(/^(?:the|our)\s+/i, '').replace(/\s+project$/i, '');
+  if (!project || !short(project, 6)) return null;
+  return write('LOG_TIME', { project, hours: dur.trim(), date: dated.date || undefined, note: note ? cap(unquote(note)) : undefined }, ONE);
+}
+
+/** A one-line announcement is its own title; a longer one is asked for a title. */
+function announcement(textRaw) {
+  const text = textRaw ? cap(unquote(textRaw)) : '';
+  if (!text) return write('POST_ANNOUNCEMENT', {});
+  return write('POST_ANNOUNCEMENT', { title: text.length <= 90 ? text : undefined, body: text }, ONE);
+}
+
+const GROUP = '(?:the\\s+|our\\s+)?(?:whole\\s+|entire\\s+)?(?:team\\s+group|telegram\\s+group|group|team|everyone|everybody)';
+
+const TEAM_PATTERNS = [
+  /* adding someone: the tool asks for whatever was not said */
+  [new RegExp(`^(?:add|create|register|onboard|hire|bring on|new)\\s+(?:a\\s+|an\\s+|another\\s+|one more\\s+)?(?:new\\s+)?(?<kind>${TEAM_KIND})(?:\\s+(?<name>(?!as\\b)[^,]+?))?(?:\\s+as\\s+(?:a\\s+|an\\s+|our\\s+)?(?<role>[^,]+))?$`, 'i'),
+    (m) => newEmployee(m.groups.name, m.groups.kind, m.groups.role, { strict: true })],
+  [new RegExp(`^(?:add|register|onboard|hire|bring on)\\s+(?<name>.+?)\\s+as\\s+(?:a\\s+|an\\s+|our\\s+)?(?:new\\s+)?(?<kind>${TEAM_KIND})$`, 'i'),
+    (m) => newEmployee(m.groups.name, m.groups.kind)],
+  // "hire Kiran Rao as a designer": a capitalised name, so "hire a developer" stays a question for the model.
+  [new RegExp(`^(?:hire|onboard)\\s+(?<name>\\p{Lu}[\\p{L}.]*(?:\\s+\\p{Lu}[\\p{L}.]*){0,2})(?:\\s+as\\s+(?:a\\s+|an\\s+|our\\s+)?(?<role>[^,]+))?$`, 'u'),
+    (m) => newEmployee(m.groups.name, '', m.groups.role)],
+
+  /* offer letters: made here (the tool asks for the rest), and sent as their own step */
+  [/^(?:send|resend|email|mail|share)\s+(?:(?<who1>.+?)\s+)?(?:the\s+|an?\s+|his\s+|her\s+|their\s+)?offer(?:\s+letter)?(?:\s+(?:to|for)\s+(?<who2>.+))?$/i, (m) => {
+    const who = unquote(m.groups.who2 || m.groups.who1 || '').replace(/['’]s$/i, '').replace(/^(?:the|our)\s+/i, '');
+    if (who && (!short(who, 4) || !notWe(who))) return null;
+    return write('SEND_OFFER_LETTER', { letter: who || undefined });
+  }],
+  [/^(?:(?:create|make|draft|prepare|generate|write|issue|raise|new|start|give)\s+(?:me\s+)?)?(?:a\s+|an\s+|the\s+)?(?:new\s+)?(?:(?<type>internship|intern|full[- ]?time|part[- ]?time|job|employment)\s+)?offer(?:\s+letter)?(?:\s+(?:for|to)\s+(?<who>.+?))?(?:\s+as\s+(?:a\s+|an\s+|our\s+)?(?<role>.+))?$/i, async (m, u, env) => {
+    // "offer letters" on its own asks to see them; a verb or a name makes it a request for one.
+    if (!/^(?:create|make|draft|prepare|generate|write|issue|raise|new|start|give)\b/i.test(u.core) && !m.groups.who) return null;
+    const who = m.groups.who ? unquote(m.groups.who).replace(/^(?:the|our)\s+/i, '') : '';
+    if (who && (!short(who, 4) || !notWe(who) || /\d/.test(who))) return null;
+    const type = /intern/i.test(m.groups.type || '') ? 'internship' : /part/i.test(m.groups.type || '') ? 'parttime' : m.groups.type ? 'fulltime' : undefined;
+    const role = m.groups.role && short(m.groups.role, 6) ? cap(unquote(m.groups.role)) : undefined;
+    if (!/\boffer\s+letter\b/i.test(u.core) && !type) {
+      const hit = who ? await env.resolve(who, ['employee']) : { status: 'none' };
+      if (hit.status === 'none') return null;
+    }
+    return write('CREATE_OFFER_LETTER', { candidate: who || undefined, offer_type: type, role });
+  }],
+
+  /* an NDA: made here, the tool asks for the rest */
+  [/^(?:(?<verb>create|make|draft|prepare|generate|write|issue|new|start|give)\s+(?:me\s+)?)?(?:a\s+|an\s+|the\s+)?(?:new\s+)?(?:nda|non[- ]disclosure agreement)(?:\s+(?:with|for|to)\s+(?<who>.+))?$/i, (m) => {
+    // "nda" on its own names the page; a verb or a party makes it a request for one.
+    if (!m.groups.verb && !m.groups.who) return null;
+    const who = m.groups.who ? unquote(m.groups.who).replace(/^(?:the|our)\s+/i, '') : '';
+    if (who && (!short(who, 6) || !notWe(who))) return null;
+    return write('CREATE_NDA', { counterparty: who || undefined });
+  }],
+
+  /* the catalogue */
+  [new RegExp(`^(?:add|create|new|register)\\s+(?:a\\s+|an\\s+)?(?:new\\s+)?(?:product|catalog(?:ue)?\\s+item|item|service|sku)(?:\\s+(?:called|named)\\s+(?<name>[^,]+?))?(?:\\s+(?:at|for|priced at|@)\\s+(?<amt>${AMT}))?$`, 'i'),
+    (m) => write('CREATE_CATALOG_ITEM', { name: m.groups.name ? cap(unquote(m.groups.name)) : undefined, price: m.groups.amt ? m.groups.amt.trim() : undefined })],
+  [new RegExp(`^(?:add|put)\\s+(?<name>.+?)\\s+(?:to|in|into)\\s+(?:the\\s+|our\\s+)?(?:catalog(?:ue)?|price list|items|products)(?:\\s+(?:at|for|priced at|@)\\s+(?<amt>${AMT}))?$`, 'i'),
+    (m) => (short(m.groups.name, 8) ? write('CREATE_CATALOG_ITEM', { name: cap(unquote(m.groups.name).replace(/^(?:a|an|the)\s+/i, '')), price: m.groups.amt ? m.groups.amt.trim() : undefined }) : null)],
+  [new RegExp(`^(?:change|update|set|raise|increase|reduce|lower|drop)\\s+(?:the\\s+)?(?:price|rate|cost)\\s+(?:of|for)\\s+(?<item>.+?)\\s+to\\s+(?<amt>${AMT})$`, 'i'),
+    (m) => (short(m.groups.item, 8) ? write('UPDATE_CATALOG_ITEM', { item: unquote(m.groups.item).replace(/^(?:the|our)\s+/i, ''), price: m.groups.amt.trim() }) : null)],
+
+  /* a document, emailed to its client (a reminder to pay is its own pattern, below) */
+  [/^(?:send|resend|email|mail|share)\s+(?<doc>.+?)(?:\s+to\s+(?<to>.+))?$/i, (m, u) => {
+    if (/\b(?:reminder|offer|nda|deck|report|message)\b/i.test(u.core) || !isDocish(m.groups.doc)) return null;
+    const to = unquote(m.groups.to || '');
+    const email = to.match(/^[\w.+-]+@[\w-]+\.[\w.-]+$/);
+    // "Priya at Kite" names the client by its company.
+    const named = to && !email && !/^(?:the\s+)?(?:client|customer|them|him|her|it)$/i.test(to) ? to.replace(/^.+\s+(?:at|from|of)\s+/i, '').replace(/^(?:the|our)\s+/i, '') : '';
+    if (named && !short(named, 5)) return null;
+    const type = /\bquot|\bestimate/i.test(m.groups.doc) ? 'quotation' : /\bproforma/i.test(m.groups.doc) ? 'proforma' : /\binvoice/i.test(m.groups.doc) ? 'invoice' : undefined;
+    // "send Acme their invoice": whose document it is, without the possessive.
+    const whose = m.groups.doc.replace(/\b(?:their|his|her|its|them|the latest|latest)\b/gi, ' ').replace(/\s+/g, ' ').trim();
+    return write('SEND_DOCUMENT_EMAIL', { document: docRef(whose) || named || undefined, type, to: email ? email[0].toLowerCase() : undefined }, ONE);
+  }],
+
+  /* the company's own profile: only its plain details (the tool refuses anything else) */
+  [/^(?:change|update|set|edit|correct)\s+(?:our|my|the\s+company(?:['’]s)?|company(?:['’]s)?|the\s+business(?:['’]s)?)\s+(?:company\s+|business\s+|office\s+|registered\s+)?(?<field>name|tagline|slogan|address|phone number|phone|email address|email|website|signatory title|signatory name|signatory|designation)\s+(?:to|as)\s+(?<value>.+)$/i,
+    (m) => write('UPDATE_COMPANY_PROFILE', { field: m.groups.field.toLowerCase(), value: unquote(m.groups.value) }, ONE)],
+  [/^(?:update|edit|change)\s+(?:the\s+|our\s+|my\s+)?(?:company|business)\s+(?:profile|details|info|information)$/i, () => write('UPDATE_COMPANY_PROFILE', {})],
+
+  /* one detail of a client or a team member */
+  [new RegExp(`^(?:change|update|set|edit|correct|fix)\\s+(?<who>.+?)['’]s?\\s+(?<field>${FIELD_WORDS})\\s+(?:to|as)\\s+(?<value>.+)$`, 'i'),
+    (m, u, env) => fieldChange(m.groups.who, m.groups.field, m.groups.value, env)],
+  [new RegExp(`^(?<who>.+?)['’]s?\\s+(?:new\\s+)?(?<field>${FIELD_WORDS})\\s+(?:is now|is|has changed to|changed to)\\s+(?<value>.+)$`, 'i'),
+    (m, u, env) => fieldChange(m.groups.who, m.groups.field, m.groups.value, env)],
+  [new RegExp(`^(?:change|update|set)\\s+(?:the\\s+)?(?<who>.+?)\\s+deal\\s+(?:value|size)\\s+to\\s+(?<value>${AMT})$`, 'i'),
+    (m) => (short(m.groups.who, 4) ? write('UPDATE_CLIENT', { client: unquote(m.groups.who), value: m.groups.value.trim() }) : null)],
+  [/^(?<who>.+?)\s+(?:now\s+|will\s+now\s+|will\s+)?reports?\s+to\s+(?<boss>.+)$/i,
+    (m) => (short(m.groups.who, 3) && short(m.groups.boss, 3) && notWe(m.groups.who) && !/^(?:who|everyone|nobody|no one)$/i.test(m.groups.who)
+      ? write('UPDATE_EMPLOYEE', { person: unquote(m.groups.who), reports_to: unquote(m.groups.boss) }) : null)],
+
+  /* a vendor's bill */
+  [new RegExp(`^(?:record|add|log|enter|book|create)\\s+(?:a\\s+|the\\s+)?(?:purchase\\s+|vendor\\s+)?bill\\s+(?:from|of)\\s+(?<v>.+?)(?:\\s+(?:for|of|worth)\\s+(?<amt>${AMT}))?(?<rest>(?:\\s*,|\\s+(?:bill|plus|incl|including|inclusive|with|due|excl|excluding)\\b).*)?$`, 'i'),
+    (m) => vendorBill(m.groups.v, m.groups.amt, m.groups.rest)],
+  [new RegExp(`^(?:we\\s+)?(?:have\\s+)?(?:got|received)\\s+(?<v>.+?)['’]s\\s+bill(?:\\s+(?:for|of))?(?:\\s+(?<amt>${AMT}))?(?<rest>.*)$`, 'i'),
+    (m) => vendorBill(m.groups.v, m.groups.amt, m.groups.rest)],
+  [new RegExp(`^(?<v>.+?)\\s+(?:has\\s+|have\\s+)?billed\\s+us\\s+(?:for\\s+)?(?<amt>${AMT})(?<rest>.*)$`, 'i'),
+    (m) => vendorBill(m.groups.v, m.groups.amt, m.groups.rest)],
+
+  /* Telegram, in the words given (anything to be composed is the model's) */
+  [new RegExp(`^(?:tell|inform|notify|message|msg|text|ping|update)\\s+${GROUP}(?:\\s+that\\s+|\\s*[:–-]\\s*|\\s+)(?<text>.+)$`, 'i'),
+    (m) => write('SEND_TELEGRAM_GROUP_MESSAGE', { message: cap(unquote(m.groups.text)) }, ONE)],
+  [new RegExp(`^(?:post|announce|share|say)\\s+(?:in|to|on)\\s+${GROUP}(?:\\s+that\\s+|\\s*[:–-]\\s*|\\s+)(?<text>.+)$`, 'i'),
+    (m) => write('SEND_TELEGRAM_GROUP_MESSAGE', { message: cap(unquote(m.groups.text)) }, ONE)],
+  [/^let\s+(?:everyone|everybody|the team|the group)\s+know\s+(?:that\s+)?(?<text>.+)$/i,
+    (m) => write('SEND_TELEGRAM_GROUP_MESSAGE', { message: cap(unquote(m.groups.text)) }, ONE)],
+  [new RegExp(`^(?:message|msg|text|ping|dm|telegram|tell|inform|notify)\\s+(?<who>${NAME})(?:\\s+on\\s+telegram)?(?:\\s*[:–-]\\s*|\\s+(?:that|saying)\\s+)(?<text>.+)$`, 'iu'),
+    async (m, u, env) => {
+      if (!notWe(m.groups.who) || /^(?:him|her|them|it)$/i.test(m.groups.who)) return null;
+      const hit = await env.resolve(m.groups.who, ['employee']);
+      return hit.status === 'none' ? null : write('SEND_TELEGRAM_MESSAGE', { recipient: m.groups.who.trim(), message: cap(unquote(m.groups.text)) }, ONE);
+    }],
+  [new RegExp(`^(?:message|msg|text|ping|dm|telegram)\\s+(?<who>${NAME})(?:\\s+on\\s+telegram)?$`, 'iu'),
+    async (m, u, env) => {
+      if (!notWe(m.groups.who) || /^(?:him|her|them|it)$/i.test(m.groups.who)) return null;
+      const hit = await env.resolve(m.groups.who, ['employee']);
+      return hit.status === 'none' ? null : write('SEND_TELEGRAM_MESSAGE', { recipient: m.groups.who.trim() });
+    }],
+
+  /* the team's day: leave, attendance, the notice board, time on a project */
+  [/^(?:apply|applying|request|requesting|put in|file|take|taking|book|get)\s+(?:for\s+)?(?:a\s+|an\s+|my\s+|some\s+)?(?<half>half[- ]?day\s+)?(?:(?<type>[a-z]+)\s+)?(?:leave|time off|day off|days off)\b(?<rest>.*)$/i,
+    (m, u, env) => leaveRequest(m.groups.type, m.groups.half, m.groups.rest, env)],
+  [/^(?:apply for|take|taking|request|book)\s+(?:a\s+)?(?<half>half[- ]?day)(?:\s+off)?\b(?<rest>.*)$/i,
+    (m, u, env) => leaveRequest('', m.groups.half, m.groups.rest, env)],
+  [/^(?:a\s+|an\s+)?(?<half>half[- ]?day\s+)?(?:(?<type>[a-z]+)\s+)?leave\s+(?<rest>(?:on|from|for|tomorrow|today|next|this)\b.*)$/i,
+    (m, u, env) => leaveRequest(m.groups.type, m.groups.half, m.groups.rest, env)],
+  [/^i\s+(?:am|will be|shall be)\s+(?:on\s+(?:(?<type>[a-z]+)\s+)?leave|taking (?:the day )?off|off)\s+(?<rest>.+)$/i,
+    (m, u, env) => leaveRequest(m.groups.type, '', m.groups.rest, env)],
+  [/^(?<verb>approve|accept|grant|sanction|reject|decline|deny|refuse)\s+(?<who>.+?)['’]s?\s+(?:leave request|leave application|leave|time off)(?:\s*[:,–-]\s*(?<why>.+))?$/i,
+    (m) => (short(m.groups.who, 3) && notWe(m.groups.who) ? leaveDecision(m.groups.verb, m.groups.who, m.groups.why) : null)],
+  [/^(?<verb>approve|accept|grant|sanction|reject|decline|deny|refuse)\s+(?:the\s+|that\s+|this\s+)?(?:leave request|leave application|leave)(?:\s+(?:for|of|from|by)\s+(?<who>[^:,]+?))?(?:\s*[:,–-]\s*(?<why>.+))?$/i,
+    (m) => (!m.groups.who || short(m.groups.who, 3) ? leaveDecision(m.groups.verb, m.groups.who, m.groups.why) : null)],
+  [/^(?:cancel|withdraw|drop|take back)\s+my\s+(?:leave request|leave application|leave|time off)$/i, () => write('CANCEL_LEAVE', {})],
+
+  [/^(?:check|clock|punch|sign)\s+(?:me\s+)?(?<dir>in|out)(?:\s+(?:for\s+)?(?:today|now))?$/i,
+    (m) => write('MARK_ATTENDANCE', { person: 'me', check: m.groups.dir.toLowerCase() })],
+  [/^(?:mark|log|record|take)\s+(?:the\s+)?(?<mine>my\s+)?attendance$/i, (m) => write('MARK_ATTENDANCE', { person: m.groups.mine ? 'me' : undefined })],
+  [new RegExp(`^(?:mark|set|put|log|record)\\s+(?<who>.+?)\\s+(?:as\\s+|is\\s+)?(?<status>${ATTENDANCE_WORDS})(?:\\s+(?:for\\s+|on\\s+)?(?<when>.+))?$`, 'i'),
+    (m, u, env) => attendanceMark(m.groups.who, m.groups.status, m.groups.when, env)],
+  [new RegExp(`^i\\s+am\\s+(?<status>working from home|wfh|working remotely|remote)(?:\\s+(?<when>today))?$`, 'i'),
+    (m, u, env) => attendanceMark('me', m.groups.status, m.groups.when, env)],
+  // "Ravi is absent today" reports the day; "Ravi is on leave tomorrow" is left as the question it may be.
+  [/^(?<who>.+?)\s+is\s+(?<status>absent|working from home|wfh|working remotely|on half[- ]?day)(?:\s+(?<when>today|yesterday))?$/i, async (m, u, env) => {
+    const named = await leadingPerson(`${m.groups.who} x`, env);
+    return named?.one && named.rest === 'x' ? attendanceMark(m.groups.who, m.groups.status, m.groups.when, env) : null;
+  }],
+
+  [new RegExp(`^(?:log|add|record|book|enter|put)\\s+(?<dur>${DURATION})\\s+(?:of\\s+(?:work|time)\\s+)?(?:on|to|for|against)\\s+(?<proj>.+?)(?:\\s*[:–-]\\s+(?<note>.+))?$`, 'i'),
+    (m, u, env) => timeLog(m.groups.dur, m.groups.proj, m.groups.note, env)],
+  [new RegExp(`^(?:i\\s+)?(?:have\\s+)?(?:worked|spent)\\s+(?<dur>${DURATION})\\s+on\\s+(?<proj>.+?)(?:\\s*[:–-]\\s+(?<note>.+))?$`, 'i'),
+    (m, u, env) => timeLog(m.groups.dur, m.groups.proj, m.groups.note, env)],
+  [/^(?:log|add|record|enter|fill|fill in)\s+(?:my\s+|some\s+)?(?:time|hours|timesheet|a timesheet entry)$/i, () => write('LOG_TIME', {})],
+
+  // The board inside the app. "Announce in the group…" was the Telegram pattern above.
+  [/^(?:post|make|create|publish|add|write|new)\s+(?:a\s+|an\s+)?(?:new\s+)?(?:company\s+|team\s+)?announcement(?:(?:\s*[:–-]\s*|\s+(?:that|saying)\s+)(?<text>.+))?$/i,
+    (m) => announcement(m.groups.text)],
+  [/^announce\s*(?:[:–-]\s*|to\s+(?:the\s+)?(?:team|everyone|company)\s+that\s+|that\s+)(?<text>.+)$/i, (m) => announcement(m.groups.text)],
+
+  /* Buddy's own schedule */
+  [/^(?:make sure|ensure|see to it that)\s+(?:that\s+)?(?<rest>.+)$/i, async (m, u, env) => {
+    const named = await leadingPerson(m.groups.rest, env);
+    if (!named || !named.one || /\buntil\b/i.test(named.rest)) return null;
+    const dated = tailDate(named.rest, env.today);
+    const task = imperative(dated.text);
+    return short(task, 12) ? write('START_FOLLOWUP', { person: named.who, task, deadline: dated.date || undefined }, ONE) : null;
+  }],
+  [/^(?:you can\s+)?(?:stop|quit)\s+(?:chasing|following up with|following up on|reminding|nudging|pestering)\s+(?<who>\S+(?:\s+\S+)?)\s+(?:about|on|for|regarding)\s+(?<task>.+)$/i,
+    (m) => write('CANCEL_FOLLOWUP', { task: taskRef(m.groups.task) })],
+  [/^(?:you can\s+)?(?:drop|stop|cancel|end)\s+(?:the\s+)?(?<task>.+?)\s+follow[- ]?(?:up|through)$/i,
+    (m) => write('CANCEL_FOLLOWUP', { task: taskRef(m.groups.task) })],
+  [/^(?:on\s+)?(?<when>.+?),?\s+(?:check|see)\s+(?:whether|if|that)\s+(?<what>.+?)\s+and\s+(?:tell|let|ping|message)\s+me(?:\s+know)?$/i, (m, u, env) => {
+    const when = takeWhen(m.groups.when, env.today);
+    if (when.rest || !when.date) return null;
+    return write('SCHEDULE_BUDDY_CHECK', { instruction: cap(`check whether ${m.groups.what.trim()} and tell me`), date: when.date, time: when.time }, ONE);
+  }],
+];
+
 const WRITE_PATTERNS = [
   /* tasks */
   [/^(?:add|create|make|new|log|set up|put in|put)\s+(?:me\s+)?(?:a\s+|an\s+|another\s+|one more\s+)?(?:new\s+)?(?:task|todo|to-do|to do|action item)\b\s*(?<rest>.*)$/i,
     (m, u, env) => buildCreateTask(m.groups.rest, u, env)],
   [/^(?:todo|to-do|task)\s*[:–-]\s*(?<rest>.+)$/i, (m, u, env) => buildCreateTask(m.groups.rest, u, env)],
-  [/^remind me\s+(?:to|about)\s+(?<rest>.+)$/i, (m, u, env) => (CLOCK.test(m.groups.rest)
-    ? escalate('FOLLOW_THROUGH', 'A reminder at a clock time is a scheduled message, not a task.')
-    : buildCreateTask(m.groups.rest, u, env))],
+  // A reminder at a clock time is a scheduled message; without one it is a task.
+  [/^remind me\s+(?<rest>.+)$/i, (m, u, env) => {
+    if (CLOCK.test(m.groups.rest)) return buildReminder('me', m.groups.rest, env);
+    const task = m.groups.rest.match(/^(?:to|about)\s+(?<rest>.+)$/i);
+    return task ? buildCreateTask(task.groups.rest, u, env) : null;
+  }],
+  [/^remind\s+(?<rest>.+)$/i, async (m, u, env) => {
+    if (/\b(?:invoice|payment|dues|balance|overdue|outstanding|proforma)\b/i.test(u.core) || DOC_CODE.test(u.core)) return null;
+    const named = await leadingPerson(m.groups.rest, env);
+    if (!named || (!CLOCK.test(named.rest) && !parseDate(named.rest, env.today))) return null;
+    return buildReminder(named.who, named.rest, env);
+  }],
+
+  ...TEAM_PATTERNS,
 
   /* money received against a document — before the task patterns that end in "paid"/"done" */
   [new RegExp(`^(?:mark\\s+)?(?<doc>.+?)\\s+(?:is|as|has been|was|got|is now)\\s+(?:fully\\s+)?(?:paid|settled|cleared)(?:\\s+in full)?(?:\\s+(?:by|via|through)\\s+(?<method>${METHOD}))?$`, 'i'),
@@ -452,6 +836,8 @@ const WRITE_PATTERNS = [
       const name = ref.replace(/^(?:the|our)\s+/i, '').replace(/\b(?:client|customer|lead)\b/gi, ' ').replace(/\s+/g, ' ').trim();
       return name ? write('DELETE_CLIENT', { client: name }) : null;
     }
+    // A document: the tool deletes an unsent quotation or proforma, and offers to cancel anything else.
+    if (isDocish(ref) && docRef(ref.replace(/\bdrafts?\b/gi, ' '))) return write('DELETE_DOCUMENT_DRAFT', { document: docRef(ref.replace(/\bdrafts?\b/gi, ' ')) });
     return null;
   }],
 
@@ -469,8 +855,10 @@ const WRITE_PATTERNS = [
   [/^archive\s+(?<c>.+)$/i, (m) => (short(m.groups.c, 5) && !/\btasks?\b|\bprojects?\b/i.test(m.groups.c)
     ? write('MOVE_CLIENT_STAGE', { client: unquote(m.groups.c).replace(/^the\s+/i, '').replace(/\s+(?:client|lead|account)$/i, ''), stage: 'archived' }) : null)],
   [/^(?:add\s+(?:a\s+)?note\s+(?:to|on|for)|note\s+(?:on|for))\s+(?<c>.+?)\s*[:–,-]\s*(?<note>.+)$/i,
-    (m) => (/\btasks?\b/i.test(m.groups.c) ? escalate('OPEN_ENDED', 'A note on a task.')
+    (m) => (/\b(?:tasks?|todo|to-do)\b/i.test(m.groups.c) ? write('ADD_TASK_NOTE', { task: taskRef(m.groups.c), note: cap(unquote(m.groups.note)) }, ONE)
       : write('ADD_CLIENT_NOTE', { client: unquote(m.groups.c).replace(/^the\s+/i, ''), note: cap(unquote(m.groups.note)) }))],
+  [/^(?:i\s+am\s+|we\s+are\s+)?(?:blocked|stuck)\s+on\s+(?<ref>.+?)\s*[:–,-]\s*(?<why>.+)$/i,
+    (m) => (short(m.groups.ref, 8) ? write('ADD_TASK_NOTE', { task: taskRef(m.groups.ref), note: cap(unquote(m.groups.why)), blocker: true }, ONE) : null)],
   [/^(?:note|make a note|add a note|jot down|note down)\s+that\s+(?<clause>.+)$/i, async (m, u, env) => {
     const wordsOf = m.groups.clause.split(/\s+/);
     for (let n = Math.min(3, wordsOf.length - 1); n >= 1; n--) {
@@ -557,8 +945,8 @@ async function changes(u, env) {
   if (!found) return null;
   if (found.llm) return toModel(found.intent, found.reason);
   if (u.uncertain) return toModel('ADVICE', 'A hedged statement is a question for the model, not a change to propose.');
-  if (MULTI.test(u.core)) return toModel('BULK_CHANGE', 'More than one action in one message.');
-  if (BULK.test(u.core) && !/^CREATE_/.test(found.intent)) return toModel('BULK_CHANGE', 'The same change to several records: the model lists them first.');
+  if (!found.single && MULTI.test(u.core)) return toModel('BULK_CHANGE', 'More than one action in one message.');
+  if (!found.single && BULK.test(u.core) && !/^CREATE_/.test(found.intent)) return toModel('BULK_CHANGE', 'The same change to several records: the model lists them first.');
   const intent = getIntent(found.intent);
   const parameters = Object.fromEntries(Object.entries(found.parameters).filter(([, v]) => v !== undefined && v !== ''));
   const missing = Object.entries(intent.params).filter(([k, spec]) => spec.required && parameters[k] === undefined).map(([k]) => k);

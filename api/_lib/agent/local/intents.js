@@ -92,6 +92,39 @@ export const INTENTS = [
   def('CREATE_PROJECT', 'Create a project.', 'create_project', { params: { name: S(true), client: S(), target_end_date: S() }, escalate: 'unresolved' }),
   def('CREATE_VENDOR', 'Add a supplier.', 'create_vendor', { params: { company_name: S(true), gstin: S(), payment_terms_days: { type: 'number' } }, escalate: 'unresolved' }),
 
+  def('UPDATE_CLIENT', 'Change a client\'s email, phone, contact, address, GSTIN or deal value.', 'update_client', { params: { client: S(true), name: S(), person_name: S(), email: S(), phone: S(), address: S(), gstin: S(), value: S() }, escalate: 'unresolved' }),
+  def('ADD_TASK_NOTE', 'Add a note to a task, or flag it as blocked.', 'add_task_note', { params: { task: S(), note: S(), blocker: { type: 'boolean' } }, escalate: 'unresolved' }),
+  def('CREATE_PURCHASE_BILL', 'Record a bill received from a vendor.', 'create_purchase_bill', { params: { vendor: S(true), amount: S(), amount_is: S(), bill_number: S(), tax_rate: { type: 'number' }, due_date: S() }, escalate: 'unresolved' }),
+  def('DELETE_DOCUMENT_DRAFT', 'Delete a quotation or proforma that was never sent.', 'delete_financial_document', { params: { document: S(true) }, escalate: 'unresolved' }),
+
+  /* ── the team (guided: the tool asks for what is missing) ─────────────── */
+  def('CREATE_EMPLOYEE', 'Add a person to the team.', 'create_employee', { params: { full_name: S(), role: S(), employment_type: S(), start_date: S(), pay: S(), email: S(), phone: S() } }),
+  def('UPDATE_EMPLOYEE', 'Change a team member\'s job title, contact details, department, manager or pay.', 'update_employee', { params: { person: S(true), role: S(), email: S(), phone: S(), department: S(), reports_to: S(), start_date: S(), employment_type: S(), pay: S(), full_name: S() }, escalate: 'unresolved' }),
+
+  def('CREATE_OFFER_LETTER', 'Create an offer letter for someone.', 'create_offer_letter', { params: { candidate: S(), offer_type: S(), role: S(), pay: S(), start_date: S() } }),
+  def('SEND_OFFER_LETTER', 'Email the signing link of an offer letter to the person it is for.', 'send_offer_letter', { params: { letter: S(), to: S() } }),
+
+  def('APPLY_LEAVE', 'File a leave request.', 'apply_leave', { params: { employee: S(), leave_type: S(), start_date: S(), end_date: S(), half_day: { type: 'boolean' }, reason: S() } }),
+  def('DECIDE_LEAVE', 'Approve or reject a pending leave request.', 'decide_leave', { params: { employee: S(), decision: S(), comment: S() }, escalate: 'unresolved' }),
+  def('CANCEL_LEAVE', 'Withdraw your own pending leave request.', 'cancel_leave', { params: {} }),
+  def('MARK_ATTENDANCE', 'Mark attendance for a day, or check in or out.', 'mark_attendance', { params: { person: S(), status: S(), date: S(), check: S(), note: S() }, escalate: 'unresolved' }),
+  def('POST_ANNOUNCEMENT', 'Post a notice on the team announcement board.', 'post_announcement', { params: { title: S(), body: S() } }),
+  def('LOG_TIME', 'Log your time on a project.', 'log_time', { params: { project: S(), hours: S(), date: S(), note: S() }, escalate: 'unresolved' }),
+
+  def('CREATE_NDA', 'Create a non-disclosure agreement with another party.', 'create_nda', { params: { counterparty: S(), address: S(), purpose: S(), effective_date: S() } }),
+  def('CREATE_CATALOG_ITEM', 'Add something the company sells to the catalogue.', 'create_catalog_item', { params: { name: S(), price: S(), tax_rate: S() } }),
+  def('UPDATE_CATALOG_ITEM', 'Change a catalogue item, usually its price.', 'update_catalog_item', { params: { item: S(true), price: S() }, escalate: 'unresolved' }),
+  def('SEND_DOCUMENT_EMAIL', 'Email an issued invoice, quotation or proforma to its client.', 'send_document_email', { params: { document: S(), type: S(), to: S() } }),
+  def('UPDATE_COMPANY_PROFILE', 'Change one plain detail of the company profile.', 'update_company_profile', { params: { field: S(), value: S() } }),
+
+  /* ── messages and Buddy's own schedule (the words are sent as said) ───── */
+  def('SEND_TELEGRAM_MESSAGE', 'Send a teammate a private Telegram message, in the words given.', 'send_telegram_message', { params: { recipient: S(true), message: S() }, escalate: 'unresolved' }),
+  def('SEND_TELEGRAM_GROUP_MESSAGE', 'Post in the team\'s Telegram group, in the words given.', 'send_telegram_group_message', { params: { message: S(true) }, escalate: 'unresolved' }),
+  def('SCHEDULE_REMINDER', 'Remind someone at a set date and time.', 'schedule_reminder', { params: { person: S(true), message: S(true), date: S(), time: S() }, escalate: 'unresolved' }),
+  def('SCHEDULE_BUDDY_CHECK', 'Check something later and report back.', 'schedule_buddy_check', { params: { instruction: S(true), date: S(true), time: S() }, escalate: 'unresolved' }),
+  def('START_FOLLOWUP', 'Make sure someone gets something done, and follow it through.', 'start_followup', { params: { person: S(true), task: S(true), deadline: S() }, escalate: 'unresolved' }),
+  def('CANCEL_FOLLOWUP', 'Stop following a task through.', 'cancel_followup', { params: { task: S(true) }, escalate: 'unresolved' }),
+
   /* ── talk and controls (no business function) ────────────────────────── */
   def('GREETING', 'A hello.', null, { render: 'social' }),
   def('THANKS', 'A thank-you.', null, { render: 'social' }),
