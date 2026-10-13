@@ -49,6 +49,13 @@ const are = (n) => (n === 1 ? 'is' : 'are');
 const join = (parts, sep = ' ') => parts.filter(Boolean).join(sep);
 const cut = (text, n = 80) => (String(text).length > n ? `${String(text).slice(0, n - 1)}…` : String(text));
 
+/**
+ * A short list, named. "What are my tasks?" is answered with the tasks, not with
+ * how many there are — so when everything that matched fits in a sentence, the
+ * sentence says what they are. Longer lists keep the count; the list is under it.
+ */
+const named = (rows, total, each, max = 5) => (rows?.length && rows.length === total && total <= max ? `: ${rows.map(each).join('; ')}` : '');
+
 /** "last month" → "last month"; "September 2026" → "in September 2026". */
 export function when(period) {
   const label = period?.label;
@@ -133,6 +140,9 @@ const R = {
   },
 
   invoices({ data, params, decision }, ctx, v) {
+    // Out loud, a document number is noise: who and how much is what is heard.
+    const spoken = ctx?.voice === true || ctx?.channel === 'voice';
+    const doc = (d, tail) => `${spoken ? '' : `${d.number} `}${d.client || ''} ${tail}`.replace(/\s+/g, ' ').trim();
     const type = data.type || params.type || 'invoice';
     const n = data.total_matching;
     const who = entity(decision, 'client');
@@ -140,17 +150,17 @@ const R = {
     const p = decision.period ? ` issued ${when(decision.period)}` : '';
     if (params.overdue) {
       if (!n) return { text: `No ${type}s are overdue${forWho}. ${v.say.clear}` };
-      return { text: `**${s(n, `overdue ${type}`)}**${forWho}${p}, ${data.total_balance_due} outstanding. ${v.say.warn}${more(data)}`, show: true };
+      return { text: `**${s(n, `overdue ${type}`)}**${forWho}${p}, ${data.total_balance_due} outstanding${named(data.documents, n, (d) => doc(d, `${d.balance}${d.due ? `, due ${d.due}` : ''}`))}. ${v.say.warn}${more(data)}`, show: true };
     }
     if (params.unpaid) {
       if (!n) return { text: `No unpaid ${type}s${forWho}${p}. ${who ? `${who} owes nothing` : 'Nobody owes you anything'} right now.` };
       const late = data.overdue_among_them ? ` ${data.overdue_among_them} ${are(data.overdue_among_them)} overdue.` : ' None overdue yet.';
-      return { text: `**${s(n, `unpaid ${type}`)}**${forWho}${p}, ${data.total_balance_due} to collect.${late}${more(data)}`, show: true };
+      return { text: `**${s(n, `unpaid ${type}`)}**${forWho}${p}, ${data.total_balance_due} to collect${named(data.documents, n, (d) => doc(d, `${d.balance}${d.overdue ? ' (overdue)' : ''}`))}.${late}${more(data)}`, show: true };
     }
     const status = params.status ? `${String(params.status).replace(/_/g, ' ')} ` : '';
     if (!n) return { text: `No ${status}${type}s${forWho}${p}.` };
     const due = data.total_balance_due && !/^₹0(?:\.00)?$/.test(data.total_balance_due) && params.status !== 'paid' ? `, ${data.total_balance_due} still due` : '';
-    return { text: `**${s(n, `${status}${type}`)}**${forWho}${p}, worth ${data.total_value}${due}.${more(data)}`, show: true };
+    return { text: `**${s(n, `${status}${type}`)}**${forWho}${p}, worth ${data.total_value}${due}${named(data.documents, n, (d) => doc(d, `${d.total}${params.status ? '' : ` (${String(d.status).replace(/_/g, ' ')})`}`))}.${more(data)}`, show: true };
   },
 
   bills({ data, params, decision }, ctx, v) {
@@ -170,11 +180,14 @@ const R = {
     const scope = join([entity(decision, 'project') && `in ${entity(decision, 'project')}`, entity(decision, 'client') && `for ${entity(decision, 'client')}`, params.text && `matching “${params.text}”`]);
     const where = `${owner}${scope ? ` ${scope}` : ''}`;
     const due = decision.period && (params.due_after || params.due_before) ? ` due ${when(decision.period)}` : '';
-    if (params.status === 'overdue') return n ? { text: `**${s(n, 'overdue task')}**${where}. ${v.say.warn}${more(data)}`, show: true } : { text: `No overdue tasks${where}. ${v.say.clear}` };
-    if (params.status === 'done') return n ? { text: `**${s(n, 'finished task')}**${where}.${more(data)}`, show: true } : { text: `No finished tasks${where}.` };
+    if (params.status === 'overdue') return n ? { text: `**${s(n, 'overdue task')}**${where}${named(data.tasks, n, (t) => `${t.title}${t.deadline ? ` (due ${t.deadline})` : ''}${t.assignee && !mine && !who ? `, ${t.assignee}` : ''}`)}. ${v.say.warn}${more(data)}`, show: true } : { text: `No overdue tasks${where}. ${v.say.clear}` };
+    if (params.status === 'done') return n ? { text: `**${s(n, 'finished task')}**${where}${named(data.tasks, n, (t) => t.title)}.${more(data)}`, show: true } : { text: `No finished tasks${where}.` };
     if (!n) return { text: `No open tasks${where}${due}. ${v.say.clear}` };
     const late = data.overdue_among_them ? ` ${data.overdue_among_them} ${are(data.overdue_among_them)} overdue.` : '';
-    return { text: `**${s(n, 'open task')}**${where}${due}.${late}${more(data)}`, show: true };
+    // Asked what the tasks are, the answer names them: a count alone answers "how many".
+    const rows = data.tasks || [];
+    const list = named(rows, n, (t) => `${t.title}${t.deadline ? ` (due ${t.deadline}${t.overdue ? ', overdue' : ''})` : ''}`);
+    return { text: `**${s(n, 'open task')}**${where}${due}${list}.${list ? '' : late}${more(data)}`, show: true };
   },
 
   projects({ data, params, decision }, ctx, v) {
@@ -184,7 +197,7 @@ const R = {
     if (params.health) return n ? { text: `**${s(n, 'project')}** ${n === 1 ? 'needs' : 'need'} attention${forWho}. ${v.say.warn}`, show: true } : { text: `No projects are at risk${forWho}. ${v.say.clear}` };
     if (!n) return { text: `No ${params.status === 'completed' ? 'completed' : 'open'} projects${forWho}.` };
     const late = (data.projects || []).filter((p) => p.overdue_tasks > 0).length;
-    return { text: `**${s(n, `${params.status === 'completed' ? 'completed' : 'open'} project`)}**${forWho}.${late ? ` ${late} ${late === 1 ? 'has' : 'have'} overdue tasks.` : ''}${more(data)}`, show: true };
+    return { text: `**${s(n, `${params.status === 'completed' ? 'completed' : 'open'} project`)}**${forWho}${named(data.projects, n, (p) => `${p.name}${p.client ? ` for ${p.client}` : ''}${p.target_end ? `, due ${p.target_end}` : ''}`)}.${late ? ` ${late} ${late === 1 ? 'has' : 'have'} overdue tasks.` : ''}${more(data)}`, show: true };
   },
 
   team({ data, decision }) {
@@ -200,7 +213,85 @@ const R = {
     const spread = busiest && lightest && busiest.name !== lightest.name && busiest.open_tasks > 0
       ? ` ${busiest.name} carries the most (${s(busiest.open_tasks, 'open task')}); ${lightest.name} the least (${lightest.open_tasks}).` : '';
     const loose = data.unassigned_open_tasks ? ` ${s(data.unassigned_open_tasks, 'open task')} ${data.unassigned_open_tasks === 1 ? 'has' : 'have'} no owner.` : '';
-    return { text: `**${s(n, 'person', 'people')}** on the team.${spread}${loose}`, show: true };
+    // Asked who is on the team, the answer is their names — in words too, for a
+    // channel with no list under them (a call, Telegram).
+    const names = people.length <= 12 ? `: ${people.map((p) => `${p.name}${p.role ? ` (${p.role})` : ''}`).join(', ')}` : '';
+    return { text: `**${s(n, 'person', 'people')}** on the team${names}.${spread}${loose}`, show: true };
+  },
+
+  vendors({ data }) {
+    const n = data.total;
+    if (!n) return { text: 'There are no vendors yet.' };
+    const rows = data.vendors || [];
+    return { text: `**${s(n, 'vendor')}**: ${rows.slice(0, 10).map((v) => v.name).join(', ')}.${n > 10 ? ` And ${n - 10} more.` : ''}`, show: true };
+  },
+
+  catalog({ data, params }) {
+    const n = data.total;
+    if (!n) return { text: params.text ? `There is nothing called “${params.text}” in the catalogue.` : 'There is nothing in the catalogue yet.' };
+    const rows = data.items || [];
+    if (params.text && n === 1) return { text: `**${rows[0].name}** is ${rows[0].price} per ${rows[0].unit}, GST ${rows[0].gst}.` };
+    return { text: `**${s(n, 'item')}** in the catalogue: ${rows.slice(0, 8).map((i) => `${i.name} (${i.price} per ${i.unit})`).join(', ')}.${n > 8 ? ` And ${n - 8} more.` : ''}`, show: true };
+  },
+
+  departments({ data }) {
+    const n = data.total;
+    if (!n) return { text: 'No departments are set up yet.' };
+    const loose = data.unassigned_people ? ` ${s(data.unassigned_people, 'person', 'people')} ${are(data.unassigned_people)} in no department.` : '';
+    return { text: `**${s(n, 'department')}**: ${(data.departments || []).map((d) => `${d.name} (${d.people})`).join(', ')}.${loose}`, show: true };
+  },
+
+  company({ data }) {
+    const d = data.details || {};
+    const LABEL = { name: 'name', tagline: 'tagline', address: 'address', phone: 'phone number', email: 'email', website: 'website' };
+    if (data.field === 'signatory') {
+      return { text: d.signatory ? `Documents are signed by **${d.signatory}**${d.signatory_title ? `, ${d.signatory_title}` : ''}.` : 'No signatory is saved in the company profile yet.' };
+    }
+    if (data.field && LABEL[data.field]) {
+      return { text: d[data.field] ? `The company ${LABEL[data.field]} is **${d[data.field]}**.` : `No ${LABEL[data.field]} is saved in the company profile yet.` };
+    }
+    const lines = join([
+      d.name && `**${d.name}**${d.tagline ? ` — ${d.tagline}` : ''}.`,
+      d.address && `${d.address}.`,
+      join([d.phone, d.email, d.website], ' · '),
+      d.signatory && `Signed by ${d.signatory}${d.signatory_title ? `, ${d.signatory_title}` : ''}.`,
+    ]);
+    return { text: lines || 'The company profile is empty so far.', show: true };
+  },
+
+  announcements({ data }) {
+    const n = data.total;
+    if (!n) return { text: 'There are no announcements up right now.' };
+    const rows = data.announcements || [];
+    return { text: `**${s(n, 'announcement')}** up: ${rows.slice(0, 5).map((a) => `${a.title}${a.says ? ` — ${cut(a.says, 90)}` : ''}`).join('; ')}.`, show: n > 1 };
+  },
+
+  my_time({ data, decision }) {
+    const p = decision.period ? when(decision.period) : 'this week';
+    if (!data.entries) return { text: `You have logged no time ${p}.` };
+    const split = (data.by_project || []).map((x) => `${x.project} ${x.time}`).join(', ');
+    const draft = data.not_submitted ? ` ${s(data.not_submitted, 'entry', 'entries')} ${are(data.not_submitted)} not submitted yet.` : '';
+    return { text: `You have logged **${data.total}** ${p}: ${split}.${draft}`, show: (data.by_project || []).length > 2 };
+  },
+
+  letters({ data }) {
+    const n = data.total_matching;
+    const kind = data.kind ? data.kind.replace(/^Offer letter$/, 'offer letter') : 'letter';
+    if (!n) return { text: `There are no ${kind}s yet.` };
+    const rows = data.letters || [];
+    return { text: `**${s(n, kind)}**: ${rows.slice(0, 6).map((r) => `${r.for} (${r.number}, ${String(r.status).toLowerCase()})`).join(', ')}.${more(data)}`, show: true };
+  },
+
+  leave_balance({ data }) {
+    const types = data.types || [];
+    if (!types.length) return { text: 'No leave types are set up yet.' };
+    const all = `${types.map((t) => `${t.name} (${t.per_year} a year)`).join(', ')}`;
+    if (data.mine) {
+      if (!data.linked) return { text: `You are not linked to a person in Team, so I cannot see a balance for you. The leave types are: ${all}.` };
+      if (!data.has_balances) return { text: `I cannot see a leave balance for you yet. The leave types are: ${all}.` };
+      return { text: `You have ${types.filter((t) => t.left !== null).map((t) => `**${t.left}** of ${t.per_year} days of ${t.name} left`).join(', and ')}.` };
+    }
+    return { text: `**${s(types.length, 'leave type')}**: ${all}.`, show: data.has_balances };
   },
 
   leave({ data, params, decision }) {
@@ -235,7 +326,7 @@ const R = {
     const stages = Object.entries(data.by_stage || {}).map(([k, x]) => `${x.count} ${k.toLowerCase()}`).join(', ');
     const label = { pipeline: 'in the open pipeline', lead: 'at lead stage', deal: 'at deal stage', lost: 'marked lost', contacted: 'contacted' }[params.stage];
     if (!n) return { text: label ? `Nobody is ${label} right now.` : 'There are no clients yet.' };
-    return { text: `**${s(n, 'client')}**${label ? ` ${label}` : ''}.${stages ? ` Across the book: ${stages}.` : ''} Open pipeline is worth ${data.open_pipeline_value}.${more(data)}`, show: true };
+    return { text: `**${s(n, 'client')}**${label ? ` ${label}` : ''}${named(data.clients, n, (c) => `${c.name}${c.stage ? ` (${String(c.stage).toLowerCase()})` : ''}`, 8)}.${stages ? ` Across the book: ${stages}.` : ''} Open pipeline is worth ${data.open_pipeline_value}.${more(data)}`, show: true };
   },
 
   documents({ data, params }) {
@@ -371,6 +462,10 @@ export function renderTalk(intentId, ctx, params = {}) {
     case 'CANCEL_PROPOSAL': return v.say.dropped;
     case 'DECLINED_COMMAND': return `${v.say.wont} Tell me what you want instead.`;
     case 'BARE_ANSWER': return params.said === 'no' ? v.say.ack : 'Yes to what? Tell me what you would like done.';
+    case 'UNSUPPORTED_ACTION': {
+      const page = PAGES[params.page]?.label;
+      return `I can't ${params.doing || 'do that'} from chat${page ? `, so I have opened ${page} for you` : ''}.`;
+    }
     default: return '';
   }
 }

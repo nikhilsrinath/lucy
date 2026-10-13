@@ -20,6 +20,8 @@ import timesheetTools from './tools/timesheets.js';
 import catalogTools from './tools/catalog.js';
 import shareTools from './tools/share.js';
 import settingsTools from './tools/settings.js';
+import lookupTools from './tools/lookups.js';
+import vendorTools from './tools/vendors.js';
 
 /**
  * The one catalogue of what EdgeAI can do.
@@ -66,6 +68,8 @@ export const ALL_TOOLS = [
   ...catalogTools,
   ...shareTools,
   ...settingsTools,
+  ...lookupTools,
+  ...vendorTools,
 ];
 
 const BY_NAME = new Map(ALL_TOOLS.map((t) => [t.name, t]));

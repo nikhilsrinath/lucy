@@ -406,4 +406,99 @@ function toPatch(args) {
   return patch;
 }
 
-export default [create_employee, update_employee];
+/* ── someone leaving ──────────────────────────────────────────────────────── */
+
+const LAST_DAY_SLOT = {
+  key: 'last_day', optional: true,
+  question: (v) => `What is ${firstName(v.name)}’s last working day?`,
+  options: (_v, ctx) => [{ label: 'Today', value: ctx.today }],
+  read: (raw, ctx) => { const d = readDate(raw, ctx.today, { prefer: 'past' }); return d.error || !d.value ? { error: d.error || 'I could not read that date.' } : { value: d.value }; },
+};
+
+/**
+ * Someone leaving the team. Nothing is deleted: the person's row is marked as
+ * having left (`exited_at`, as the Team page does), so their tasks, letters
+ * and history keep pointing at them and they move to the ex-team list.
+ */
+const offboard_employee = {
+  name: 'offboard_employee',
+  module: 'team',
+  kind: 'write',
+  risk: 'high',
+  permission: { resource: 'employees', action: 'edit' },
+  // Not in a team group, where everyone would read the card.
+  privateOnly: true,
+  description: 'Record that someone has left the team (fired, resigned, let go): "fire Ravi", "remove Priya from the team", "Ravi has left the company". '
+    + 'It marks them as an ex-team member from their last working day; nothing is deleted and their records are kept. Pass the person and, if said, the last day and the reason.',
+  params: {
+    type: 'object',
+    properties: {
+      person: PERSON_PARAM,
+      last_day: { type: 'string', description: 'Their last working day, as said; default today.' },
+      reason: { type: 'string', description: 'Why they are leaving, if the user said.' },
+    },
+    required: [],
+  },
+  slots: [{ key: 'person' }, { key: 'last_day', optional: true }, { key: 'reason', free: true, optional: true }],
+  undoable: () => true,
+
+  async resolve(args, ctx) {
+    const ref = String(args.person ?? '').trim();
+    if (!ref) {
+      const people = (await loadKind('employee', ctx)).filter(active);
+      return needsInput('person', 'Who is leaving the team?', people.length <= 6 ? people.map((e) => ({ label: e.full_name, value: e.id })) : []);
+    }
+    const who = await resolveEntity('employee', ref, ctx, { filter: active });
+    if (who.status === 'many') return choiceFrom('person', 'person', who, (e) => e.role || e.email);
+    if (who.status !== 'one') return notFound(`I couldn't find anyone called “${ref}” on the team.`);
+    const asked = await askNext({ ...args, name: who.row.full_name }, [{ key: 'name' }, LAST_DAY_SLOT], ctx);
+    if (asked.needs) return asked;
+    return {
+      args: { person: who.row.id, last_day: asked.values.last_day || ctx.today, reason: cleanText(args.reason, 500) ?? null },
+      targets: [{ table: 'employees', id: who.row.id, version: who.row.updated_at }],
+      entities: [entityOf('employee', who.row)],
+    };
+  },
+
+  async validate(args, ctx) {
+    const row = await fullRow(args.person, ctx);
+    if (!row || row.exited_at) return ['That person is no longer on the team.'];
+    if (row.is_owner) return ['The owner cannot be removed from the team.'];
+    if (row.id === ctx.employeeId) return ['You cannot remove yourself from the team.'];
+    if (args.last_day > ctx.today) return ['That day has not come yet. Tell me again on their last day, or give a date up to today.'];
+    return [];
+  },
+
+  async preview(args, ctx) {
+    const row = await fullRow(args.person, ctx);
+    const open = ctx.can('tasks', 'view') ? (await loadKind('task', ctx)).filter((t) => t.assignee_id === args.person && t.status !== 'done').length : 0;
+    return {
+      title: `${row.full_name} is leaving the team`,
+      target: entityOf('employee', row),
+      preview: {
+        kind: 'record',
+        rows: [['Who', `${row.full_name}${row.role ? ` · ${row.role}` : ''}`], ['Last working day', formatDate(args.last_day)], ['Reason', args.reason || '—']],
+        note: `Nothing is deleted: ${firstName(row.full_name)} moves to the ex-team list and their records are kept.${open ? ` They still own ${open} open task${open === 1 ? '' : 's'} — reassign ${open === 1 ? 'it' : 'them'} after this.` : ''}`,
+      },
+      fields: [
+        { key: 'last_day', label: 'Last working day', type: 'date', value: args.last_day },
+        { key: 'reason', label: 'Reason', type: 'textarea', value: args.reason || '' },
+      ],
+      confirmLabel: `Mark ${firstName(row.full_name)} as left`,
+    };
+  },
+
+  async plan(args, ctx) {
+    const row = await fullRow(args.person, ctx);
+    const patch = { exited_at: `${args.last_day}T12:00:00.000Z`, end_date: args.last_day, ...(args.reason ? { exit_reason: args.reason } : {}) };
+    const before = Object.fromEntries(Object.keys(patch).map((k) => [k, row[k] ?? null]));
+    return [{ op: 'update', table: 'employees', key: 'employee', id: row.id, version: row.updated_at, patch, before, label: row.full_name }];
+  },
+
+  summary(outcome, args) {
+    const r = outcome.results[0];
+    return r?.ok === false ? `Not saved: ${r.error}` : `Marked ${q(r?.after?.full_name || 'them')} as having left on ${formatDate(args.last_day)}. Their records are kept.`;
+  },
+};
+
+export default [create_employee, update_employee, offboard_employee];

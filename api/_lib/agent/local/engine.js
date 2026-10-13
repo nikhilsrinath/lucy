@@ -11,6 +11,8 @@ import { getIntent, cleanArgs, describeIntent } from './intents.js';
 import { renderResult, renderTalk, renderGst, nameOf, forChannel, pageLabel } from './render.js';
 import { normalizeMessage } from './text.js';
 import { logRoute } from './telemetry.js';
+import { loadLearned, confirmShape, forgetShape } from './learned.js';
+import { PAGES } from '../tools/navigate.js';
 
 /**
  * The local execution router: one message, answered without a model whenever
@@ -104,6 +106,7 @@ function envFor(ctx, { pending = ctx.pending } = {}) {
     openCards: ctx.openCards || [],
     resolve: (text, kinds, opts) => resolveName(ctx, text, kinds, { across: opts?.across ?? kinds.length > 3 }),
     hasOpenInvoices: (hit) => hasOpenInvoices(ctx, hit),
+    learned: () => loadLearned(ctx),
   };
 }
 
@@ -180,7 +183,9 @@ function proposalOutcome(out) {
   if (out.kind === 'error') return 'escalate';
   // A refusal the records justify is an answer; "found nothing" may be the
   // pattern's misreading, so the model takes another look.
-  if (out.problems?.length || /^(?:Your role|There are already|I could not prepare|Deleting|That is not something)/.test(out.message || '')) return 'show';
+  // …and so is a document's own rule ("INV-0012 cannot be deleted: it has been issued").
+  if (out.problems?.length || /^(?:Your role|There are already|I could not prepare|Deleting|That is not something)/.test(out.message || '')
+    || /\bcannot be (?:deleted|cancelled|issued|converted)\b/.test(out.message || '')) return 'show';
   return 'escalate';
 }
 
@@ -226,6 +231,7 @@ async function execute(ctx, decision, turn, ids, { emitOutcome }) {
       emit('text', { text: renderTalk('CANCEL_PROPOSAL', ctx) });
       return { handled: true, ok: true };
     }
+    if (decision.intent === 'UNSUPPORTED_ACTION' && PAGES[decision.parameters?.page]) emit('navigate', PAGES[decision.parameters.page]);
     emit('text', { text: forChannel(renderTalk(decision.intent, ctx, decision.parameters), ctx) });
     return { handled: true, ok: true };
   }
@@ -239,7 +245,8 @@ async function execute(ctx, decision, turn, ids, { emitOutcome }) {
     if (tool.available && !tool.available(ctx)) return { handled: false, reasonCode: 'unavailable' };
     const args = cleanArgs(intent, decision.parameters);
     const out = await propose(tool, args, ctx, ids);
-    if (proposalOutcome(out) === 'escalate' && intent.escalate === 'unresolved') return { handled: false, reasonCode: 'unresolved' };
+    const offered = intent.offer === 'show' && out.kind === 'none' && !!out.offer;
+    if (!offered && proposalOutcome(out) === 'escalate' && intent.escalate === 'unresolved') return { handled: false, reasonCode: 'unresolved' };
     if (out.kind === 'card') turn.noteCard(tool.name, args, out.card);
     emitOutcome(out, emit);
     return { handled: true, ok: out.kind !== 'none', clarified: out.kind === 'choice' || out.kind === 'input', errorKind: out.kind === 'none' ? 'not_found' : null };
@@ -272,12 +279,12 @@ function clarify(ctx, decision, emit, original) {
   // Supported, but part of the message was not accounted for: confirm the reading.
   ask(emit, {
     intent: decision.intent, param: 'intent', original,
-    question: `I read that as **${nameOf(decision)}**, but I could not place part of what you said. Is that what you meant?`,
+    question: `Did you mean **${nameOf(decision)}**? I could not place part of what you said.`,
     options: [
       { label: `Yes, ${nameOf(decision)}`, value: decision.intent, args: { ...decision.parameters, _memo: decision.memo || null, _period: decision.period || null, _entities: (decision.entities || []).map((e) => ({ param: e.param, label: e.label })) } },
       { label: 'No, something else', value: 'llm' },
     ],
-    args: {},
+    args: { _shape: decision.shape || null },
   });
 }
 
@@ -326,10 +333,12 @@ async function finishLocal(ctx, intentId, args, param, option, turn, ids, helper
   const options = Array.isArray(args?._options) ? args._options : [];
   const chosen = options.find((o) => String(o.value) === String(option.value)) || null;
   if (!chosen) return { handled: false };
-  if (chosen.value === 'llm') return { handled: false, override: args._original || null, reasonCode: 'declined_reading' };
+  if (chosen.value === 'llm') { await forgetShape(ctx, args?._shape); return { handled: false, override: args._original || null, reasonCode: 'declined_reading' }; }
   let decision;
   if (param === 'intent') decision = decisionFrom(String(chosen.value), chosen.args || {});
   else decision = decisionFrom(intentId, { ...args, ...(chosen.args || {}), [param]: chosen.value }, chosen.args?.type ? {} : {});
+  // "Yes, that is what I meant": this company's wording for it is remembered (learned.js).
+  if (decision && param === 'intent' && args?._shape) await confirmShape(ctx, args._shape, String(chosen.value));
   if (!decision) return { handled: false };
   if (param !== 'intent' && chosen.label) decision.entities = [...decision.entities.filter((e) => e.param !== param), { param, label: String(chosen.label).replace(/\s*\([^)]*\)$/, '') }];
   const done = await execute(ctx, decision, turn, ids, helpers);
@@ -374,6 +383,7 @@ export async function tryLocal(ctx, input, turn, helpers, { mode = routerMode() 
         const options = Array.isArray(pending.args?._options) ? pending.args._options : [];
         const choice = pick(options, message);
         if (choice?.llm) {
+          await forgetShape(ctx, pending.args?._shape);
           log({ intent: pending.tool.slice(LOCAL.length), route: 'llm', reasonCode: 'declined_reading', llmUsed: true });
           return { handled: false, message: pending.args?._original || null, decision: { intent: 'OPEN_ENDED', executionRoute: 'llm', reason: 'The person said the reading was wrong.' } };
         }
@@ -469,6 +479,7 @@ export async function resumeLocal(ctx, resume, turn, ids, helpers) {
   const chosen = options.find((o) => String(o.value) === String(resume.value));
   if (!getIntent(intentId) || !chosen) { turn.emit('notice', { text: 'That option is no longer available.' }); return; }
   if (chosen.value === 'llm') {
+    await forgetShape(ctx, args._shape);
     turn.emit('text', { text: 'Okay. Say it another way and I will take another look.' });
     logRoute(ctx, { intent: intentId, route: 'clarify', reasonCode: 'declined_reading', latencyMs: Date.now() - started });
     return;

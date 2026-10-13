@@ -328,7 +328,7 @@ describe('clarifying instead of guessing', () => {
     const model = countingModel();
     const asked = await send(ctx, 'show unpaid invoices sorted by amount', { model });
     const { input } = of(asked, 'input')[0];
-    expect(input.question).toMatch(/I read that as \*\*unpaid invoices\*\*/);
+    expect(input.question).toMatch(/Did you mean \*\*unpaid invoices\*\*/);
     expect(input.options.map((o) => o.label)).toEqual(['Yes, unpaid invoices', 'No, something else']);
     expect(model.calls).toBe(0);
 
@@ -419,7 +419,8 @@ describe('the cofounder changes the wording and nothing else', () => {
       runs.push({ intent: r.out.intent, params: r.out.decision.parameters, view: of(r, 'view')[0].view, text: texts(r) });
     }
     expect(new Set(runs.map((r) => JSON.stringify([r.intent, r.params, r.view]))).size).toBe(1);
-    for (const r of runs) expect(r.text).toMatch(/^\*\*2 overdue tasks\*\*\./);
+    // The count, then the tasks themselves by name — the same for all three.
+    for (const r of runs) expect(r.text).toMatch(/^\*\*2 overdue tasks\*\*: Landing page copy/);
     expect(new Set(runs.map((r) => r.text)).size).toBe(3);
   });
 
@@ -437,7 +438,7 @@ describe('channels', () => {
     const { ctx } = session({ session: { voice: true, channel: 'voice' } });
     const r = await send(ctx, 'who owes us money\n\nAnswer in two short spoken sentences.');
     expect(of(r, 'view')).toEqual([]);
-    expect(texts(r)).toBe('1 unpaid invoice, ₹1,00,000.00 to collect. None overdue yet.');
+    expect(texts(r)).toBe('1 unpaid invoice, ₹1,00,000.00 to collect: Zephyr Retail ₹1,00,000.00. None overdue yet.');
   });
 
   it('a typed yes with a card open is told to tap; a card is withdrawn on "scrap that"', async () => {

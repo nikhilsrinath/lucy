@@ -243,6 +243,7 @@ const DRAFT_PARAMS = {
       },
     },
   },
+  item_description: { type: 'string', description: 'What a single amount is for, when the user gave only a figure.' },
   gst_rate: { type: 'number', description: 'Only if the user said one; otherwise the org’s usual rate is used.' },
   no_gst: { type: 'boolean', description: 'True only if the user said no GST.' },
   discount_percent: { type: 'number' },
@@ -278,12 +279,19 @@ function draftTool(type) {
     // An invoice draft already holds a number in the GST series, so undoing it
     // cancels it (the series stays complete); a quotation or proforma draft
     // nobody has seen is simply deleted.
+    // The answers to its questions are names and descriptions, never lookups (local/engine.js).
+    slots: [{ key: 'client' }, { key: 'items', free: true }, { key: 'item_description', free: true }],
     undoable: true,
 
     async resolve(args, ctx) {
       const c = await resolveClient(args.client, ctx);
       if (c.needs || c.error) return c;
-      const { items } = await readItems(args.items, ctx);
+      let { items } = await readItems(args.items, ctx);
+      // A figure with nothing said about what it is for: ask only that, and keep the figure.
+      const what = String(args.item_description ?? '').replace(/\s+/g, ' ').trim();
+      if (what) items = items.map((it) => (it.description ? it : { ...it, description: what.slice(0, 300) }));
+      const bare = items.find((it) => !it.description && Number(it.rate) > 0);
+      if (bare && items.every((it) => it.description || Number(it.rate) > 0)) return needsInput('item_description', `What is the ${money(bare.rate)} for?`);
       if (!items.length || items.some((it) => !it.description)) {
         return needsInput('items', `What is the ${noun} for, and how much? (e.g. “website design 50k”)`);
       }

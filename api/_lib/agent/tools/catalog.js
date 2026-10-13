@@ -215,4 +215,59 @@ function patchOf(args) {
   return patch;
 }
 
-export default [create_catalog_item, update_catalog_item];
+/* ── remove (archive) ─────────────────────────────────────────────────────── */
+
+/**
+ * Taking an item out of the catalogue archives it, as Money → Items does:
+ * it is no longer offered on new documents, and the documents it is already
+ * on keep it.
+ */
+const archive_catalog_item = {
+  name: 'archive_catalog_item',
+  module: 'finance',
+  kind: 'write',
+  risk: 'low',
+  permission: { resource: 'catalog_items', action: 'edit' },
+  description: 'Remove an item from the catalogue: "remove Support retainer from the catalogue", "delete a product", "take X off the price list". '
+    + 'It is archived, not destroyed: documents that already use it keep it, and it can be restored under Money → Items.',
+  params: { type: 'object', properties: { item: { type: 'string', description: 'The item as named, or its id.' } }, required: [] },
+  slots: [{ key: 'item' }],
+  undoable: true,
+
+  async resolve(args, ctx) {
+    const ref = String(args.item ?? '').trim();
+    const all = (await items(ctx)).filter((i) => !i.archived_at);
+    if (!all.length) return notFound('There is nothing in the catalogue to remove.');
+    if (!ref) return needsInput('item', 'Which item should I remove from the catalogue?', all.slice(0, 8).map((i) => ({ label: i.name, value: i.id })));
+    const said = normalize(ref);
+    const exact = all.filter((i) => i.id === ref || normalize(i.name) === said);
+    const hits = exact.length ? exact : all.filter((i) => normalize(i.name).includes(said) || (i.sku && normalize(i.sku) === said));
+    if (!hits.length) return notFound(`There is no catalogue item matching “${ref}”.`);
+    if (hits.length > 1) return needsInput('item', 'Which item did you mean?', hits.slice(0, 8).map((i) => ({ label: `${i.name} · ${money(i.unit_price)}`, value: i.id })));
+    return { args: { item: hits[0].id }, targets: [{ table: 'catalog_items', id: hits[0].id, version: hits[0].updated_at }] };
+  },
+
+  validate() { return []; },
+
+  async preview(args, ctx) {
+    const row = (await items(ctx)).find((i) => i.id === args.item);
+    return {
+      title: `Remove ${row?.name || 'item'} from the catalogue`,
+      diff: [change('name', 'Item', row?.name, null), change('price', 'Price', money(row?.unit_price), null)],
+      preview: { note: 'It is archived: documents that already use it keep it, and it can be restored under Money → Items.' },
+      confirmLabel: 'Remove item',
+    };
+  },
+
+  async plan(args, ctx) {
+    const row = (await items(ctx)).find((i) => i.id === args.item);
+    return [{ op: 'update', table: 'catalog_items', id: row.id, version: row.updated_at || null, patch: { archived_at: new Date().toISOString() }, before: { archived_at: null }, label: row.name }];
+  },
+
+  summary(outcome) {
+    const r = outcome.results[0];
+    return r?.ok === false ? `Not removed: ${r.error}` : `Removed ${q(r?.after?.name || 'the item')} from the catalogue. Documents that use it keep it.`;
+  },
+};
+
+export default [create_catalog_item, update_catalog_item, archive_catalog_item];

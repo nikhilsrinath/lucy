@@ -4,6 +4,7 @@
  *
  *   node scripts/eval-router.js            # the report
  *   node scripts/eval-router.js --misses   # every case that missed, with what happened
+ *   node scripts/eval-router.js --to-model # the model-era cases that still reach the model: what to teach next
  *
  * Two datasets, both over the fixture company (eval-agent.world.js):
  *
@@ -28,6 +29,8 @@ console.info = () => {};
 console.error = () => {};
 console.warn = () => {};
 const showMisses = process.argv.includes('--misses');
+const showToModel = process.argv.includes('--to-model');
+const toModel = [];
 const out = (s = '') => process.stdout.write(`${s}\n`);
 
 const { rows, metrics, groups } = await evaluate(EVAL_CASES);
@@ -84,7 +87,7 @@ for (const c of CASES) {
   const m = (byModule[c.module] = byModule[c.module] || { total: 0, local: 0, right: 0 });
   tally.total += 1; m.total += 1;
   tally.writes += world.db.writes.filter((w) => w.op !== 'rpc').length;
-  if (!local) { tally.model += 1; continue; }
+  if (!local) { tally.model += 1; toModel.push(`[${c.module}] ${c.say}  (${r.out?.decision?.intent || 'no reading'}${r.out?.decision?.reason ? `: ${r.out.decision.reason}` : ''})`); continue; }
   tally.local += 1; m.local += 1;
   let ok;
   const want = c.expect;
@@ -121,6 +124,10 @@ out(`  as the case expects          ${tally.localRight}`);
 out(`  not as the case expects      ${tally.localWrong}`);
 out(`handed to the model            ${tally.model}  (${Math.round((100 * tally.model) / tally.total)}%)`);
 out(`unconfirmed writes             ${tally.writes}`);
+if (showToModel) {
+  out('\nstill handed to the model (what to teach next, or what genuinely needs it):');
+  for (const line of toModel) out(`  ${line}`);
+}
 if (wrong.length) {
   out('\nlocal, but not what the case expects:');
   for (const w of wrong) {

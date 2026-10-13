@@ -84,7 +84,7 @@ What to add comes from `buddy_route_summary` (0074): signatures that keep reachi
 node scripts/eval-router.js            # no key, no network
 ```
 
-Two datasets over the fixture company: the router's own set (318 messages in 12 categories) and the agent's eval cases (`scripts/eval-agent.cases.js`, written for the model before the router existed), run with a model that only counts its calls. `node scripts/eval-agent.js` still measures the model itself, with the router off.
+Two datasets over the fixture company: the router's own set (376 messages in 12 categories) and the agent's eval cases (`scripts/eval-agent.cases.js`, written for the model before the router existed), run with a model that only counts its calls. `node scripts/eval-agent.js` still measures the model itself, with the router off.
 
 ## Guided actions (2026-10-13)
 
@@ -104,6 +104,31 @@ Also local since this change, each from a strict pattern: one changed detail of 
 The team's day is local too: applying for, deciding and withdrawing leave ("apply for sick leave from 5th to 7th Oct", "approve Ravi's leave"), attendance ("mark Ravi absent today", "check me in", "I am working from home today"), the notice board ("announce that the office is closed on Monday") and time on a project ("log 3 hours on Acme website"). A statement about a day ahead ("Ravi is on leave tomorrow") is left as the question it may be.
 
 So are an NDA ("create an NDA with Kite"), the catalogue ("add Logo design to the catalogue at 25k", "change the price of Support retainer to 25k"), emailing an issued document to its client ("email INV-2026-0012 to the client") and the plain details of the company profile ("change our address to …"). A sentence about bank details, GSTIN or credentials matches no pattern and goes to the model, which has no tool for them either.
+
+Plain lookups (`tools/lookups.js`, 2026-10-13): a question about what is in the records is read back from the records — the vendors, the catalogue and an item's price, departments, the company's own details, live announcements, the asker's logged hours, letters and their status, leave types and the asker's balance. "Name the team members" answers with the names in words, not only in the list under them. What still needs the model is a question that weighs or explains ("which vendor should we drop?").
+
+## Meaning frames (2026-10-13)
+
+A change used to be recognised only when the whole sentence matched one of the patterns in `understand.js`. A verb said any other way meant nothing, so "I want to fire an employee" was answered as a lookup about the team. Frames read the sentence from its parts instead:
+
+| File | What |
+| --- | --- |
+| `acts.js` | The vocabulary: what a verb does (`CREATE`, `REMOVE`, `CHANGE`, `FINISH`, `MOVE`, `ASSIGN`, `BILL`…) with its synonyms and phrasal verbs, and the kinds of thing a noun names (employee, client, vendor, catalogue item, task…) as a single record ("an employee") or the place they live ("from the team"). Also what is understood but not done from chat (`UNSUPPORTED`). |
+| `frame.js` | `readFrame`: strips "I want to / we have to / can u pls", finds the act, takes dates, amounts and "as …" off the end, then finds the thing in one of four shapes — `act THING ref`, `act ref from GROUP`, `act ref THING`, `act NAME` — for every kind, longest noun phrase winning. A report ("Ravi has left the company") is read as the act it implies. |
+| `capabilities.js` | One line per act-and-thing pair: which intent it is and how the frame fills its arguments. Returns an intent, `{ unsupported }`, or nothing. |
+| `learned.js` | A company's own phrasings (see below). |
+
+Order in `understand()`: talk, arithmetic, navigation, the exact sentence patterns, **then frames**, then lookups. Frames run before lookups so that a change is never answered as a lookup about the noun it mentions; they stand down for a question, a hedge, several actions in one message, or "all / every". A reference the frame could not name ("an employee", "an item name") is left empty and the tool asks which one; a name the tool cannot find goes to the model as before.
+
+**Understood but not done.** Deleting a project, bank details and tax ids, roles and permissions, departments and the plan are recognised and answered locally — "I can't change bank details or tax ids from chat, so I have opened Settings for you" (`UNSUPPORTED_ACTION`) — with no model call.
+
+**Proof.** `local/frames.test.js` generates 2,338 sentences (wishes × verbs × objects) and requires 97% of them to read as the intended act; it also pins the sentences that must still reach the model ("how do I fire an employee?", "should I fire Ravi?", "fire up the presentation for Acme").
+
+**Learning.** When the reader is unsure and asks "Did you mean **unpaid invoices**?", a yes stores the sentence's *shape* for that company — record names replaced by `{name}`, figures by `#`, never the words as typed — with the reading. After two confirmations that shape is read directly; a "no" deletes it. Learning only settles a doubt about a reading the reader made itself, and a change still goes through its card. Table `buddy_learned_phrasings` (migration 0075); without it nothing is learned and nothing breaks.
+
+**Answers name things.** A list that fits in a sentence is named in it ("**1 open task** on your plate: Landing page copy (due 24 Sep 2026, overdue)"), for tasks, invoices, projects and clients; a longer list keeps the count with the list under it. Spoken answers leave out document numbers.
+
+`node scripts/eval-router.js --to-model` lists the model-era cases that still reach the model, with the reason: the worklist for what to teach next.
 
 ## What stays with the model
 

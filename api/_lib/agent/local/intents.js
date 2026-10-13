@@ -20,6 +20,9 @@ import { getTool } from '../registry.js';
  *                   'unresolved'   if the tool cannot place what was said
  *                   'always'       recognised, but needs the model (listed so
  *                                  the router can say why it escalated)
+ *   offer         'show': when the tool finds no such record but offers to make it
+ *                 ("There is no client called Orbit yet — add them?"), that offer is
+ *                 the answer. Only for commands that name the record outright.
  *
  * Read-only or mutating, the permission it needs, its risk and whether it
  * must be confirmed are NOT declared here: they are read off the tool
@@ -65,6 +68,14 @@ export const INTENTS = [
   def('GET_BUDDY_ACTIVITY', 'What Buddy proposed and did recently.', 'buddy_activity', { render: 'buddy_activity', params: { days: { type: 'integer' } } }),
   def('GET_RECORD_DETAILS', 'Everything about one task, client, person, project, invoice or vendor.', 'get_record', { render: 'record', params: { type: S(true), ref: S(true), facet: S() }, local: ['facet'], escalate: 'unresolved' }),
   def('SEARCH_RECORDS', 'Find records by name across the company.', 'search', { render: 'search', params: { query: S(true) } }),
+  def('LIST_VENDORS', 'The vendors the company buys from.', 'list_vendors', { render: 'vendors' }),
+  def('LIST_CATALOG', 'What the company sells, with prices.', 'list_catalog', { render: 'catalog', params: { text: S() } }),
+  def('LIST_DEPARTMENTS', 'The departments and how many people are in each.', 'list_departments', { render: 'departments' }),
+  def('GET_COMPANY_PROFILE', 'The company\'s own details: name, address, phone, email, website, signatory.', 'company_profile', { render: 'company', params: { field: S() } }),
+  def('LIST_ANNOUNCEMENTS', 'The notices live on the announcement board.', 'list_announcements', { render: 'announcements' }),
+  def('GET_MY_TIME', 'The time the person has logged on projects over a period.', 'my_time', { render: 'my_time', params: PERIOD }),
+  def('LIST_LETTERS', 'Offer letters, NDAs and other letters, with their status.', 'list_letters', { render: 'letters', params: { type: S(), status: S() } }),
+  def('GET_LEAVE_BALANCE', 'The leave types, and the person\'s own balance.', 'leave_balance', { render: 'leave_balance', params: { mine: { type: 'boolean' } } }),
   def('OPEN_PAGE', 'Open a screen of the app.', 'open_page', { render: 'navigate', params: { page: S(true), note: S() }, local: ['note'] }),
   def('OPEN_RECORD', 'Open one record\'s screen.', 'open_record', { render: 'navigate', params: { type: S(true), ref: S(true) } }),
 
@@ -72,7 +83,7 @@ export const INTENTS = [
   def('CREATE_TASK', 'Create a task.', 'create_task', { params: { title: S(true), deadline: S(), assignee: S(), priority: S(), project: S() }, escalate: 'unresolved' }),
   def('COMPLETE_TASK', 'Mark a task done.', 'complete_task', { params: { task: S() }, escalate: 'unresolved' }),
   def('REOPEN_TASK', 'Reopen a finished task.', 'reopen_task', { params: { task: S() }, escalate: 'unresolved' }),
-  def('UPDATE_TASK', 'Change a task\'s deadline, owner, priority or status.', 'update_task', { params: { task: S(), deadline: S(), assignee: S(), priority: S(), status: S() }, escalate: 'unresolved' }),
+  def('UPDATE_TASK', 'Change a task\'s deadline, owner, priority, status, title or project.', 'update_task', { params: { task: S(), deadline: S(), assignee: S(), priority: S(), status: S(), title: S(), project: S() }, escalate: 'unresolved' }),
   def('DELETE_TASK', 'Delete a task.', 'delete_task', { params: { task: S() }, escalate: 'unresolved' }),
   def('CREATE_CLIENT', 'Add a client or lead.', 'create_client', { params: { name: S(true), stage: S(), email: S(), phone: S(), person_name: S(), value: S() }, escalate: 'unresolved' }),
   def('MOVE_CLIENT_STAGE', 'Move a client to a CRM stage.', 'move_client_stage', { params: { client: S(true), stage: S(true) }, escalate: 'unresolved' }),
@@ -80,9 +91,9 @@ export const INTENTS = [
   def('DELETE_CLIENT', 'Delete a client.', 'delete_client', { params: { client: S(true) }, escalate: 'unresolved' }),
   def('CREATE_EXPENSE', 'Record money paid out with no bill behind it.', 'create_cash_entry', { fixed: { direction: 'out' }, params: { description: S(true), source_text: S(true), amount: S(), date: S(), counterparty: S() }, escalate: 'unresolved' }),
   def('CREATE_INCOME', 'Record money received with no invoice behind it.', 'create_cash_entry', { fixed: { direction: 'in' }, params: { description: S(true), source_text: S(true), amount: S(), date: S(), counterparty: S() }, escalate: 'unresolved' }),
-  def('CREATE_INVOICE', 'Draft a tax invoice.', 'create_invoice_draft', { params: { client: S(true), items: { type: 'array' }, no_gst: { type: 'boolean' }, discount_percent: { type: 'number' } }, escalate: 'unresolved' }),
-  def('CREATE_QUOTATION', 'Draft a quotation.', 'create_quotation_draft', { params: { client: S(true), items: { type: 'array' }, no_gst: { type: 'boolean' }, discount_percent: { type: 'number' } }, escalate: 'unresolved' }),
-  def('CREATE_PROFORMA', 'Draft a proforma invoice.', 'create_proforma_draft', { params: { client: S(true), items: { type: 'array' }, advance_percent: { type: 'number' }, no_gst: { type: 'boolean' }, discount_percent: { type: 'number' } }, escalate: 'unresolved' }),
+  def('CREATE_INVOICE', 'Draft a tax invoice.', 'create_invoice_draft', { params: { client: S(true), items: { type: 'array' }, no_gst: { type: 'boolean' }, discount_percent: { type: 'number' } }, escalate: 'unresolved', offer: 'show' }),
+  def('CREATE_QUOTATION', 'Draft a quotation.', 'create_quotation_draft', { params: { client: S(true), items: { type: 'array' }, no_gst: { type: 'boolean' }, discount_percent: { type: 'number' } }, escalate: 'unresolved', offer: 'show' }),
+  def('CREATE_PROFORMA', 'Draft a proforma invoice.', 'create_proforma_draft', { params: { client: S(true), items: { type: 'array' }, advance_percent: { type: 'number' }, no_gst: { type: 'boolean' }, discount_percent: { type: 'number' } }, escalate: 'unresolved', offer: 'show' }),
   def('MARK_INVOICE_PAID', 'Record an invoice\'s whole balance as received.', 'mark_invoice_paid', { params: { document: S(true), method: S() }, escalate: 'unresolved' }),
   def('RECORD_PAYMENT', 'Record a payment against an invoice.', 'record_payment', { params: { document: S(true), amount: S(), method: S() }, escalate: 'unresolved' }),
   def('ISSUE_DOCUMENT', 'Issue a draft invoice, quotation or proforma.', 'issue_document', { params: { document: S(true) }, escalate: 'unresolved' }),
@@ -95,11 +106,12 @@ export const INTENTS = [
   def('UPDATE_CLIENT', 'Change a client\'s email, phone, contact, address, GSTIN or deal value.', 'update_client', { params: { client: S(true), name: S(), person_name: S(), email: S(), phone: S(), address: S(), gstin: S(), value: S() }, escalate: 'unresolved' }),
   def('ADD_TASK_NOTE', 'Add a note to a task, or flag it as blocked.', 'add_task_note', { params: { task: S(), note: S(), blocker: { type: 'boolean' } }, escalate: 'unresolved' }),
   def('CREATE_PURCHASE_BILL', 'Record a bill received from a vendor.', 'create_purchase_bill', { params: { vendor: S(true), amount: S(), amount_is: S(), bill_number: S(), tax_rate: { type: 'number' }, due_date: S() }, escalate: 'unresolved' }),
-  def('DELETE_DOCUMENT_DRAFT', 'Delete a quotation or proforma that was never sent.', 'delete_financial_document', { params: { document: S(true) }, escalate: 'unresolved' }),
+  def('DELETE_DOCUMENT_DRAFT', 'Delete a quotation or proforma that was never sent.', 'delete_financial_document', { params: { document: S(true) }, escalate: 'unresolved', offer: 'show' }),
 
   /* ── the team (guided: the tool asks for what is missing) ─────────────── */
   def('CREATE_EMPLOYEE', 'Add a person to the team.', 'create_employee', { params: { full_name: S(), role: S(), employment_type: S(), start_date: S(), pay: S(), email: S(), phone: S() } }),
   def('UPDATE_EMPLOYEE', 'Change a team member\'s job title, contact details, department, manager or pay.', 'update_employee', { params: { person: S(true), role: S(), email: S(), phone: S(), department: S(), reports_to: S(), start_date: S(), employment_type: S(), pay: S(), full_name: S() }, escalate: 'unresolved' }),
+  def('OFFBOARD_EMPLOYEE', 'Record that someone has left the team.', 'offboard_employee', { params: { person: S(), last_day: S(), reason: S() }, escalate: 'unresolved' }),
 
   def('CREATE_OFFER_LETTER', 'Create an offer letter for someone.', 'create_offer_letter', { params: { candidate: S(), offer_type: S(), role: S(), pay: S(), start_date: S() } }),
   def('SEND_OFFER_LETTER', 'Email the signing link of an offer letter to the person it is for.', 'send_offer_letter', { params: { letter: S(), to: S() } }),
@@ -114,6 +126,8 @@ export const INTENTS = [
   def('CREATE_NDA', 'Create a non-disclosure agreement with another party.', 'create_nda', { params: { counterparty: S(), address: S(), purpose: S(), effective_date: S() } }),
   def('CREATE_CATALOG_ITEM', 'Add something the company sells to the catalogue.', 'create_catalog_item', { params: { name: S(), price: S(), tax_rate: S() } }),
   def('UPDATE_CATALOG_ITEM', 'Change a catalogue item, usually its price.', 'update_catalog_item', { params: { item: S(true), price: S() }, escalate: 'unresolved' }),
+  def('ARCHIVE_CATALOG_ITEM', 'Remove an item from the catalogue.', 'archive_catalog_item', { params: { item: S() }, escalate: 'unresolved' }),
+  def('ARCHIVE_VENDOR', 'Remove a vendor.', 'archive_vendor', { params: { vendor: S() }, escalate: 'unresolved' }),
   def('SEND_DOCUMENT_EMAIL', 'Email an issued invoice, quotation or proforma to its client.', 'send_document_email', { params: { document: S(), type: S(), to: S() } }),
   def('UPDATE_COMPANY_PROFILE', 'Change one plain detail of the company profile.', 'update_company_profile', { params: { field: S(), value: S() } }),
 
@@ -137,6 +151,7 @@ export const INTENTS = [
   def('CANCEL_PROPOSAL', 'Withdraw the open card.', null, { render: 'social', params: { action_id: S() } }),
   def('DECLINED_COMMAND', 'An instruction NOT to do something.', null, { render: 'social' }),
   def('BARE_ANSWER', 'A "yes" or "no" with nothing open to answer.', null, { render: 'social' }),
+  def('UNSUPPORTED_ACTION', 'Understood, but not something chat does: said plainly, with the page opened.', null, { render: 'social', params: { doing: S(), page: S() } }),
 
   /* ── recognised, but the model's job ─────────────────────────────────── */
   def('CREATE_PROJECT_PLAN', 'A goal that needs a multi-step plan.', 'propose_plan', { escalate: 'always' }),

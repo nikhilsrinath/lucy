@@ -67,6 +67,76 @@ describe('read from the words alone', () => {
   });
 });
 
+describe('a document asked for without its client, or for someone who is not one yet', () => {
+  it.each([
+    ['Draft an invoice of 3000 ruppees', 'CREATE_INVOICE'],
+    ['draft an invoice for 3000 rupees', 'CREATE_INVOICE'],
+    ['create an invoice worth rs 3,000 for website design', 'CREATE_INVOICE'],
+    ['make a quotation of 50k', 'CREATE_QUOTATION'],
+  ])('%s is a draft with an amount and no client yet', async (message, intent) => {
+    const d = await read(message);
+    expect(d).toMatchObject({ executionRoute: 'local', intent });
+    expect(d.parameters.client).toBeUndefined();
+    expect(String(d.parameters.items[0].rate)).toMatch(/^(?:rs )?(?:3,?000|50k)/i);
+  });
+
+  it.each(['draft an invoice', 'create an invoice', 'new quotation', 'make a proforma invoice'])('%s starts one', async (message) => {
+    const d = await read(message);
+    expect(d).toMatchObject({ executionRoute: 'local' });
+    expect(d.intent).toMatch(/^CREATE_(?:INVOICE|QUOTATION|PROFORMA)$/);
+    expect(d.parameters).toEqual({});
+  });
+
+  it('reads the client and an amount said with its currency', async () => {
+    expect((await read('draft an invoice for Acme of 3000 rupees')).parameters).toMatchObject({ client: 'Acme', items: [{ rate: expect.stringMatching(/^3000/) }] });
+  });
+
+  it('still lists drafts when that is what was asked', async () => {
+    expect(await read('draft invoices')).toMatchObject({ intent: 'LIST_INVOICES' });
+    expect(await read('show draft invoices')).toMatchObject({ intent: 'LIST_INVOICES' });
+  });
+
+  it('asks who it is for and what it is for, keeping the amount, with no model', async () => {
+    const world = evalCtx();
+    const model = countingModel();
+    const turn = async (message, previous) => {
+      const q = previous ? of(previous, 'input')[0]?.input : null;
+      world.ctx.pending = q ? { tool: q.resume.tool, args: q.resume.args, param: q.param, question: q.question } : null;
+      const r = await send(world.ctx, message, { model });
+      world.ctx.pending = null;
+      return r;
+    };
+    const a = await turn('Draft an invoice of 3000 ruppees');
+    expect(of(a, 'input')[0].input).toMatchObject({ param: 'client' });
+    const b = await turn('Acme', a);
+    expect(of(b, 'input')[0].input).toMatchObject({ param: 'item_description' });
+    expect(of(b, 'input')[0].input.question).toMatch(/3,000/);
+    const c = await turn('Website design and hosting for the invoice', b);
+    expect(model.calls).toBe(0);
+    expect(of(c, 'card')).toHaveLength(1);
+    expect(world.proposals.at(-1)).toMatchObject({ tool: 'create_invoice_draft' });
+    expect(world.proposals.at(-1).args.items[0]).toMatchObject({ description: 'Website design and hosting for the invoice', rate: 3000 });
+  });
+
+  it('for someone who is not a client yet, offers to add them instead of calling the model', async () => {
+    const world = evalCtx();
+    const model = countingModel();
+    const r = await send(world.ctx, 'draft an invoice for Orbit Tech for 3000', { model });
+    expect(model.calls).toBe(0);
+    const [notice] = of(r, 'notice');
+    expect(notice.text).toMatch(/no client called .Orbit Tech./);
+    expect(notice.offer).toMatchObject({ tool: 'create_client', args: { name: 'Orbit Tech' } });
+  });
+
+  it('a name that only looked like a client still goes to the model', async () => {
+    const world = evalCtx();
+    const model = countingModel();
+    const r = await send(world.ctx, 'we lost the keys', { model });
+    expect(model.calls).toBe(1);
+    expect(of(r, 'notice')).toEqual([]);
+  });
+});
+
 describe('the newly local changes are still cards', () => {
   it.each([
     ["Acme's new email is ap@acme.com", 'update_client'],

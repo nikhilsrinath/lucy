@@ -5,6 +5,9 @@ import { describeIntent, getIntent } from './intents.js';
 import { parseDate, shiftDays, isIsoDate } from '../../../../src/shared/dates.js';
 import { parseAmount, detectCashIntent, parseCashSentence } from '../../../../src/shared/cashIntent.js';
 import { PAGES } from '../tools/navigate.js';
+import { readFrame } from './frame.js';
+import { capable } from './capabilities.js';
+import { shapeOf, LEARN_AFTER } from './learned.js';
 
 /**
  * Understanding a message without a model.
@@ -182,7 +185,9 @@ function navigation(u) {
 
 /* ── helpers for sentence patterns ────────────────────────────────────────── */
 
-const AMT = '(?:(?:₹|rs\\.?|inr|\\$|usd|€|£)\\s?)?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:k|l|lac|lacs|lakh|lakhs|cr|crore|crores|m|mn|million|thousand)?\\b';
+const AMT = '(?:(?:₹|rs\\.?|inr|\\$|usd|€|£)\\s?)?\\d[\\d,]*(?:\\.\\d+)?\\s?(?:k|l|lac|lacs|lakh|lakhs|cr|crore|crores|m|mn|million|thousand)?\\b(?:\\s?(?:rupees?|ruppees?|rupes|rs|inr|bucks)\\b)?';
+/** The figure of an amount, without the currency word a person may say after it. */
+const figure = (s) => String(s || '').replace(/\s?(?:rupees?|ruppees?|rupes|rs|inr|bucks)$/i, '').trim();
 const METHOD = 'upi|cash|cheque|check|card|bank transfer|neft|imps|rtgs|wallet|gpay|phonepe|paytm';
 const DOC_CODE = /\b[a-z]{2,6}[-/]\d[\w/-]*\b/i;
 const isDocish = (s) => DOC_CODE.test(s) || /\b(?:invoice|proforma|quotation|quote)\b/i.test(s);
@@ -208,7 +213,7 @@ function docRef(s, fallback = null) {
   const code = t.match(DOC_CODE);
   if (code) return code[0];
   const name = t.replace(/^(?:the|their|its|our|that|this)\s+/i, '').replace(/\b(?:tax\s+)?(?:invoice|proforma(?: invoice)?|quotation|quote|estimate|bill|dues|balance|payment)s?\b/gi, ' ')
-    .replace(/\b(?:overdue|unpaid|outstanding|pending|latest|last|open|due|late|same)\b/gi, ' ')
+    .replace(/\b(?:overdue|unpaid|outstanding|pending|latest|last|open|due|late|same|draft|drafted|issued|sent)\b/gi, ' ')
     .replace(/\b(?:for|from|of|to)\b/gi, ' ').replace(/\s+/g, ' ').trim();
   return name || fallback;
 }
@@ -341,9 +346,9 @@ function draftDoc(type, client, amount, desc, advance) {
   if (/\b(?:each|per|apiece|x\s?\d|@)\b/i.test(text) || /\b\d+\s+(?:months?|hours?|hrs?|days?|units?|seats?|licen[cs]es?)\b/i.test(desc || '')) {
     return escalate(type, 'Several units at a rate: the model lays out the lines.');
   }
-  const c = unquote(client).replace(/^(?:the|our)\s+/i, '');
-  if (!c || !short(c, 6) || !notWe(c)) return null;
-  const params = { client: c };
+  const c = client === null ? null : unquote(client).replace(/^(?:the|our)\s+/i, '');
+  if (c !== null && (!c || !short(c, 6) || !notWe(c) || new RegExp(`^(?:${AMT})$`, 'i').test(c))) return null;
+  const params = c === null ? {} : { client: c };
   // What the sentence says about tax and discount goes to the tool as arguments,
   // never into the line's description. Anything else of that kind is the model's.
   let line = desc || '';
@@ -353,7 +358,7 @@ function draftDoc(type, client, amount, desc, advance) {
   if (disc) { params.discount_percent = Number(disc[1]); line = line.slice(0, disc.index); }
   if (/\b(?:gst|igst|tax|discount|advance|abroad|export|terms|net\s+\d+|due)\b|%/i.test(line)) return escalate(type, 'Terms the pattern does not read: the model sets them.');
   desc = line;
-  if (amount) params.items = [{ description: cap(unquote(desc || '')) || undefined, rate: amount.trim() }];
+  if (amount) params.items = [{ description: cap(unquote(desc || '')) || undefined, rate: figure(amount) }];
   if (advance) params.advance_percent = Number(advance);
   return write(type, params);
 }
@@ -772,6 +777,10 @@ const WRITE_PATTERNS = [
     (m) => draftDoc('CREATE_INVOICE', m.groups.c, m.groups.amt, m.groups.desc)],
   [new RegExp(`^quote\\s+(?<c>.+?)\\s+(?:for\\s+)?(?<amt>${AMT})(?:\\s+(?:for|towards)\\s+(?<desc>.+))?$`, 'i'),
     (m) => draftDoc('CREATE_QUOTATION', m.groups.c, m.groups.amt, m.groups.desc)],
+  // No client said — "draft an invoice of 3000 rupees", "create an invoice": the tool asks who it is for.
+  // ("draft invoices" and "draft invoice" stay a list of drafts.)
+  [new RegExp(`^(?<verb>create|make|draft|raise|generate|prepare|new|start)\\s+(?<art>a\\s+|an\\s+|the\\s+)?(?:new\\s+)?(?:tax\\s+)?(?<type>invoice|quotation|quote|estimate|proforma(?:\\s+invoice)?)(?:\\s+(?:of|for|worth)\\s+(?<amt>${AMT})(?:\\s+(?:for|towards)\\s+(?<desc>[^,]+))?)?$`, 'i'),
+    (m) => (/^draft$/i.test(m.groups.verb) && !m.groups.art ? null : draftDoc(DOC_TYPE(m.groups.type), null, m.groups.amt, m.groups.desc))],
   [new RegExp(`^(?:create|make|draft|raise|generate|prepare|new|start)\\s+(?:a\\s+|an\\s+|the\\s+)?(?:new\\s+)?(?:tax\\s+)?(?<type>invoice|quotation|quote|estimate|proforma(?:\\s+invoice)?)\\s+(?:for|to)\\s+(?<c>[^,]+?)(?:(?:\\s*,\\s*|\\s+(?:for|of|worth)\\s+)(?<amt>${AMT})(?:\\s+(?:for|towards)\\s+(?<desc>[^,]+))?)?(?:\\s*,\\s*(?<adv>\\d{1,3})\\s?%\\s+advance)?$`, 'i'),
     (m) => draftDoc(DOC_TYPE(m.groups.type), m.groups.c, m.groups.amt, m.groups.desc, m.groups.adv)],
   [new RegExp(`^proforma\\s+(?:invoice\\s+)?(?:for|to)\\s+(?<c>[^,]+?)\\s*,?\\s+(?<amt>${AMT})(?:\\s*,?\\s*(?<adv>\\d{1,3})\\s?%\\s+advance)?$`, 'i'),
@@ -789,6 +798,18 @@ const WRITE_PATTERNS = [
       ? write('DRAFT_PAYMENT_REMINDER', { invoice: docRef(m.groups.doc, unquote(m.groups.c)) }) : null)],
 
   /* tasks: reopen, priority, deadline, owner, progress, done */
+  // A task's own name, its project, and a deadline it no longer has.
+  [/^(?:rename|retitle)\s+(?<ref>.+?)\s+(?:to|as)\s+(?<title>.+)$/i,
+    (m) => (/\b(?:task|todo|to-do)\b/i.test(m.groups.ref) ? write('UPDATE_TASK', { task: taskRef(m.groups.ref), title: cap(unquote(m.groups.title)) }, ONE) : null)],
+  [/^(?:put|move|file|add|shift)\s+(?<ref>.+?)\s+(?:under|into|in|to|on)\s+(?:the\s+)?(?<proj>.+?)\s+project$/i,
+    (m) => (/\b(?:task|todo|to-do)\b/i.test(m.groups.ref) && short(m.groups.proj, 6) ? write('UPDATE_TASK', { task: taskRef(m.groups.ref), project: unquote(m.groups.proj) }) : null)],
+  [/^(?<ref>.+?)\s+(?:does not need|do not need|needs no|has no|no longer has|no longer needs)\s+(?:a\s+|any\s+)?(?:deadline|due date)(?:\s+(?:any ?more|now|any longer))?$/i,
+    (m) => (short(m.groups.ref, 10) ? write('UPDATE_TASK', { task: taskRef(m.groups.ref), deadline: 'none' }) : null)],
+  [/^(?:remove|clear|drop|delete)\s+(?:the\s+)?(?:deadline|due date)\s+(?:of|for|from|on)\s+(?<ref>.+)$/i,
+    (m) => (short(m.groups.ref, 10) ? write('UPDATE_TASK', { task: taskRef(m.groups.ref), deadline: 'none' }) : null)],
+  // What a deal is worth now.
+  [new RegExp(`^(?:the\\s+)?(?<c>.+?)\\s+deal\\s+(?:is\\s+)?(?:now\\s+)?(?:worth|valued at|is at)\\s+(?<amt>${AMT})$`, 'i'),
+    (m) => (short(m.groups.c, 4) && notWe(m.groups.c) ? write('UPDATE_CLIENT', { client: unquote(m.groups.c), value: m.groups.amt.trim() }) : null)],
   [/^(?:reopen|re-open|uncomplete|unmark)\s+(?<ref>.+)$/i, (m) => write('REOPEN_TASK', { task: taskRef(m.groups.ref) })],
   [/^(?<ref>.+?)\s+(?:is|was)\s+not\s+(?:actually\s+|really\s+)?(?:done|finished|completed|complete)(?:\s+yet)?(?:\s*,?\s*(?:so\s+)?(?:please\s+)?(?:reopen|re-open)\s+(?:it|that))?$/i,
     (m) => (short(m.groups.ref, 10) ? write('REOPEN_TASK', { task: taskRef(m.groups.ref) }) : null)],
@@ -803,7 +824,7 @@ const WRITE_PATTERNS = [
       ? write('UPDATE_TASK', { task: taskRef(m.groups.ref), deadline: fullDate(m.groups.date, env.today) }) : null)],
   [/^(?:move|mark|set|change)\s+(?<c>.+?)\s+(?:to|as)\s+(?:a\s+)?(?<stage>lead|contacted|deal|won|lost|archived)$/i,
     (m) => (short(m.groups.c, 5) ? write('MOVE_CLIENT_STAGE', { client: unquote(m.groups.c).replace(/^the\s+/i, ''), stage: STAGE[m.groups.stage.toLowerCase()] }) : null)],
-  [/^(?:move|push|shift|reschedule|postpone|prepone|delay|defer|extend)\s+(?<ref>.+?)\s+(?:to|till|until|for)\s+(?<date>.+)$/i,
+  [/^(?:move|push|shift|reschedule|postpone|prepone|delay|defer|extend|bump)\s+(?<ref>.+?)\s+(?:to|till|until|for)\s+(?<date>.+)$/i,
     (m, u, env) => (fullDate(m.groups.date, env.today) && !isDocish(m.groups.ref)
       ? write('UPDATE_TASK', { task: taskRef(m.groups.ref), deadline: fullDate(m.groups.date, env.today) }) : null)],
   [/^(?<ref>.+?)\s+(?:is|has been|got|was|is now|is being)\s+(?:rescheduled|moved|pushed|postponed|shifted|delayed|deferred)\s+(?:to|till|until)\s+(?<date>.+)$/i,
@@ -852,7 +873,8 @@ const WRITE_PATTERNS = [
     (m) => (short(m.groups.c, 4) && notWe(m.groups.c) ? write('MOVE_CLIENT_STAGE', { client: unquote(m.groups.c).replace(/^the\s+/i, ''), stage: 'deal' }) : null)],
   [/^(?:we\s+)?(?:have\s+)?(?:won|signed|landed|bagged)\s+(?:the\s+)?(?<c>.+?)(?:\s+(?:deal|account|contract))?$/i,
     (m) => (short(m.groups.c, 4) && !BARE_NOUN.test(m.groups.c.trim()) ? write('MOVE_CLIENT_STAGE', { client: unquote(m.groups.c), stage: 'deal' }) : null)],
-  [/^archive\s+(?<c>.+)$/i, (m) => (short(m.groups.c, 5) && !/\btasks?\b|\bprojects?\b/i.test(m.groups.c)
+  // "archive Globex" is a client; "archive a product" names another kind of thing, which the frame reader places.
+  [/^archive\s+(?<c>.+)$/i, (m) => (short(m.groups.c, 5) && !/\btasks?\b|\bprojects?\b|\b(?:products?|items?|catalog(?:ue)?|price list|vendors?|suppliers?|employees?|staff|team|announcements?)\b/i.test(m.groups.c)
     ? write('MOVE_CLIENT_STAGE', { client: unquote(m.groups.c).replace(/^the\s+/i, '').replace(/\s+(?:client|lead|account)$/i, ''), stage: 'archived' }) : null)],
   [/^(?:add\s+(?:a\s+)?note\s+(?:to|on|for)|note\s+(?:on|for))\s+(?<c>.+?)\s*[:–,-]\s*(?<note>.+)$/i,
     (m) => (/\b(?:tasks?|todo|to-do)\b/i.test(m.groups.c) ? write('ADD_TASK_NOTE', { task: taskRef(m.groups.c), note: cap(unquote(m.groups.note)) }, ONE)
@@ -959,6 +981,31 @@ async function changes(u, env) {
   });
 }
 
+/* ── meaning frames: act + thing + which one (frame.js, capabilities.js) ──── */
+
+async function frames(u, env) {
+  // A question, a hedge, several actions or "all of them" are not one plain command.
+  if (u.question || u.uncertain || MULTI.test(u.core) || BULK.test(u.core)) return null;
+  const frame = await readFrame(u.core, env, { fullDate, AMT });
+  if (!frame) return null;
+  const found = capable(frame, { newEmployee, draftDoc });
+  if (!found) return null;
+  if (found.llm) return toModel(found.intent, found.reason);
+  if (found.unsupported) {
+    return decide('UNSUPPORTED_ACTION', 'local', { confidence: BASE.pattern, parameters: found.unsupported, reason: `Understood (${frame.act} ${frame.kind}), but not something chat does.` });
+  }
+  const intent = getIntent(found.intent);
+  const parameters = Object.fromEntries(Object.entries(found.parameters).filter(([, v]) => v !== undefined && v !== ''));
+  const missing = Object.entries(intent.params).filter(([k, spec]) => spec.required && parameters[k] === undefined).map(([k]) => k);
+  return decide(found.intent, 'local', {
+    confidence: BASE.pattern,
+    parameters,
+    missingParameters: missing,
+    frame: { act: frame.act, kind: frame.kind, form: frame.form },
+    reason: `Read as ${frame.act.toLowerCase()} ${frame.kind}${frame.ref ? ` “${frame.ref}”` : ''}. It becomes a question or a card, never a write.`,
+  });
+}
+
 /* ── "this needs the model" ───────────────────────────────────────────────── */
 
 const MODEL_SIGNALS = [
@@ -985,6 +1032,7 @@ const DOMAIN = [
   'INVOICE', 'QUOTE', 'PROFORMA', 'RECEIVABLE', 'PAYABLE', 'PAYMENT', 'CASH', 'CASHFLOW', 'MONEY', 'REVENUE', 'EXPENSE', 'PROFIT',
   'TASK', 'CLIENT', 'LEAD', 'PIPELINE', 'DEAL', 'PROJECT', 'TEAM', 'WORKLOAD', 'LEAVE', 'ATTENDANCE', 'VENDOR', 'BILL', 'DOCUMENT',
   'ATTENTION', 'OVERVIEW', 'ACTIVITY', 'BUDDYDID', 'PULSE',
+  'LETTER', 'CATALOG', 'DEPARTMENT', 'COMPANYINFO', 'ANNOUNCEMENT', 'TIMESHEET', 'LEAVEBAL',
 ];
 
 const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
@@ -1016,6 +1064,31 @@ export function classifyRead(C, period, { today, text = '', docWord = null, quie
   if (has('ACTIVITY')) return rule('GET_RECENT_ACTIVITY', dates, ['ACTIVITY', 'TEAM', 'OVERVIEW'], { periodUsed: true });
   if (has('PROFIT')) return { llm: true, intent: 'PROFIT_ANALYSIS', reason: 'Profit and runway depend on how entries are treated; the model explains from the P&L facts.' };
 
+  // Plain lookups: what is in the records, read back as it is.
+  const says = (re) => re.test(text);
+  if (has('LEAVEBAL')) {
+    const mine = any('MINE', 'FORME') || says(/\b(?:i|my|me|mine)\b/i);
+    return rule('GET_LEAVE_BALANCE', { mine: mine || undefined }, ['LEAVEBAL', 'LEAVE', 'MINE', 'FORME', 'TEAM', 'OPEN']);
+  }
+  if (has('TIMESHEET')) return rule('GET_MY_TIME', dates, ['TIMESHEET', 'MINE', 'FORME', 'PROJECT'], { periodUsed: true });
+  if (has('ANNOUNCEMENT')) return rule('LIST_ANNOUNCEMENTS', {}, ['ANNOUNCEMENT', 'TEAM', 'OPEN'], { periodUsed: ['today', 'this week'].includes(period?.label) });
+  if (has('COMPANYINFO')) {
+    const field = says(/\baddress\b/i) ? 'address' : says(/\bphone|\bnumber\b/i) ? 'phone' : says(/\be-?mail\b/i) ? 'email' : says(/\bwebsite\b/i) ? 'website'
+      : says(/\btagline\b/i) ? 'tagline' : says(/\bsign/i) ? 'signatory' : says(/\bname\b/i) ? 'name' : undefined;
+    return rule('GET_COMPANY_PROFILE', { field }, ['COMPANYINFO', 'DOCUMENT', 'DETAILS', 'TEAM']);
+  }
+  if (has('DEPARTMENT') && !any('TASK', 'LEAVE', 'ATTENDANCE', 'WORKLOAD')) return rule('LIST_DEPARTMENTS', {}, ['DEPARTMENT', 'TEAM']);
+  if (has('CATALOG') && !any('INVOICE', 'QUOTE', 'PROFORMA', 'REVENUE', 'TASK', 'PROJECT')) {
+    // Only "the price of <item>" names an item: there the words left over are its name.
+    // Elsewhere a leftover word ("which product sells the most") is a question for the model.
+    return rule('LIST_CATALOG', {}, ['CATALOG', 'MONEY', 'DETAILS'], says(/\b(?:price|cost|rate)\s+(?:of|for)\b|\bcharge\s+for\b/i) && !says(/\b(?:which|best|worst|highest|lowest|cheapest|costliest|most|least|average|compare)\b/i) ? { textParam: 'text' } : {});
+  }
+  if (has('LETTER') || (docWord === 'nda' && !has('SEARCHV') && C.size <= 2)) {
+    const type = says(/\boffer/i) ? 'offer' : says(/\bndas?\b|non[- ]disclosure/i) ? 'nda' : says(/\bmous?\b/i) ? 'mou' : says(/\bcertificates?\b/i) ? 'certificate' : undefined;
+    const status = has('DRAFT') ? 'draft' : has('ACCEPTED') ? 'accepted' : has('SENT') ? 'sent' : has('OPEN') ? 'pending' : undefined;
+    return rule('LIST_LETTERS', { type, status }, ['LETTER', 'DOCUMENT', 'DRAFT', 'ACCEPTED', 'SENT', 'OPEN', 'TEAM', 'DETAILS']);
+  }
+
   if (has('OVERVIEW')) {
     const domain = DOMAIN.filter((d) => !['OVERVIEW', 'MONEY', 'CASH'].includes(d)).some((d) => C.has(d));
     if (!domain) {
@@ -1033,7 +1106,7 @@ export function classifyRead(C, period, { today, text = '', docWord = null, quie
     return rule('GET_VENDOR_BILLS', { status }, [...also, 'PAYABLE', 'BILL', 'VENDOR', 'UNPAID', 'OVERDUE', 'DUE', 'OPEN', 'PAID', 'PAYMENT', 'MONEY'], { kinds: ['vendor'] });
   }
   if (has('VENDOR') && C.size - also.length === 1) {
-    return rule('OPEN_PAGE', { page: 'vendors', note: 'There is no vendor list in chat, so I have opened Vendors.' }, [...also, 'VENDOR']);
+    return rule('LIST_VENDORS', {}, [...also, 'VENDOR']);
   }
 
   if (has('CASHFLOW') || has('REVENUE', 'EXPENSE')) {
@@ -1138,6 +1211,7 @@ const FACET_KINDS = {
 const RECORD_PATTERNS = [
   [/^who\s+(?:is|are|will be)?\s*(?:working on|handling|doing|responsible for|assigned to|taking care of|looking after|in charge of|on)\s+(?<ref>.+)$/i, 'who', ['task', 'project']],
   [/^who\s+owns\s+(?<ref>.+)$/i, 'who', ['task', 'project']],
+  [/^who\s+is\s+(?<ref>\p{Lu}[\p{L}.]*(?:\s+\p{Lu}[\p{L}.]*)?)$/u, 'all', ['employee', 'client', 'vendor']],
   [/^when\s+(?:is|are|was)\s+(?<ref>.+?)\s+(?:due|scheduled|happening|supposed to be done|expected)$/i, 'when', ['task', 'invoice', 'project']],
   [/^(?:is|are|has|have)\s+(?<ref>.+?)\s+(?:been\s+|already\s+)?(?:done|finished|completed|complete|paid|settled|overdue|late|assigned|sent|issued|started)(?:\s+yet)?$/i, 'status', ['task', 'invoice', 'project']],
   [/^(?:what is|what are)\s+(?<ref>.+?)\s+(?<facet>email|e-mail|phone|phone number|mobile|number|contact|gstin|role|status|deadline|due date|balance|stage|priority)$/i, null, ALL_KINDS],
@@ -1204,7 +1278,10 @@ async function oneRecord(u, env, { loose = false } = {}) {
 
 /** "What is Ravi working on?" — that person's open tasks. */
 async function personWork(u, env) {
-  const m = u.core.match(/^what\s+(?:is|are|am)\s+(?<who>.+?)\s+(?:working on|doing|up to|busy with|handling)(?:\s+(?:today|this week|right now|now|currently|these days))?$/i);
+  const m = u.core.match(/^(?:(?:show|tell|give)(?:\s+me)?\s+|let me know\s+|i want to know\s+)?what\s+(?:is|are|am)\s+(?<who>.+?)\s+(?:working on|doing|up to|busy with|handling)(?:\s+(?:today|this week|right now|now|currently|these days))?$/i)
+    // "show me what Neha is working on": the same question, asked indirectly.
+    || u.core.match(/^(?:(?:show|tell|give)(?:\s+me)?\s+|let me know\s+|i want to know\s+)?what\s+(?<who>.+?)\s+(?:is|are)\s+(?:working on|doing|up to|busy with|handling)(?:\s+(?:today|this week|right now|now|currently|these days))?$/i)
+    || u.core.match(/^(?:(?:show|tell|give)(?:\s+me)?\s+|let me know\s+|list\s+|what (?:is|are)\s+)?(?:the\s+)?(?:pending|open|current|remaining|outstanding)\s+(?:work|tasks?|to-?dos?)\s+(?:of|for|with|assigned to)\s+(?<who>.+)$/i);
   if (!m) return null;
   const who = m.groups.who.trim();
   let assignee = null;
@@ -1454,6 +1531,7 @@ function settle(d, u) {
       ...d,
       executionRoute: 'clarify',
       confirm: true,
+      shape: shapeOf(u.core, (d.entities || []).map((e) => e.label)),
       reason: `${d.reason} Part of the message is not accounted for (${d.unexplained || 0} word(s), ${d.unused?.length || 0} concept(s)), so it is confirmed first.`,
     };
   }
@@ -1472,7 +1550,7 @@ function settle(d, u) {
  * @param {object[]}   [env.openCards]  cards waiting for a tap
  * @param {(hit:object) => Promise<boolean>} [env.hasOpenInvoices]
  */
-export async function understand(message, env) {
+async function readMessage(message, env) {
   const u = normalizeMessage(message);
   if (!u.core) return toModel('OPEN_ENDED', 'Nothing to read.');
 
@@ -1492,6 +1570,12 @@ export async function understand(message, env) {
 
   const change = await changes(u, env);
   if (change) return change;
+
+  // The sentence taken apart: what the verb does, to what kind of thing, to
+  // which one. A change said in words no pattern knows is still a change —
+  // and must never be answered as a lookup about the noun it mentions.
+  const framed = await frames(u, env);
+  if (framed) return framed;
 
   // Questions about one named record ("who is on the pitch deck?", "what is
   // Kite's email?") are read by their form, before any word in the name
@@ -1535,6 +1619,19 @@ export async function understand(message, env) {
     return settle(first.decision, u);
   }
   return toModel('OPEN_ENDED', 'No supported intent matched.', { signature: signature(first.concepts || new Set(), first.residue?.length || 0) });
+}
+
+/**
+ * The reader, then what this company has taught it: a reading it was unsure of
+ * that the company has confirmed before (learned.js) is no longer asked about.
+ * Learning only ever settles a doubt about a reading made here — it adds none.
+ */
+export async function understand(message, env) {
+  const d = await readMessage(message, env);
+  if (d.executionRoute !== 'clarify' || !d.confirm || !d.shape || typeof env.learned !== 'function') return d;
+  const known = (await env.learned())?.get(d.shape);
+  if (!known || known.intent !== d.intent || known.confirmations < LEARN_AFTER) return d;
+  return { ...d, executionRoute: 'local', confirm: false, learned: true, confidence: Math.max(d.confidence, T_LOCAL), reason: `${d.reason} This company has confirmed this reading before.` };
 }
 
 /** The follow-up memo a client sent back, checked: known intent, known concepts, real dates, uuid ids. */
