@@ -180,6 +180,29 @@ describe('loose wording that used to reach the model', () => {
   });
 });
 
+describe('a slipped article is still an article', () => {
+  it.each([
+    ['I want to fire and employee', 'OFFBOARD_EMPLOYEE'],
+    ['fire and employee', 'OFFBOARD_EMPLOYEE'],
+    ['i want to add and employee', 'CREATE_EMPLOYEE'],
+    ['remove and item from my catalogue', 'ARCHIVE_CATALOG_ITEM'],
+    ['i want to remove teh vendor Dell', 'ARCHIVE_VENDOR'],
+  ])('%s', async (message, intent) => {
+    const d = await reader(message);
+    expect(d, `${d.executionRoute} ${d.intent} ${JSON.stringify(d.parameters)}`).toMatchObject({ executionRoute: 'local', intent });
+    expect(Object.values(d.parameters).map(String)).not.toContain('and');
+  });
+
+  it.each([
+    'fire Ravi and close the pricing task',
+    'add and assign a task to Ravi',
+    'remove and archive the Dell vendor',
+  ])('but two actions stay two actions: %s', async (message) => {
+    const d = await reader(message);
+    expect(d.executionRoute, `${d.intent} ${JSON.stringify(d.parameters)}`).toBe('llm');
+  });
+});
+
 describe('what it understands but cannot do, it says without a model', () => {
   it.each([
     ['delete the Acme website project', /can't delete projects/i],

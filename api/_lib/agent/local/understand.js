@@ -192,7 +192,7 @@ const METHOD = 'upi|cash|cheque|check|card|bank transfer|neft|imps|rtgs|wallet|g
 const DOC_CODE = /\b[a-z]{2,6}[-/]\d[\w/-]*\b/i;
 const isDocish = (s) => DOC_CODE.test(s) || /\b(?:invoice|proforma|quotation|quote)\b/i.test(s);
 const BULK = /\b(?:all|every|each|both|everything|everyone)\b/i;
-const MULTI = /(?:\band\b|\bthen\b|\balso\b|[,;])\s+(?:then\s+|also\s+|please\s+)?(?:mark|create|add|delete|remove|send|assign|move|invoice|bill|record|remind|email|message|tell|update|set|make|schedule|cancel|issue|convert|draft|quote|log|text|ping)\b/i;
+const MULTI = /(?:\band\b|\bthen\b|\balso\b|[,;])\s+(?:then\s+|also\s+|please\s+)?(?:mark|create|add|delete|remove|send|assign|move|invoice|bill|record|remind|email|message|tell|update|set|make|schedule|cancel|issue|convert|draft|quote|log|text|ping|close|finish|complete|archive|fire|sack|hire|onboard|offboard|rename|reschedule|postpone|approve|reject|pay|edit|change|call|drop)\b/i;
 const CLOCK = /\b(?:at\s+)?\d{1,2}(?::\d{2})?\s?(?:am|pm)\b|\bat\s+\d{1,2}(?::\d{2})?\b|\b(?:morning|afternoon|evening|noon|midnight|tonight)\b|\bin\s+\d+\s+(?:minutes?|mins?|hours?|hrs?)\b/i;
 const ME = /^(?:me|myself|i|mine)$/i;
 

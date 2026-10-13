@@ -14,6 +14,8 @@
  *                 not spell-corrected into a word we happen to know.
  */
 
+import { ACTS, THINGS } from './acts.js';
+
 const CONTRACTIONS = [
   [/\bwon['’]?t\b/gi, 'will not'],
   [/\bcan['’]?t\b/gi, 'can not'],
@@ -162,6 +164,17 @@ export function tokenize(text) {
  * @property {Token[]} tokens   tokens of `core`
  */
 
+/**
+ * A slipped article. "fire and employee" is "fire an employee": nothing stands
+ * before the "and" for it to join, and what follows is a kind of thing, not a
+ * second action ("add and assign a task" is left alone).
+ */
+const SLIP_VERBS = Object.values(ACTS).flat().filter((v) => !/^(?:new|open|bill|invoice|charge|hire|recruit)$/.test(v));
+const SLIP_NOUNS = Object.values(THINGS).flatMap((t) => t.one).filter((n) => !/^(?:hire|recruit)$/.test(n));
+const alt = (words) => words.slice().sort((a, b) => b.length - a.length).map((w) => w.replace(/[-\s]+/g, '[-\\s]+')).join('|');
+const SLIPPED_ARTICLE = new RegExp(`\\b(${alt(SLIP_VERBS)})\\s+(?:and|ann|anf|adn|nad)\\s+((?:new|existing|old|other)\\s+)?(?=(?:${alt(SLIP_NOUNS)})\\b)`, 'gi');
+const SLIPPED_THE = /\b(?:teh|hte|tge|thr)\b/g;
+
 const FOLLOW_UP = /^(?:and|also|what about|how about|and what about|same for|same thing for|now for|then|but|only|just)\b[\s,]*/i;
 
 /** @returns {Normalized} */
@@ -175,6 +188,7 @@ export function normalizeMessage(message) {
     .replace(/\s+/g, ' ')
     .trim();
   for (const [re, to] of CONTRACTIONS) clean = clean.replace(re, to);
+  clean = clean.replace(SLIPPED_THE, 'the').replace(SLIPPED_ARTICLE, (_, verb, adj = '') => `${verb} ${/^[aeiou]/i.test(adj) ? 'an' : 'a'} ${adj}`);
 
   let core = clean;
   for (let pass = 0; pass < 4; pass++) {
